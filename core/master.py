@@ -1,23 +1,33 @@
-import json
-import logging
-from core.container.factory import ConfigContainerFactory
+import threading
 
-class MasterApplication(object):
-    @staticmethod
-    def run(app: str, *args):
-        # 加载配置
-        try:
-            master_config = json.load("./config.json")
+from threads.base_thread import BaseThread
+from utils import LogUtils
 
-        # 获得config
 
-            ConfigContainerFactory.add_container()
-        # 获得所有的worker
-
-        # 获得所有的container
-
-        # 通过 fork 运行 worker
-
-        except Exception as e:
-            print(str(e))
-            return
+class Master(object):
+    _dict_lock = threading.Lock()
+    worker_dict = {}
+    
+    def __init__(self, thread_pool, workers: list):
+        self.workers = workers
+        self.thread_pool = thread_pool
+    
+    def worker_defend(self, thread):
+        Master.worker_dict[thread.name] = thread
+        thread.run()
+        Master.worker_dict[thread.name] = None
+    
+    def run(self):
+        workers = []
+        results = []
+        for thread in self.workers:
+            if thread.is_loop:
+                workers.append(thread)
+            if Master.worker_dict.get(thread.name) is None:
+                t = threading.Thread(group=None, target=self.worker_defend, args=(thread,))
+                t.start()
+        
+        self.workers = workers
+        
+        # for result in results:
+        #     result.result()

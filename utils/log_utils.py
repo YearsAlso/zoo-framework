@@ -1,29 +1,35 @@
 import logging
-from datetime import datetime
 
 
 class LogUtils(object):
-    __log = None
+    @classmethod
+    def _format_message(cls, message, cls_name):
+        return "{} - {}".format(cls_name, message)
     
-    @staticmethod
-    def init_logging():
-        logger = logging.getLogger()
-        logger.setLevel(logging.INFO)
+    @classmethod
+    def debug(cls, message, cls_name: str = None):
+        if cls_name is None:
+            cls_name = cls.__name__
+        message = cls._format_message(message, cls_name)
+        logging.debug(message)
     
-        BASIC_FORMAT = "%(asctime)s [%(levelname)s]: %(name)s - %(message)s"
-        DATE_FORMAT = '%Y-%m-%d %H:%M:%S'
-        formatter = logging.Formatter(BASIC_FORMAT, DATE_FORMAT)
+    @classmethod
+    def info(cls, message, cls_name: str = None):
+        if cls_name is None:
+            cls_name = cls.__name__
+        message = cls._format_message(message, cls_name)
+        logging.info(message)
     
-        chlr = logging.StreamHandler()  # 输出到控制台的handler
-        chlr.setFormatter(formatter)
-        chlr.setLevel(logging.INFO)  # 也可以不设置，不设置就默认用logger的level
+    @classmethod
+    def warning(cls, message, cls_name: str = None):
+        if cls_name is None:
+            cls_name = cls.__name__
+        message = cls._format_message(message, cls_name)
+        logging.warn(message)
     
-        fhlr = logging.FileHandler(
-            'E:\\FTPServer\\logs\\{}-panophoto.log'.format(datetime.now().strftime("%Y-%m-%d")))  # 输出到文件的handler
-        fhlr.setFormatter(formatter)
-        logger.addHandler(chlr)
-        logger.addHandler(fhlr)
-    
-    def __class__(cls):
-        if cls.__log is None:
-            cls.init_logging()
+    @classmethod
+    def error(cls, message, cls_name: str = None):
+        if cls_name is None:
+            cls_name = cls.__name__
+        message = cls._format_message(message, cls_name)
+        logging.error(message)
