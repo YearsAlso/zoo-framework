@@ -32,11 +32,20 @@ class BaseThread(object):
         try:
             LogUtils.info("{} Worker is Start".format(self.name), self.__class__.__name__)
             result = self._execute()
-            
             self._destroy(result)
             LogUtils.info("{} Worker is Stop".format(self.name), self.__class__.__name__)
         except Exception as e:
+            self._on_error()
             LogUtils.error(str(e), self.__class__.__name__)
+        finally:
+            self._on_done()
         
         if self._props.get('delay_time'):
             time.sleep(self._props["delay_time"])
+
+
+    def _on_error(self):
+        pass
+
+    def _on_done(self):
+        pass
