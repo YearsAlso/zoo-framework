@@ -2,8 +2,6 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from time import sleep
 
-from threads.base_thread import BaseThread
-from utils import LogUtils
 from .aop import worker_threads, ParamsFactory, config_funcs
 
 
@@ -11,11 +9,11 @@ class Master(object):
     _dict_lock = threading.Lock()
     worker_dict = {}
 
-    def __init__(self, worker_num=1, loop_delay=1):
-        thread_pool = ThreadPoolExecutor(max_workers=worker_num)
+    def __init__(self, worker_count=1, loop_interval=1):
+        thread_pool = ThreadPoolExecutor(max_workers=worker_count)
         self.workers = worker_threads
         self.thread_pool = thread_pool
-        self.loop_delay = loop_delay
+        self.loop_interval = loop_interval
         # 加载params
         ParamsFactory("./config.json")
         self.config()
@@ -47,4 +45,4 @@ class Master(object):
     def run(self):
         while True:
             self._run()
-            sleep(self.loop_delay)
+            sleep(self.loop_interval)

@@ -1,6 +1,5 @@
 import logging
 import os
-from datetime import datetime
 
 from constant.common_constant import CommonConstant
 from core.aop import configure

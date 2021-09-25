@@ -10,7 +10,7 @@ import importlib
 thread_pool = ThreadPoolExecutor(max_workers=20)
 
 def main():
-    master = Master(30)
+    master = Master(worker_count=30)
     master.run()
 
 
