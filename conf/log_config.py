@@ -3,6 +3,7 @@ import os
 from datetime import datetime
 
 from constant.common_constant import CommonConstant
+from core.aop import configure
 from utils import DateTimeUtils
 from utils import FileUtils
 
@@ -14,7 +15,7 @@ level_relations = {
     'crit': logging.CRITICAL
 }
 
-
+@configure(topic="log_config")
 def log_config(level: str = "info"):
     logger = logging.getLogger()
     logger.setLevel(level_relations[level])

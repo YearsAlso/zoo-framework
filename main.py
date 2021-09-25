@@ -9,13 +9,7 @@ import importlib
 
 thread_pool = ThreadPoolExecutor(max_workers=20)
 
-
-def config():
-    log_config()
-
-
 def main():
-    config()
     master = Master(30)
     master.run()
 

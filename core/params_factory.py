@@ -1,15 +1,11 @@
 import json
 
-from core import singleton
-
-
-@singleton
 class ParamsFactory:
     config_params = {}
 
     def __init__(self, config_path="./config.json"):
         with open(config_path) as f:
-            self.config_params = json.load(f)
+            ParamsFactory.config_params = json.load(f)
 
     @classmethod
     def get_params(cls, path, default_value = ""):

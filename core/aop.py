@@ -1,4 +1,5 @@
-from core import ParamsFactory, ParamPath
+from .params_factory import ParamsFactory
+from .param_path import ParamPath
 
 
 def singleton(cls):
@@ -36,9 +37,10 @@ def event(topic: str):
 
 config_params = {}
 
-
-def params():
-    def inner(cls):
+def params(cls):
+    def inner():
+        if config_params.get(cls.__name__) is not None:
+            return config_params[cls.__name__]
         params_list = dir(cls)
         for param in params_list:
             param_path = getattr(cls, param)
@@ -46,5 +48,16 @@ def params():
                 continue
             value = ParamsFactory().get_params(param_path)
             setattr(cls, param, value)
+        config_params[cls.__name__] = cls
+        return cls
+    return inner()
+
+
+config_funcs = {}
+
+def configure(topic: str):
+    def inner(func):
+        config_funcs[topic] = func
+        return func
 
     return inner

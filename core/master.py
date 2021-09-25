@@ -4,7 +4,7 @@ from time import sleep
 
 from threads.base_thread import BaseThread
 from utils import LogUtils
-from core import worker_threads, ParamsFactory
+from .aop import worker_threads, ParamsFactory, config_funcs
 
 
 class Master(object):
@@ -18,6 +18,11 @@ class Master(object):
         self.loop_delay = loop_delay
         # 加载params
         ParamsFactory("./config.json")
+        self.config()
+
+    def config(self):
+        for key, value in config_funcs.items():
+            value()
 
     def worker_defend(self, thread):
         Master.worker_dict[thread.name] = thread

@@ -1,5 +1,5 @@
 from core import ParamsFactory, ParamPath
-from core.aop import params
+from core.aop import params, singleton
 
 
 @params
