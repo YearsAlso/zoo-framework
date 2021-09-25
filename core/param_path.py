@@ -1,0 +1,2 @@
+class ParamPath(str):
+    pass
