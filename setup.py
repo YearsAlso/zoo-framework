@@ -8,9 +8,9 @@ setup(name='zoo',  # 包名
       version='1.0.0',  # 版本号
       description='zoo framework',
       long_description=long_description,
-      author='xmeng',
-      author_email='xmeng931015@live.com',
-      install_requires=[],
+      author='XiangMeng',
+      author_email='mengxiang931015@live.com',
+      install_requires=["click"],
       license='Apache License',
       packages=find_packages(),
       platforms=["all"],
@@ -26,4 +26,7 @@ setup(name='zoo',  # 包名
           'Programming Language :: Python :: 3.8',
           'Topic :: Software Development :: Libraries'
       ],
+      entry_points={
+          'console_script': ['zfc = console.zfc:main']
+      }
       )
