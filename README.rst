@@ -8,13 +8,13 @@ Zoo Framework
 2.Installation
     You may install this software from your distribution packages, or through pip:
     `
-    pip install zoo
+    pip install zoo-framework
     `
 
 3.Configuration
     create a simple object
     `
-    zct create myobject
+    zfc create myobject
     `
 
 

@@ -7,6 +7,7 @@ with open("README.rst", "r") as f:
 setup(name='zoo-framework',  # 包名
       version='0.1.0',  # 版本号
       description='zoo framework',
+      long_description_content_type="text/x-rst",
       long_description=long_description,
       author='XiangMeng',
       author_email='mengxiang931015@live.com',
