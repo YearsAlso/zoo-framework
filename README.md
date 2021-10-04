@@ -1,26 +1,12 @@
-# ELS手持设备定时任务系统
+# Zoo Framework
 
+## Project description
+Zoo is a simple and quick multi-threaded framework.
 
+## Installation
+You may install this software from your distribution packages, or through pip:
+```
+pip install zoo
+```
 
-## 1.内容
-#### 1.1 wifi信号检测
-
-
-
-#### 1.2 电量检测
-
-
-
-#### 1.3 清理文件
-
-
-
-#### 1.4 记录系统信息
-
-
-
-#### 1.5 检测移动网络信号
-
-
-
-#### 1.6 Websocket通讯
+## Configuration
