@@ -4,8 +4,8 @@ from setuptools import find_packages
 with open("README.rst", "r") as f:
     long_description = f.read()
 
-setup(name='zoo',  # 包名
-      version='1.0.0',  # 版本号
+setup(name='zoo-framework',  # 包名
+      version='0.1.0',  # 版本号
       description='zoo framework',
       long_description=long_description,
       author='XiangMeng',
