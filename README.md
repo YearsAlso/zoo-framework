@@ -10,3 +10,8 @@ pip install zoo
 ```
 
 ## Configuration
+Create a simple object
+```
+zfc --create myobject
+```
+

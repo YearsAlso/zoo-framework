@@ -1,5 +1,5 @@
 import conf
-import  constant
+import constant
 import core
 import fifo
 import statemachine

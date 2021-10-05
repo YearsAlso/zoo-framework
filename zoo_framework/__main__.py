@@ -17,7 +17,7 @@ def create():
 @click.command()
 @click.option("--create", help="Input target object name and create it")
 @click.option("--log", is_flag=True, default=True, help="")
-def main(object_name, using_log):
+def zfc(object_name, using_log):
     if os.path.exists(object_name):
         return
 
@@ -27,7 +27,3 @@ def main(object_name, using_log):
     os.mkdir(src_dir)
     with open(config_file, "wb") as fp:
         json.dump(DEFAULT_CONF, fp)
-
-
-if __name__ == '__main__':
-    main()
