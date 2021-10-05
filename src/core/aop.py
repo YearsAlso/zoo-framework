@@ -37,6 +37,7 @@ def event(topic: str):
 
 config_params = {}
 
+
 def params(cls):
     def inner():
         if config_params.get(cls.__name__) is not None:
@@ -44,16 +45,20 @@ def params(cls):
         params_list = dir(cls)
         for param in params_list:
             param_path = getattr(cls, param)
-            if not isinstance(param_path,ParamPath):
+            if not isinstance(param_path, ParamPath):
                 continue
-            value = ParamsFactory().get_params(param_path)
+            param_value = param_path.get_value()
+            default_value = param_path.get_default()
+            value = ParamsFactory().get_params(param_value, default_value=default_value)
             setattr(cls, param, value)
         config_params[cls.__name__] = cls
         return cls
+
     return inner()
 
 
 config_funcs = {}
+
 
 def configure(topic: str):
     def inner(func):
