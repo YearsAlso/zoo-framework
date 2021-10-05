@@ -1,5 +1,5 @@
-from core import ParamsFactory, ParamPath
-from core.aop import params, singleton
+from zoo_framework import ParamPath
+from zoo_framework.core.aop import params
 
 
 @params

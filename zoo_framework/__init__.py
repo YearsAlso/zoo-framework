@@ -1,7 +1,7 @@
-import conf
-import constant
-import core
-import fifo
-import statemachine
-import threads
-import utils
+from .conf import *
+from .constant import *
+from .core import *
+from .fifo import *
+from .statemachine import *
+from .threads import *
+from .utils import *

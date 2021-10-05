@@ -1,10 +1,10 @@
 import logging
 import os
 
-from constant.common_constant import CommonConstant
-from core.aop import configure
-from utils import DateTimeUtils
-from utils import FileUtils
+from zoo_framework.constant.common_constant import CommonConstant
+from zoo_framework.core.aop import configure
+from zoo_framework.utils import DateTimeUtils
+from zoo_framework.utils import FileUtils
 
 level_relations = {
     'debug': logging.DEBUG,

@@ -1,7 +1,8 @@
 import threading
 import time
 
-from utils import LogUtils
+# from utils import LogUtils
+from zoo_framework import LogUtils
 
 
 class BaseThread(object):

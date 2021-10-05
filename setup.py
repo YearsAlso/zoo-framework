@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
     long_description = f.read()
 
 setup(name='zoo-framework',  # 包名
-      version='0.1.2',  # 版本号
+      version='0.1.8',  # 版本号
       description='zoo framework',
       long_description_content_type="text/markdown",
       long_description=long_description,
@@ -28,6 +28,6 @@ setup(name='zoo-framework',  # 包名
           'Topic :: Software Development :: Libraries'
       ],
       entry_points={
-          'console_script': ['zfc = zoo_framework.__main__:zfc']
+          'console_scripts': ['zfc = zoo_framework.__main__:zfc']
       }
       )

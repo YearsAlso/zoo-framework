@@ -1,5 +1,5 @@
-from core import worker_threads
-from core.aop import configure
+from zoo_framework.core import worker_threads
+from zoo_framework.core.aop import configure
 import threading
 from concurrent.futures import ThreadPoolExecutor
 
