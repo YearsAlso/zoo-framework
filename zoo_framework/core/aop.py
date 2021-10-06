@@ -1,5 +1,5 @@
 from .params_factory import ParamsFactory
-from .param_path import ParamPath
+from .params_path import ParamsPath
 
 
 def singleton(cls):
@@ -44,11 +44,11 @@ def params(cls):
             return config_params[cls.__name__]
         params_list = dir(cls)
         for param in params_list:
-            param_path = getattr(cls, param)
-            if not isinstance(param_path, ParamPath):
+            params_path = getattr(cls, param)
+            if not isinstance(params_path, ParamsPath):
                 continue
-            param_value = param_path.get_value()
-            default_value = param_path.get_default()
+            param_value = params_path.get_value()
+            default_value = params_path.get_default()
             value = ParamsFactory().get_params(param_value, default_value=default_value)
             setattr(cls, param, value)
         config_params[cls.__name__] = cls

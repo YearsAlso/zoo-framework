@@ -1,4 +1,4 @@
-class ParamPath:
+class ParamsPath:
 
     def __init__(self, value, default=""):
         self.value = value

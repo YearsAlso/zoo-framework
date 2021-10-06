@@ -5,7 +5,7 @@ with open("README.md", "r") as f:
     long_description = f.read()
 
 setup(name='zoo-framework',  # 包名
-      version='0.1.11',  # 版本号
+      version='0.1.12',  # 版本号
       description='zoo framework',
       long_description_content_type="text/markdown",
       long_description=long_description,
