@@ -1,7 +1,5 @@
-import threading
 import time
 
-# from utils import LogUtils
 from zoo_framework.utils import LogUtils
 
 
@@ -43,10 +41,9 @@ class BaseThread(object):
         
         if self._props.get('delay_time'):
             time.sleep(self._props["delay_time"])
-
-
+    
     def _on_error(self):
         pass
-
+    
     def _on_done(self):
         pass
