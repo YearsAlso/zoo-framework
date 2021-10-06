@@ -1,4 +1,4 @@
-from zoo_framework import ParamPath
+from zoo_framework.core import ParamPath
 from zoo_framework.core.aop import params
 
 

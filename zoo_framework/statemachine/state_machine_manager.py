@@ -1,5 +1,5 @@
-from core import singleton
-from statemachine.base_state_machine import BaseStateMachine
+from zoo_framework.core import singleton
+from zoo_framework.statemachine.base_state_machine import BaseStateMachine
 
 
 @singleton
