@@ -27,7 +27,7 @@ def create_func(object_name):
 def thread_func(thread_name):
     # 创建文件夹
     src_dir = "./threads"
-    file_path = src_dir + "/" + thread_name + ".py"
+    file_path = src_dir + "/" + thread_name + "_thread.py"
     if not os.path.exists(src_dir):
         os.mkdir(src_dir)
     # 根据模板创建文件
@@ -47,7 +47,7 @@ def zfc(create, thread):
         create_func(create)
     
     if thread is not None:
-        thread_func(thread)
+        thread_func(str(thread).lower())
 
 
 zfc()
