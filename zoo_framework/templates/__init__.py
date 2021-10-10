@@ -1,4 +1,7 @@
-from zoo_framework.threads import BaseThread
+
+
+thread_template = '''from zoo_framework.threads import BaseThread
+
 
 class {{thread_name.title()}}Thread(BaseThread):
     def __init__(self):
@@ -11,11 +14,11 @@ class {{thread_name.title()}}Thread(BaseThread):
     def _execute(self):
         pass
 
-    def _destroy(self,result):
+    def _destroy(self, result):
         pass
 
     def _on_error(self):
         pass
 
     def _on_done(self):
-        pass
+        pass'''

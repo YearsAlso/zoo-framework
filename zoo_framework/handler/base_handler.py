@@ -1,4 +1,4 @@
-from zoo_framework.core import event_map
+from zoo_framework.core.aop import event_map
 
 
 class BaseHandler:

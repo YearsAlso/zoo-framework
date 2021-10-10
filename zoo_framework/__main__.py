@@ -1,9 +1,11 @@
 import json
+import sys
 
 import click
 import os
 import jinja2
-from jinja2 import Environment, PackageLoader
+from jinja2 import Environment, PackageLoader, Template
+from zoo_framework.templates import thread_template
 
 DEFAULT_CONF = {
     "log": {
@@ -33,13 +35,13 @@ def create_func(object_name):
 def thread_func(thread_name):
     # 创建文件夹
     src_dir = "./threads"
+    if str(sys.argv[0]).endswith("/src"):
+        src_dir = "./src/threads"
     file_path = src_dir + "/" + thread_name + "_thread.py"
     if not os.path.exists(src_dir):
         os.mkdir(src_dir)
-    # 根据模板创建文件
-    env = Environment(loader=PackageLoader('zoo_framework', 'templates'))  # 创建一个包加载器对象
-
-    template = env.get_template('thread.pyt')  # 获取一个模板文件
+        
+    template = Template(thread_template)
     content = template.render(thread_name=thread_name)  # 渲染
     with open(file_path, "w") as fp:
         fp.write(content)
