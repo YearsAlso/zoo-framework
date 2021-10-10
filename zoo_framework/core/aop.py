@@ -1,3 +1,4 @@
+from zoo_framework.handler.event_reactor import EventReactor
 from .params_factory import ParamsFactory
 from .params_path import ParamsPath
 
@@ -27,7 +28,7 @@ def worker():
 event_map = {}
 
 
-def event(topic: str):
+def event(topic: str, handler_name="default"):
     def inner(func):
         event_map[topic] = func
         return func

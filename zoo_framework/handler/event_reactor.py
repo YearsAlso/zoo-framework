@@ -7,10 +7,12 @@ class EventReactor:
     handler_map: {str: BaseHandler} = {
         "default": BaseHandler()
     }
-    
-    def dispatch(self, topic, content, handler_name="default"):
-        handler = self.handler_map[handler_name]
+
+    @classmethod
+    def dispatch(cls, topic, content, handler_name="default"):
+        handler = cls.handler_map[handler_name]
         handler.handle(topic, content)
     
-    def register(self, handler_name: str, handler: BaseHandler):
-        self.handler_map[handler_name] = handler
+    @classmethod
+    def register(cls, handler_name: str, handler: BaseHandler):
+        EventReactor.handler_map[handler_name] = handler
