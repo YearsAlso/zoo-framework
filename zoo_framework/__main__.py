@@ -18,8 +18,14 @@ def create_func(object_name):
     
     os.mkdir(object_name)
     src_dir = object_name + '/src'
+    conf_dir = src_dir + "/conf"
+    events_dir = src_dir + "/events"
+    threads_dir = src_dir + "/threads"
     config_file = object_name + "/config.json"
     os.mkdir(src_dir)
+    os.mkdir(conf_dir)
+    os.mkdir(threads_dir)
+    # os.mkdir(events_dir)
     with open(config_file, "w") as fp:
         json.dump(DEFAULT_CONF, fp)
 
@@ -34,7 +40,7 @@ def thread_func(thread_name):
     env = Environment(loader=PackageLoader('zoo_framework', 'templates'))  # 创建一个包加载器对象
 
     template = env.get_template('thread.pyt')  # 获取一个模板文件
-    content = template.render(cls_name=thread_name)  # 渲染
+    content = template.render(thread_name=thread_name)  # 渲染
     with open(file_path, "w") as fp:
         fp.write(content)
 

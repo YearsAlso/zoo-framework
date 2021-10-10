@@ -12,6 +12,13 @@ pip install zoo
 ## Configuration
 Create a simple object
 ```
-zfc --create myobject
+zfc --create simple_object
 ```
+
+## Other Commands
+Create a demo thread
+```
+zfc --thread demo
+```
+
 
