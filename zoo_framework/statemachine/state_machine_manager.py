@@ -1,8 +1,8 @@
-from zoo_framework.core import singleton
+from zoo_framework.core import cage
 from zoo_framework.statemachine.base_state_machine import BaseStateMachine
 
 
-@singleton
+@cage
 class StateMachineManager(object):
     _state_machines = {}
     _loaded = False

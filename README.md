@@ -20,5 +20,3 @@ Create a demo thread
 ```
 zfc --thread demo
 ```
-
-
