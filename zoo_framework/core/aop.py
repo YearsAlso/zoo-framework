@@ -24,12 +24,12 @@ def worker():
     return inner
 
 
-websocket_events = {}
+event_map = {}
 
 
 def event(topic: str):
     def inner(func):
-        websocket_events[topic] = func
+        event_map[topic] = func
         return func
     
     return inner
