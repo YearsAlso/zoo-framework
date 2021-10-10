@@ -14,7 +14,7 @@ class Master(object):
         self.workers = worker_threads
         self.thread_pool = thread_pool
         self.loop_interval = loop_interval
-        # 加载params
+        # load params
         ParamsFactory("./config.json")
         self.config()
 
