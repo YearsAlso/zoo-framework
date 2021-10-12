@@ -74,8 +74,9 @@ def thread_func(thread_name):
 
 @click.command()
 @click.option("--create", help="Input target object name and create it")
-@click.option("--thread", help="nput new thread name and create it")
-def zfc(create, thread):
+@click.option("--thread", help="Input new thread name and create it")
+@click.option("--config", help="Input new config file name and create it")
+def zfc(create, thread, config):
     if create is not None:
         create_func(create)
 
