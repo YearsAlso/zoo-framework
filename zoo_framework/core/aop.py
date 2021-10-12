@@ -9,7 +9,7 @@ def cage(cls):
         if cls not in cage_list:
             cage_list[cls] = cls()
         return cage_list[cls]
-    
+
     return _cage
 
 
@@ -20,7 +20,7 @@ def worker():
     def inner(cls):
         worker_threads.append(cls())
         return cls
-    
+
     return inner
 
 
@@ -31,7 +31,7 @@ def event(topic: str):
     def inner(func):
         event_map[topic] = func
         return func
-    
+
     return inner
 
 
@@ -53,7 +53,7 @@ def params(cls):
             setattr(cls, param, value)
         config_params[cls.__name__] = cls
         return cls
-    
+
     return inner()
 
 
@@ -64,5 +64,5 @@ def configure(topic: str):
     def inner(func):
         config_funcs[topic] = func
         return func
-    
+
     return inner

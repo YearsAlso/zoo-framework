@@ -62,5 +62,5 @@ def zfc(create, thread):
     if thread is not None:
         thread_func(str(thread).lower())
 
-
-zfc()
+if __name__ == '__main__':
+    zfc()
