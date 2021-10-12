@@ -5,7 +5,7 @@ import click
 import os
 import jinja2
 from jinja2 import Environment, PackageLoader, Template
-from zoo_framework.templates import thread_template, main_template
+from zoo_framework.templates import thread_template, main_template, thread_mod_insert_template
 
 DEFAULT_CONF = {
     "log": {
@@ -25,6 +25,10 @@ def create_func(object_name):
     events_dir = src_dir + "/events"
     threads_dir = src_dir + "/threads"
     config_file = object_name + "/config.json"
+
+    threads_init_file = threads_dir + "/__init__.py"
+    config_init_file = conf_dir + "/__init__.py"
+
     os.mkdir(src_dir)
     os.mkdir(conf_dir)
     os.mkdir(threads_dir)
@@ -34,6 +38,13 @@ def create_func(object_name):
 
     with open(main_file, "w") as fp:
         fp.write(main_template)
+
+    with open(threads_init_file, "w") as fp:
+        fp.write("")
+
+    with open(config_init_file, "w") as fp:
+        fp.write("")
+
     # create main.py
 
 
@@ -43,8 +54,17 @@ def thread_func(thread_name):
     if str(sys.argv[0]).endswith("/src"):
         src_dir = "./src/threads"
     file_path = src_dir + "/" + thread_name + "_thread.py"
+    threads_init_file = src_dir + "/__init__.py"
+    template = Template(thread_mod_insert_template)
+    content = template.render(thread_name=thread_name)
+
     if not os.path.exists(src_dir):
         os.mkdir(src_dir)
+        with open(threads_init_file, "w") as fp:
+            fp.write(content)
+    elif os.path.exists(threads_init_file):
+        with open(threads_init_file, "a") as fp:
+            fp.write(content)
 
     template = Template(thread_template)
     content = template.render(thread_name=thread_name)  # 渲染
@@ -61,6 +81,7 @@ def zfc(create, thread):
 
     if thread is not None:
         thread_func(str(thread).lower())
+
 
 if __name__ == '__main__':
     zfc()
