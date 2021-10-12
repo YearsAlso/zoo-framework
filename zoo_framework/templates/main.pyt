@@ -2,7 +2,7 @@ from zoo_framework.core import Master
 
 
 def main():
-    master = Master(worker_count=30)
+    master = Master(worker_count=5)
     master.run()
 
 

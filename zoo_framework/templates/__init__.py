@@ -22,3 +22,16 @@ class {{thread_name.title()}}Thread(BaseThread):
 
     def _on_done(self):
         pass'''
+
+main_template = """
+from zoo_framework.core import Master
+
+
+def main():
+    master = Master(worker_count=5)
+    master.run()
+
+
+if __name__ == '__main__':
+    main()
+"""
