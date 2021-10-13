@@ -1,5 +1,5 @@
 from .conf import *
-from .constant import *
+from .params import *
 from .core import *
 from .fifo import *
 from .statemachine import *
