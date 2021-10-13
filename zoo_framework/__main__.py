@@ -8,6 +8,7 @@ from jinja2 import Environment, PackageLoader, Template
 from zoo_framework.templates import thread_template, main_template, thread_mod_insert_template
 
 DEFAULT_CONF = {
+    "_exports": [],
     "log": {
         "path": "./logs"
     }
@@ -21,6 +22,7 @@ def create_func(object_name):
     os.mkdir(object_name)
     src_dir = object_name + '/src'
     conf_dir = src_dir + "/conf"
+    params_dir = src_dir + "/params"
     main_file = src_dir + "/main.py"
     events_dir = src_dir + "/events"
     threads_dir = src_dir + "/threads"
@@ -28,10 +30,14 @@ def create_func(object_name):
 
     threads_init_file = threads_dir + "/__init__.py"
     config_init_file = conf_dir + "/__init__.py"
+    events_init_file = events_dir + "/__init__.py"
+    params_init_file = params_dir + "/__init__.py"
 
     os.mkdir(src_dir)
     os.mkdir(conf_dir)
     os.mkdir(threads_dir)
+    os.mkdir(params_dir)
+    os.mkdir(events_dir)
     # os.mkdir(events_dir)
     with open(config_file, "w") as fp:
         json.dump(DEFAULT_CONF, fp)
@@ -43,6 +49,12 @@ def create_func(object_name):
         fp.write("")
 
     with open(config_init_file, "w") as fp:
+        fp.write("")
+
+    with open(events_init_file, "w") as fp:
+        fp.write("")
+
+    with open(params_init_file, "w") as fp:
         fp.write("")
 
     # create main.py

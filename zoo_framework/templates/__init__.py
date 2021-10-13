@@ -23,7 +23,9 @@ class {{thread_name.title()}}Thread(BaseThread):
     def _on_done(self):
         pass'''
 
-thread_mod_insert_template = """from .{{thread_name}}_thread import {{thread_name.title()}}Thread"""
+thread_mod_insert_template = """
+\r\nfrom .{{thread_name}}_thread import {{thread_name.title()}}Thread
+"""
 
 main_template = """
 from zoo_framework.core import Master
