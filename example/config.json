@@ -1,0 +1,6 @@
+{
+  "_exports": ["redis"],
+  "log": {
+    "path": "./logs"
+  }
+}
