@@ -22,10 +22,10 @@ class Master(object):
         for key, value in config_funcs.items():
             value()
 
-    def worker_defend(self, thread):
-        Master.worker_dict[thread.name] = thread
+    def worker_defend(self, master, thread):
+        master.worker_dict[thread.name] = thread
         thread.run()
-        Master.worker_dict[thread.name] = None
+        master.worker_dict[thread.name] = None
 
     def _run(self):
         workers = []
@@ -33,8 +33,8 @@ class Master(object):
         for thread in self.workers:
             if thread.is_loop:
                 workers.append(thread)
-            if Master.worker_dict.get(thread.name) is None:
-                t = threading.Thread(group=None, target=self.worker_defend, args=(thread,))
+            if self.worker_dict.get(thread.name) is None:
+                t = threading.Thread(group=None, target=self.worker_defend, args=(self, thread,))
                 t.start()
 
         self.workers = workers
@@ -45,4 +45,5 @@ class Master(object):
     def run(self):
         while True:
             self._run()
-            sleep(self.loop_interval)
+            if self.loop_interval > 0:
+                sleep(self.loop_interval)
