@@ -23,13 +23,18 @@ class Master(object):
             value()
 
     def worker_defend(self, master, thread):
+        self._dict_lock.acquire(blocking=True, timeout=1)
         master.worker_dict[thread.name] = thread
+        self._dict_lock.release()
+
         thread.run()
+
+        self._dict_lock.acquire(blocking=True, timeout=1)
         master.worker_dict[thread.name] = None
+        self._dict_lock.release()
 
     def _run(self):
         workers = []
-        results = []
         for thread in self.workers:
             if thread.is_loop:
                 workers.append(thread)
@@ -38,9 +43,6 @@ class Master(object):
                 t.start()
 
         self.workers = workers
-
-        # for result in results:
-        #     result.result()
 
     def run(self):
         while True:
