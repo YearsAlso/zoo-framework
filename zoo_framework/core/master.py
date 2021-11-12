@@ -2,7 +2,8 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from time import sleep
 
-from .aop import worker_threads, ParamsFactory, config_funcs
+from .aop import worker_threads, config_funcs
+from .params_factory import ParamsFactory
 
 
 class Master(object):

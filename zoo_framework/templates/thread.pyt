@@ -1,11 +1,11 @@
-from zoo_framework.threads import BaseThread
+from zoo_framework.threads import BaseWorker
 
-class {{thread_name.title()}}Thread(BaseThread):
+class {{thread_name.title()}}Worker(BaseWorker):
     def __init__(self):
-        BaseThread.__init__(self, {
+        BaseWorker.__init__(self, {
             "is_loop": True,
             "delay_time": 10,
-            "name": "{{thread_name}}_thread"
+            "name": "{{thread_name}}_worker"
         })
 
     def _execute(self):

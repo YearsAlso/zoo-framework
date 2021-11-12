@@ -3,7 +3,7 @@ import time
 from zoo_framework.utils import LogUtils
 
 
-class BaseThread(object):
+class BaseWorker(object):
 
     def __init__(self, props: dict):
         self._props = props
