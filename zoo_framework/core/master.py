@@ -27,15 +27,15 @@ class Master(object):
             value()
     
     @staticmethod
-    def worker_defend(master, thread):
+    def worker_defend(master, worker):
         master._dict_lock.acquire(blocking=True, timeout=1)
-        master.worker_dict[thread.name] = thread
+        master.worker_dict[worker.name] = worker
         master._dict_lock.release()
         
-        thread.run()
+        worker.run()
         
         master._dict_lock.acquire(blocking=True, timeout=1)
-        master.worker_dict[thread.name] = None
+        master.worker_dict[worker.name] = None
         master._dict_lock.release()
     
     @staticmethod
@@ -44,11 +44,11 @@ class Master(object):
     
     def _run(self):
         workers = []
-        for thread in self.workers:
-            if thread.is_loop:
-                workers.append(thread)
-            if self.worker_dict.get(thread.name) is None:
-                t = self.worker_pool.submit(self.worker_defend, self, thread)
+        for worker in self.workers:
+            if worker.is_loop:
+                workers.append(worker)
+            if self.worker_dict.get(worker.name) is None:
+                t = self.worker_pool.submit(self.worker_defend, self, worker)
                 t.add_done_callback(self.worder_destory)
         
         self.workers = workers

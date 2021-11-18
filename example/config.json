@@ -7,6 +7,9 @@
   },
   "worker": {
     "mode": "thread",
-    "poolSize": 5
+    "pool": {
+      "size": 5,
+      "enabled": false
+    }
   }
 }
