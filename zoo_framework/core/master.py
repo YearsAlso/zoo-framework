@@ -6,7 +6,6 @@ from .aop import worker_list, config_funcs
 from .params_factory import ParamsFactory
 
 
-
 class Master(object):
     _dict_lock = threading.Lock()
     worker_dict = {}
@@ -27,16 +26,21 @@ class Master(object):
         for key, value in config_funcs.items():
             value()
     
-    def worker_defend(self, master, thread):
-        self._dict_lock.acquire(blocking=True, timeout=1)
+    @staticmethod
+    def worker_defend(master, thread):
+        master._dict_lock.acquire(blocking=True, timeout=1)
         master.worker_dict[thread.name] = thread
-        self._dict_lock.release()
+        master._dict_lock.release()
         
         thread.run()
         
-        self._dict_lock.acquire(blocking=True, timeout=1)
+        master._dict_lock.acquire(blocking=True, timeout=1)
         master.worker_dict[thread.name] = None
-        self._dict_lock.release()
+        master._dict_lock.release()
+    
+    @staticmethod
+    def worder_destory(future):
+        result = future.result()
     
     def _run(self):
         workers = []
@@ -44,8 +48,8 @@ class Master(object):
             if thread.is_loop:
                 workers.append(thread)
             if self.worker_dict.get(thread.name) is None:
-                t = self.worker_pool.submit(fn=self.worker_defend, args=(self, thread,))
-                t.done()
+                t = self.worker_pool.submit(self.worker_defend, self, thread)
+                t.add_done_callback(self.worder_destory)
         
         self.workers = workers
     

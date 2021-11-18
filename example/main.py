@@ -1,4 +1,5 @@
 from zoo_framework.core import Master,worker_list
+import threads
 
 def main():
     master = Master()

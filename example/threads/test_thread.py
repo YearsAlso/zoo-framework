@@ -2,9 +2,10 @@ from zoo_framework import LogUtils, worker
 
 from zoo_framework.workers import BaseWorker
 
-@worker()
+
+@worker(count=4)
 class TestThread(BaseWorker):
-    def __init__(self, props: dict):
+    def __init__(self):
         BaseWorker.__init__(self, {
             "is_loop": True,
             "delay_time": 1,
@@ -13,4 +14,4 @@ class TestThread(BaseWorker):
         self.is_loop = True
     
     def _execute(self):
-        print("Test", TestThread.__name__)
+        LogUtils.debug("Test", TestThread.__name__)
