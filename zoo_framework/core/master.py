@@ -2,6 +2,8 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from time import sleep
 
+from zoo_framework.utils import LogUtils
+
 from .aop import worker_list, config_funcs
 from .params_factory import ParamsFactory
 
@@ -57,4 +59,5 @@ class Master(object):
         while True:
             self._run()
             if self.loop_interval > 0:
+                LogUtils.info("Master Sleep")
                 sleep(self.loop_interval)
