@@ -1,8 +1,7 @@
-from zoo_framework.core import worker_threads,Master
-import threads
+from zoo_framework.core import Master,worker_list
 
 def main():
-    master = Master(worker_count=30)
+    master = Master()
     master.run()
 
 

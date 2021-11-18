@@ -2,21 +2,22 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from time import sleep
 
-from zoo_framework.params.worker_params import WorkerParams
 from .aop import worker_list, config_funcs
 from .params_factory import ParamsFactory
+
 
 
 class Master(object):
     _dict_lock = threading.Lock()
     worker_dict = {}
     
-    def __init__(self, worker_count=1, loop_interval=1):
+    def __init__(self, loop_interval=1):
+        from zoo_framework.params import WorkerParams
         self.worker_mode = WorkerParams.WORKER_RUN_MODE
         self.worker_size = WorkerParams.WORKER_POOL_SIZE
-        thread_pool = ThreadPoolExecutor(max_workers=worker_count)
+        thread_pool = ThreadPoolExecutor(max_workers=self.worker_size)
         self.workers = worker_list
-        self.thread_pool = thread_pool
+        self.worker_pool = thread_pool
         self.loop_interval = loop_interval
         # load params
         ParamsFactory("./config.json")
@@ -43,8 +44,8 @@ class Master(object):
             if thread.is_loop:
                 workers.append(thread)
             if self.worker_dict.get(thread.name) is None:
-                t = threading.Thread(group=None, target=self.worker_defend, args=(self, thread,))
-                t.start()
+                t = self.worker_pool.submit(fn=self.worker_defend, args=(self, thread,))
+                t.done()
         
         self.workers = workers
     
