@@ -1,6 +1,12 @@
 {
-  "_exports": ["redis"],
+  "_exports": [
+    "redis"
+  ],
   "log": {
     "path": "./logs"
+  },
+  "worker": {
+    "mode": "thread",
+    "poolSize": 5
   }
 }
