@@ -1,0 +1,2 @@
+class BaseLock:
+    pass
