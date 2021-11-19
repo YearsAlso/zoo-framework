@@ -8,7 +8,7 @@
   "worker": {
     "mode": "thread",
     "pool": {
-      "size": 5,
+      "size": 30,
       "enabled": false
     }
   }

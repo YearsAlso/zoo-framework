@@ -1,0 +1,2 @@
+class WaiterMail(object):
+    pass
