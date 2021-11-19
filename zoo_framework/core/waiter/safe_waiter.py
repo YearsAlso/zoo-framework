@@ -5,7 +5,8 @@ class SafeWaiter(BaseWaiter):
     def __init__(self):
         BaseWaiter.__init__(self)
     
-    def run_service(self, workers):
+    def execute_service(self, workers):
+        # 等待所有worker执行完成后再继续执行
         pass
     
     def dispatch_worker(self, worker):

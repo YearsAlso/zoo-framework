@@ -3,10 +3,12 @@
     "redis"
   ],
   "log": {
-    "path": "./logs"
+    "path": "./logs",
+    "level": "debug"
   },
   "worker": {
     "mode": "thread",
+    "runPolicy": "simple",
     "pool": {
       "size": 30,
       "enabled": false

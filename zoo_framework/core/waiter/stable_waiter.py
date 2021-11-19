@@ -5,8 +5,8 @@ class StableWaiter(BaseWaiter):
     def __init__(self):
         BaseWaiter.__init__(self)
     
-    def run_service(self, workers):
-        # 是否使用池化
+    def execute_service(self, workers):
+        # 不等待直接执行
         pass
     
     def dispatch_worker(self, worker):

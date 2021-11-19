@@ -10,11 +10,16 @@ from zoo_framework.templates import thread_template, main_template, thread_mod_i
 DEFAULT_CONF = {
     "_exports": [],
     "log": {
-        "path": "./logs"
+        "path": "./logs",
+        "level": "debug"
     },
     "worker": {
         "mode": "thread",
-        "poolSize": 5
+        "runPolicy": "simple",
+        "pool": {
+            "size": 30,
+            "enabled": False
+        }
     }
 }
 
