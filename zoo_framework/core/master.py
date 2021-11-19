@@ -28,9 +28,10 @@ class Master(object):
         
         # 根据策略生成waiter
         waiter = WaiterFactory.get_waiter(WorkerParams.WORKER_RUN_POLICY)
-        if waiter != None:
+        if waiter is not None:
             self.waiter = waiter
-
+        else:
+            raise Exception("Master hasn't available waiter,the application can't start.")
     
     def config(self):
         for key, value in config_funcs.items():
