@@ -21,9 +21,9 @@ class Master(object):
         from zoo_framework.params import WorkerParams
         self.worker_mode = WorkerParams.WORKER_RUN_MODE
         self.worker_size = WorkerParams.WORKER_POOL_SIZE
-        thread_pool = ThreadPoolExecutor(max_workers=self.worker_size)
+        resource_pool = ThreadPoolExecutor(max_workers=self.worker_size)
         self.workers = worker_list
-        self.worker_pool = thread_pool
+        self.resource_pool = resource_pool
         self.loop_interval = loop_interval
         
         # 根据策略生成waiter
@@ -58,7 +58,7 @@ class Master(object):
             if worker.is_loop:
                 workers.append(worker)
             if self.worker_dict.get(worker.name) is None:
-                t = self.worker_pool.submit(self.worker_defend, self, worker)
+                t = self.resource_pool.submit(self.worker_defend, self, worker)
                 t.add_done_callback(self.worder_destory)
         
         self.workers = workers
