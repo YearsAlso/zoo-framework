@@ -53,7 +53,7 @@ class BaseWorker(object):
         if self._props.get('delay_time'):
             time.sleep(self._props["delay_time"])
 
-        return WorkerResult(self.__class__.__name__, result)
+        return WorkerResult(self.__class__.__name__ + "_result", result)
 
     def _on_error(self):
         pass

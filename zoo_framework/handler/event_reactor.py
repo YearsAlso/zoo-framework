@@ -1,4 +1,4 @@
-from zoo_framework import cage
+from zoo_framework.core.aop import cage
 from zoo_framework.handler import BaseHandler
 
 
@@ -7,6 +7,9 @@ class EventReactor:
     handler_map: {str: BaseHandler} = {
         "default": BaseHandler()
     }
+
+    def __init__(self):
+        pass
 
     @classmethod
     def dispatch(cls, topic, content, handler_name="default"):
@@ -18,4 +21,4 @@ class EventReactor:
         if not isinstance(handler, BaseHandler):
             raise Exception("Handler is invalid")
 
-        EventReactor.handler_map[handler_name] = handler
+        cls.handler_map[handler_name] = handler

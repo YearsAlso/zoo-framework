@@ -1,5 +1,5 @@
 from .base_handler import BaseHandler
-from zoo_framework import cage
+from zoo_framework.core.aop import cage
 
 
 @cage

@@ -5,7 +5,6 @@ from zoo_framework.constant import WorkerConstant
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import ProcessPoolExecutor
 
-from zoo_framework.handler.event_reactor import EventReactor
 from zoo_framework.handler.waiter_result_handler import WaiterResultHandler
 from zoo_framework.workers import BaseWorker
 from multiprocessing import Process
@@ -29,7 +28,8 @@ class BaseWaiter(object):
         self.register_handler()
 
     def register_handler(self):
-        EventReactor.register("waiter", WaiterResultHandler())
+        from zoo_framework.handler.event_reactor import EventReactor
+        EventReactor().register("waiter", WaiterResultHandler())
 
     def init_lock(self):
         pass
