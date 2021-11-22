@@ -8,7 +8,7 @@
   },
   "worker": {
     "mode": "thread",
-    "runPolicy": "simple",
+    "runPolicy": "safe",
     "pool": {
       "size": 30,
       "enabled": false

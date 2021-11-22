@@ -10,6 +10,8 @@ from multiprocessing import Process
 
 
 class BaseWaiter(object):
+    _lock = None
+    
     def __init__(self):
         from zoo_framework.params import WorkerParams
         # 获得模式
@@ -22,6 +24,9 @@ class BaseWaiter(object):
         self.resource_pool = None
         self.workers = []
         self.worker_dict = {}
+        
+    def init_lock(self):
+        pass
     
     # 集结worker们
     def call_workers(self, worker_list):
@@ -63,7 +68,7 @@ class BaseWaiter(object):
         worker.run()
         
         # master._dict_lock.acquire(blocking=True, timeout=1)
-        master.worker_dict[worker.name] = None
+        del master.worker_dict[worker.name]
         # master._dict_lock.release()
     
     # worker汇报结果

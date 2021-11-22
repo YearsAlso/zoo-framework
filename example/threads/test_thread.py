@@ -7,7 +7,7 @@ from zoo_framework.workers import BaseWorker
 class TestThread(BaseWorker):
     def __init__(self):
         BaseWorker.__init__(self, {
-            "is_loop": True,
+            "is_loop": False,
             "delay_time": 1,
             "name": "TestThread"
         })
