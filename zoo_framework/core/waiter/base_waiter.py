@@ -43,21 +43,16 @@ class BaseWaiter(object):
             if worker.is_loop:
                 workers.append(worker)
             if self.worker_dict.get(worker.name) is None:
-                if self.pool_enable:
-                    t = self.resource_pool.submit(self.dispatch_worker, self, worker)
-                    t.add_done_callback(self.worker_report)
-                elif self.worker_mode == WorkerConstant.RUN_MODE_PROCESS:
-                    p = Process(target=self.dispatch_worker, args=(self, worker))
-                    p.start()
-                elif self.worker_mode == WorkerConstant.RUN_MODE_THREAD:
-                    t = Thread(target=self.dispatch_worker, args=(self, worker))
-                    t.start()
+                self._dispatch_worker(worker)
         
         self.workers = workers
     
+    def _dispatch_worker(self, worker):
+        pass
+    
     # 派遣worker
     @staticmethod
-    def dispatch_worker(master, worker):
+    def worker_running(master, worker):
         if not isinstance(worker, BaseWorker):
             return
         
