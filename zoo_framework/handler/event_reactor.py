@@ -12,7 +12,10 @@ class EventReactor:
     def dispatch(cls, topic, content, handler_name="default"):
         handler = cls.handler_map[handler_name]
         handler.handle(topic, content)
-    
+
     @classmethod
     def register(cls, handler_name: str, handler: BaseHandler):
+        if not isinstance(handler, BaseHandler):
+            raise Exception("Handler is invalid")
+
         EventReactor.handler_map[handler_name] = handler

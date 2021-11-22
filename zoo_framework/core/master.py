@@ -1,5 +1,3 @@
-import threading
-from concurrent.futures import ThreadPoolExecutor
 from time import sleep
 
 from zoo_framework.core.waiter import WaiterFactory
@@ -10,9 +8,6 @@ from .params_factory import ParamsFactory
 
 
 class Master(object):
-    _dict_lock = threading.Lock()
-    worker_dict = {}
-    
     def __init__(self, loop_interval=1):
         # load params
         ParamsFactory("./config.json")

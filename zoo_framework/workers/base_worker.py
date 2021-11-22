@@ -1,6 +1,7 @@
 import time
 
 from zoo_framework.utils import LogUtils
+from .worker_result import WorkerResult
 
 
 class BaseWorker(object):
@@ -37,6 +38,7 @@ class BaseWorker(object):
         pass
 
     def run(self):
+        result = {}
         try:
             LogUtils.info("{} Worker is Start".format(self.name), self.__class__.__name__)
             result = self._execute()
@@ -50,6 +52,8 @@ class BaseWorker(object):
 
         if self._props.get('delay_time'):
             time.sleep(self._props["delay_time"])
+
+        return WorkerResult(self.__class__.__name__, result)
 
     def _on_error(self):
         pass
