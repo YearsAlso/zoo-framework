@@ -1,3 +1,6 @@
+from zoo_framework.core.aop import validation
+
+
 class WorkerConstant(object):
     # worker 运行模式
     RUN_MODE_THREAD = "thread"

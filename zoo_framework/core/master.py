@@ -2,7 +2,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from time import sleep
 
-from core.waiter import WaiterFactory
+from zoo_framework.core.waiter import WaiterFactory
 from zoo_framework.utils import LogUtils
 
 from .aop import worker_list, config_funcs

@@ -1,6 +1,6 @@
 from threading import Thread
 
-from constant import WorkerConstant
+from zoo_framework.constant import WorkerConstant
 
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import ProcessPoolExecutor
