@@ -3,7 +3,7 @@
 # README
 
 ## Project description
-Zoo is a simple and quick multi-threaded framework.
+Zoo Framework is a simple and quick multi-threaded framework.
 
 ## Installation
 You may install this software from your distribution packages, or through pip:
