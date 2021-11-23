@@ -11,7 +11,7 @@
     "runPolicy": "safe",
     "pool": {
       "size": 30,
-      "enabled": false
+      "enable": true
     }
   }
 }

@@ -2,7 +2,7 @@ from zoo_framework.core import Master,worker_list
 import threads
 
 def main():
-    master = Master()
+    master = Master(0.1)
     master.run()
 
 

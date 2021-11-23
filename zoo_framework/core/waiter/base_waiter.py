@@ -43,11 +43,11 @@ class BaseWaiter(object):
         # 生成池或者列表
         if self.worker_mode == WorkerConstant.RUN_MODE_THREAD:
             if self.pool_enable:
-                self.resource_pool = ProcessPoolExecutor(max_workers=self.pool_size)
+                self.resource_pool = ThreadPoolExecutor(max_workers=self.pool_size)
 
         if self.worker_mode == WorkerConstant.RUN_MODE_PROCESS:
             if self.pool_enable:
-                self.resource_pool = ThreadPoolExecutor(max_workers=self.pool_size)
+                self.resource_pool = ProcessPoolExecutor(max_workers=self.pool_size)
 
     # 执行服务
     def execute_service(self):

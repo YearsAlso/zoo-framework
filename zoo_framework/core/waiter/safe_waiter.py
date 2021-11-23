@@ -15,6 +15,9 @@ class SafeWaiter(BaseWaiter):
         self.rebuild_worker = False
     
     def call_workers(self, worker_list):
+        if len(worker_list) > self.pool_size:
+            raise Exception("")
+        
         super().call_workers(worker_list)
         self._src_worker_list = worker_list
     
@@ -41,15 +44,17 @@ class SafeWaiter(BaseWaiter):
     
     def rebuild_workers(self):
         # 所有内容全部执行完成
-        if self.rebuild_worker:
-            self.workers = self._src_worker_list
+        if self.rebuild_worker or self.pool_enable is False:
+            self.workers = [worker for worker in self._src_worker_list if worker.is_loop]
+        self.rebuild_worker = False
     
-    @staticmethod
-    def worker_report(worker):
+    # @staticmethod
+    def worker_report(self, worker):
         result = worker.result()
         if result is None:
             raise Exception("Some worker run error")
         
-        cls_name = result.cls_name
+        if len(self.worker_dict.keys()) == 0:
+            self.rebuild_worker = True
         
-        EventReactor.dispatch(result.topic, result.content)
+        EventReactor().dispatch(result.topic, result.content)
