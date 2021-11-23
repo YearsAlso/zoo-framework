@@ -1,5 +1,7 @@
 from threading import Thread
 
+from zoo_framework.handler.event_reactor import EventReactor
+
 from zoo_framework.constant import WorkerConstant
 
 from concurrent.futures import ThreadPoolExecutor
