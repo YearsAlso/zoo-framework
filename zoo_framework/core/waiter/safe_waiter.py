@@ -48,7 +48,7 @@ class SafeWaiter(BaseWaiter):
             self.workers = [worker for worker in self._src_worker_list if worker.is_loop]
         self.rebuild_worker = False
     
-    # @staticmethod
+    @staticmethod
     def worker_report(self, worker):
         result = worker.result()
         if result is None:

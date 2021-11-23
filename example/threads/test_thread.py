@@ -3,7 +3,7 @@ from zoo_framework import LogUtils, worker
 from zoo_framework.workers import BaseWorker
 
 
-@worker(count=30)
+@worker(count=3)
 class TestThread(BaseWorker):
     def __init__(self):
         BaseWorker.__init__(self, {

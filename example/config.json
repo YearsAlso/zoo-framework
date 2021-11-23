@@ -7,10 +7,10 @@
     "level": "debug"
   },
   "worker": {
-    "mode": "thread",
+    "mode": "process",
     "runPolicy": "safe",
     "pool": {
-      "size": 30,
+      "size": 5,
       "enable": true
     }
   }
