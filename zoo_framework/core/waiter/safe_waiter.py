@@ -13,6 +13,7 @@ class SafeWaiter(BaseWaiter):
         self.worker_state = {}
         self._src_worker_list = []
         self.rebuild_worker = False
+        self.futures = {}
     
     def call_workers(self, worker_list):
         if len(worker_list) > self.pool_size:
@@ -48,7 +49,7 @@ class SafeWaiter(BaseWaiter):
             self.workers = [worker for worker in self._src_worker_list if worker.is_loop]
         self.rebuild_worker = False
     
-    @staticmethod
+    # @staticmethod
     def worker_report(self, worker):
         result = worker.result()
         if result is None:
