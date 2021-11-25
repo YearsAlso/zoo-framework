@@ -1,6 +1,7 @@
 from zoo_framework.core.aop import event_map
 import asyncio
 
+
 class BaseHandler:
     
     def __init__(self):
@@ -18,10 +19,14 @@ class BaseHandler:
     def _serialize_content(self, content):
         return content
     
-    def handle(self, topic, content):
-        event_handler = event_map.get(topic)
+    def handle(self, topic, content, handler_name="default"):
+        events = event_map.get(handler_name)
+        if events is None:
+            return
+        
+        event_handler = events.get(topic)
         if event_handler is None:
-            pass
+            return
         
         try:
             _content = self._serialize_content(content)

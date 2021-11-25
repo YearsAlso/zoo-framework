@@ -17,7 +17,7 @@ class SafeWaiter(BaseWaiter):
     
     def call_workers(self, worker_list):
         if len(worker_list) > self.pool_size:
-            raise Exception("")
+            raise Exception("Workers Number is too large")
         
         super().call_workers(worker_list)
         self._src_worker_list = worker_list

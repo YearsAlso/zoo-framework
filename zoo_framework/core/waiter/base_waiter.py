@@ -92,4 +92,4 @@ class BaseWaiter(object):
     @staticmethod
     def worker_report(worker):
         result = worker.result()
-        EventReactor.dispatch(result.topic, result.content)
+        EventReactor().dispatch(result.topic, result.content)

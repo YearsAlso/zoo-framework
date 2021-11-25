@@ -6,9 +6,12 @@
     "path": "./logs",
     "level": "debug"
   },
+  "stateMachine": {
+    "picklePath": "./zooStates.pic"
+  },
   "worker": {
     "mode": "process",
-    "runPolicy": "safe",
+    "runPolicy": "simple",
     "pool": {
       "size": 5,
       "enable": true
