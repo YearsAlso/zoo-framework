@@ -1,5 +1,5 @@
 from zoo_framework.core.aop import event_map
-import asyncio
+import gevent
 
 
 class BaseHandler:
@@ -30,7 +30,8 @@ class BaseHandler:
         
         try:
             _content = self._serialize_content(content)
-            event_handler(_content)
+            g = gevent.spawn(event_handler,_content)
+            g.start()
             self._on_success(topic, content)
         except Exception as e:
             self._on_error(topic, content, e)
