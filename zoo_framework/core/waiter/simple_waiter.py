@@ -1,9 +1,5 @@
-from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
-
 from zoo_framework.constant import WorkerConstant
 from .base_waiter import BaseWaiter
-from multiprocessing import Process
-from threading import Thread
 
 
 class SimpleWaiter(BaseWaiter):
@@ -18,11 +14,16 @@ class SimpleWaiter(BaseWaiter):
     
     def _dispatch_worker(self, worker):
         if self.pool_enable:
-            t = self.resource_pool.submit(self.worker_running, self, worker)
-            t.add_done_callback(self.worker_report)
+            if self.worker_mode == WorkerConstant.RUN_MODE_PROCESS:
+                self.resource_pool.apply_async(self.worker_running, args=(self, worker))
+            elif self.worker_mode == WorkerConstant.RUN_MODE_THREAD:
+                t = self.resource_pool.submit(self.worker_running, self, worker)
+                t.add_done_callback(self.worker_report)
         elif self.worker_mode == WorkerConstant.RUN_MODE_PROCESS:
+            from multiprocessing import Process
             p = Process(target=self.worker_running, args=(self, worker))
             p.start()
         elif self.worker_mode == WorkerConstant.RUN_MODE_THREAD:
+            from threading import Thread
             t = Thread(target=self.worker_running, args=(self, worker))
             t.start()

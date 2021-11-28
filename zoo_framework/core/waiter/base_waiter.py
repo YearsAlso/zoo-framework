@@ -1,5 +1,3 @@
-from threading import Thread
-
 from zoo_framework.handler.event_reactor import EventReactor
 
 from zoo_framework.constant import WorkerConstant
@@ -9,8 +7,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 from zoo_framework.handler.waiter_result_handler import WaiterResultHandler
 from zoo_framework.workers import BaseWorker
-from multiprocessing import Process
-
+from multiprocessing import Pool
 
 class BaseWaiter(object):
     _lock = None
@@ -47,7 +44,7 @@ class BaseWaiter(object):
         
         if self.worker_mode == WorkerConstant.RUN_MODE_PROCESS:
             if self.pool_enable:
-                self.resource_pool = ProcessPoolExecutor(max_workers=self.pool_size)
+                self.resource_pool = Pool(processes=self.pool_size)
     
     def __del__(self):
         if self.resource_pool is not None:
