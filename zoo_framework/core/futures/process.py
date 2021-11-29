@@ -76,6 +76,7 @@ import traceback
 _threads_queues = weakref.WeakKeyDictionary()
 _shutdown = False
 
+
 def _python_exit():
     global _shutdown
     _shutdown = True
@@ -85,19 +86,23 @@ def _python_exit():
     for t, q in items:
         t.join()
 
+
 # Controls how many more calls than processes will be queued in the call queue.
 # A smaller number will mean that processes spend more time idle waiting for
 # work while a larger number will make Future.cancel() succeed less frequently
 # (Futures in the call queue cannot be cancelled).
 EXTRA_QUEUED_CALLS = 1
 
+
 # Hack to embed stringification of remote traceback in local traceback
 
 class _RemoteTraceback(Exception):
     def __init__(self, tb):
         self.tb = tb
+    
     def __str__(self):
         return self.tb
+
 
 class _ExceptionWithTraceback:
     def __init__(self, exc, tb):
@@ -105,12 +110,15 @@ class _ExceptionWithTraceback:
         tb = ''.join(tb)
         self.exc = exc
         self.tb = '\n"""\n%s"""' % tb
+    
     def __reduce__(self):
         return _rebuild_exc, (self.exc, self.tb)
+
 
 def _rebuild_exc(exc, tb):
     exc.__cause__ = _RemoteTraceback(tb)
     return exc
+
 
 class _WorkItem(object):
     def __init__(self, future, fn, args, kwargs):
@@ -119,11 +127,13 @@ class _WorkItem(object):
         self.args = args
         self.kwargs = kwargs
 
+
 class _ResultItem(object):
     def __init__(self, work_id, exception=None, result=None):
         self.work_id = work_id
         self.exception = exception
         self.result = result
+
 
 class _CallItem(object):
     def __init__(self, work_id, fn, args, kwargs):
@@ -131,6 +141,7 @@ class _CallItem(object):
         self.fn = fn
         self.args = args
         self.kwargs = kwargs
+
 
 def _get_chunks(*iterables, chunksize):
     """ Iterates over zip()ed iterables in chunks. """
@@ -140,6 +151,7 @@ def _get_chunks(*iterables, chunksize):
         if not chunk:
             return
         yield chunk
+
 
 def _process_chunk(fn, chunk):
     """ Processes a chunk of an iterable passed to map.
@@ -151,6 +163,7 @@ def _process_chunk(fn, chunk):
 
     """
     return [fn(*args) for args in chunk]
+
 
 def _process_worker(call_queue, result_queue):
     """Evaluates calls from call_queue and places the results in result_queue.
@@ -180,6 +193,7 @@ def _process_worker(call_queue, result_queue):
             result_queue.put(_ResultItem(call_item.work_id,
                                          result=r))
 
+
 def _add_call_item_to_queue(pending_work_items,
                             work_ids,
                             call_queue):
@@ -206,7 +220,7 @@ def _add_call_item_to_queue(pending_work_items,
             return
         else:
             work_item = pending_work_items[work_id]
-
+            
             if work_item.future.set_running_or_notify_cancel():
                 call_queue.put(_CallItem(work_id,
                                          work_item.fn,
@@ -216,6 +230,7 @@ def _add_call_item_to_queue(pending_work_items,
             else:
                 del pending_work_items[work_id]
                 continue
+
 
 def _queue_management_worker(executor_reference,
                              processes,
@@ -242,10 +257,10 @@ def _queue_management_worker(executor_reference,
             process workers.
     """
     executor = None
-
+    
     def shutting_down():
         return _shutdown or executor is None or executor._shutdown_thread
-
+    
     def shutdown_worker():
         # This is an upper bound
         nb_children_alive = sum(p.is_alive() for p in processes.values())
@@ -257,14 +272,14 @@ def _queue_management_worker(executor_reference,
         # some multiprocessing.Queue methods may deadlock on Mac OS X.
         for p in processes.values():
             p.join()
-
+    
     reader = result_queue._reader
-
+    
     while True:
         _add_call_item_to_queue(pending_work_items,
                                 work_ids_queue,
                                 call_queue)
-
+        
         sentinels = [p.sentinel for p in processes.values()]
         assert sentinels
         ready = wait([reader] + sentinels)
@@ -332,8 +347,11 @@ def _queue_management_worker(executor_reference,
                 pass
         executor = None
 
+
 _system_limits_checked = False
 _system_limited = None
+
+
 def _check_system_limits():
     global _system_limits_checked, _system_limited
     if _system_limits_checked:
@@ -386,15 +404,15 @@ class ProcessPoolExecutor(_base.Executor):
                 worker processes will be created as the machine has processors.
         """
         _check_system_limits()
-
+        
         if max_workers is None:
             self._max_workers = os.cpu_count() or 1
         else:
             if max_workers <= 0:
                 raise ValueError("max_workers must be greater than 0")
-
+            
             self._max_workers = max_workers
-
+        
         # Make the call queue slightly larger than the number of processes to
         # prevent the worker processes from idling. But don't make it too big
         # because futures in the call queue cannot be cancelled.
@@ -409,64 +427,66 @@ class ProcessPoolExecutor(_base.Executor):
         self._queue_management_thread = None
         # Map of pids to processes
         self._processes = {}
-
+        
         # Shutdown is a two-step process.
         self._shutdown_thread = False
         self._shutdown_lock = threading.Lock()
         self._broken = False
         self._queue_count = 0
         self._pending_work_items = {}
-
+    
     def _start_queue_management_thread(self):
         # When the executor gets lost, the weakref callback will wake up
         # the queue management thread.
         def weakref_cb(_, q=self._result_queue):
             q.put(None)
+        
         if self._queue_management_thread is None:
             # Start the processes so that their sentinels are known.
             self._adjust_process_count()
             self._queue_management_thread = threading.Thread(
-                    target=_queue_management_worker,
-                    args=(weakref.ref(self, weakref_cb),
-                          self._processes,
-                          self._pending_work_items,
-                          self._work_ids,
-                          self._call_queue,
-                          self._result_queue))
+                target=_queue_management_worker,
+                args=(weakref.ref(self, weakref_cb),
+                      self._processes,
+                      self._pending_work_items,
+                      self._work_ids,
+                      self._call_queue,
+                      self._result_queue))
             self._queue_management_thread.daemon = True
             self._queue_management_thread.start()
             _threads_queues[self._queue_management_thread] = self._result_queue
-
+    
     def _adjust_process_count(self):
         for _ in range(len(self._processes), self._max_workers):
             p = multiprocessing.Process(
-                    target=_process_worker,
-                    args=(self._call_queue,
-                          self._result_queue))
+                target=_process_worker,
+                args=(self._call_queue,
+                      self._result_queue))
             p.start()
             self._processes[p.pid] = p
-
+    
     def submit(self, fn, *args, **kwargs):
         with self._shutdown_lock:
             if self._broken:
                 raise BrokenProcessPool('A child process terminated '
-                    'abruptly, the process pool is not usable anymore')
+                                        'abruptly, the process pool is not usable anymore')
             if self._shutdown_thread:
                 raise RuntimeError('cannot schedule new futures after shutdown')
-
+            
             f = _base.Future()
             w = _WorkItem(f, fn, args, kwargs)
-
+            
             self._pending_work_items[self._queue_count] = w
             self._work_ids.put(self._queue_count)
             self._queue_count += 1
             # Wake up queue management thread
             self._result_queue.put(None)
-
+            
             self._start_queue_management_thread()
             return f
+    
     submit.__doc__ = _base.Executor.submit.__doc__
-
+    
     def map(self, fn, *iterables, timeout=None, chunksize=1):
         """Returns an iterator equivalent to map(fn, iter).
 
@@ -490,12 +510,12 @@ class ProcessPoolExecutor(_base.Executor):
         """
         if chunksize < 1:
             raise ValueError("chunksize must be >= 1.")
-
+        
         results = super().map(partial(_process_chunk, fn),
                               _get_chunks(*iterables, chunksize=chunksize),
                               timeout=timeout)
         return _chain_from_iterable_of_lists(results)
-
+    
     def shutdown(self, wait=True):
         with self._shutdown_lock:
             self._shutdown_thread = True
@@ -510,6 +530,8 @@ class ProcessPoolExecutor(_base.Executor):
         self._call_queue = None
         self._result_queue = None
         self._processes = None
+    
     shutdown.__doc__ = _base.Executor.shutdown.__doc__
+
 
 atexit.register(_python_exit)
