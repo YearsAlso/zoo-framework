@@ -25,6 +25,11 @@ class Master(object):
         else:
             raise Exception("Master hasn't available waiter,the application can't start.")
     
+    def change_waiter(self, waiter):
+        if self.waiter is not None:
+            raise Exception("")
+        self.waiter = waiter
+    
     def config(self):
         for key, value in config_funcs.items():
             value()
