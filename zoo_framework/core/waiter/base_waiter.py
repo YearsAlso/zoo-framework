@@ -1,3 +1,5 @@
+import time
+
 from zoo_framework.handler.event_reactor import EventReactor
 
 from zoo_framework.constant import WorkerConstant
@@ -8,6 +10,7 @@ from concurrent.futures import ProcessPoolExecutor
 from zoo_framework.handler.waiter_result_handler import WaiterResultHandler
 from zoo_framework.workers import BaseWorker
 from multiprocessing import Pool
+
 
 class BaseWaiter(object):
     _lock = None
@@ -23,7 +26,7 @@ class BaseWaiter(object):
         # 资源池初始化
         self.resource_pool = None
         self.workers = []
-        self.worker_dict = {}
+        self.worker_props = {}
         self.register_handler()
     
     def register_handler(self):
@@ -59,7 +62,7 @@ class BaseWaiter(object):
             
             if worker.is_loop:
                 workers.append(worker)
-            if self.worker_dict.get(worker.name) is None:
+            if self.worker_props.get(worker.name) is None:
                 self._dispatch_worker(worker)
         
         self.workers = workers
@@ -74,13 +77,17 @@ class BaseWaiter(object):
             return
         
         # master._dict_lock.acquire(blocking=True, timeout=1)
-        master.worker_dict[worker.name] = worker
+        master.worker_props[worker.name] = {
+            "worker": worker,
+            "run_time": time.time(),
+            "run_timeout": None
+        }
         # master._dict_lock.release()
         
         result = worker.run()
         
         # master._dict_lock.acquire(blocking=True, timeout=1)
-        del master.worker_dict[worker.name]
+        del master.worker_props[worker.name]
         # master._dict_lock.release()
         
         return result
