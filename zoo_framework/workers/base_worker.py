@@ -23,6 +23,10 @@ class BaseWorker(object):
         return False
     
     @property
+    def run_timeout(self):
+        return self._props.get('run_timeout')
+    
+    @property
     def name(self):
         if self._props.get('name'):
             return str(self._props.get('name')) + "_" + str(self.num)

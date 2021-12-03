@@ -1,5 +1,6 @@
 import time
 
+from constant import WaiterConstant
 from zoo_framework.handler.event_reactor import EventReactor
 
 from zoo_framework.constant import WorkerConstant
@@ -28,6 +29,17 @@ class BaseWaiter(object):
         self.workers = []
         self.worker_props = {}
         self.register_handler()
+    
+    def get_worker_mode(self):
+        if self.pool_enable:
+            if self.worker_mode == WorkerConstant.RUN_MODE_PROCESS:
+                return WaiterConstant.WORKER_MODE_PROCESS_POOL
+            elif self.worker_mode == WorkerConstant.RUN_MODE_THREAD:
+                return WaiterConstant.WORKER_MODE_THREAD_POOL
+        elif self.worker_mode == WorkerConstant.RUN_MODE_PROCESS:
+            return WaiterConstant.WORKER_MODE_PROCESS
+        elif self.worker_mode == WorkerConstant.RUN_MODE_THREAD:
+            return WaiterConstant.WORKER_MODE_THREAD
     
     def register_handler(self):
         from zoo_framework.handler.event_reactor import EventReactor
@@ -68,27 +80,59 @@ class BaseWaiter(object):
         self.workers = workers
     
     def _dispatch_worker(self, worker):
-        pass
+        '''
+        派遣 worker
+        :param worker:
+        :return:
+        '''
+        if self.worker_mode is WaiterConstant.WORKER_MODE_PROCESS_POOL:
+            sub_res = self.resource_pool.apply_async(self.worker_running,
+                                                     args=(worker, self.worker_running_callback))
+            self.register_worker(worker, sub_res)
+        elif self.worker_mode is WaiterConstant.WORKER_MODE_THREAD_POOL:
+            t = self.resource_pool.submit(self.worker_running, worker, self.worker_running_callback)
+            t.add_done_callback(self.worker_report)
+            self.register_worker(worker, t)
+        elif self.worker_mode is WaiterConstant.WORKER_MODE_PROCESS:
+            from multiprocessing import Process
+            p = Process(target=self.worker_running, args=(worker, self.worker_running_callback))
+            p.start()
+            self.register_worker(worker, p)
+        elif self.worker_mode is WaiterConstant.WORKER_MODE_THREAD:
+            from threading import Thread
+            t = Thread(target=self.worker_running, args=(worker, self.worker_running_callback))
+            t.start()
+            self.register_worker(worker, t)
+    
+    def register_worker(self, worker, worker_container):
+        '''
+        register the worker to self.worker_props
+        :param worker: worker
+        :param worker_container: worker running thread or process
+        :return:
+        '''
+        self.worker_props[worker.name] = {
+            "worker": worker,
+            "run_time": time.time(),
+            "run_timeout": worker.run_timeout,
+            "container": worker_container
+        }
+    
+    def unregister_worker(self, worker):
+        del self.worker_props[worker.name]
+    
+    def worker_running_callback(self, worker):
+        self.unregister_worker(worker)
     
     # 派遣worker
-    @staticmethod
-    def worker_running(master, worker):
+    def worker_running(self, worker, callback=None):
         if not isinstance(worker, BaseWorker):
             return
         
-        # master._dict_lock.acquire(blocking=True, timeout=1)
-        master.worker_props[worker.name] = {
-            "worker": worker,
-            "run_time": time.time(),
-            "run_timeout": None
-        }
-        # master._dict_lock.release()
-        
         result = worker.run()
         
-        # master._dict_lock.acquire(blocking=True, timeout=1)
-        del master.worker_props[worker.name]
-        # master._dict_lock.release()
+        if callback is not None:
+            callback(worker)
         
         return result
     
