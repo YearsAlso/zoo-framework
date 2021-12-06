@@ -19,9 +19,8 @@ class BaseWaiter(object):
     def __init__(self):
         from zoo_framework.params import WorkerParams
         # 获得模式
-        self.worker_mode = WorkerParams.WORKER_RUN_MODE
-        # 是否用池
-        self.pool_enable = WorkerParams.WORKER_POOL_ENABLE
+        self.worker_mode, self.pool_enable = self.get_worker_mode(WorkerParams.WORKER_RUN_MODE,
+                                                                  WorkerParams.WORKER_POOL_ENABLE)
         # 获得资源池的大小
         self.pool_size = WorkerParams.WORKER_POOL_SIZE
         # 资源池初始化
@@ -30,16 +29,16 @@ class BaseWaiter(object):
         self.worker_props = {}
         self.register_handler()
     
-    def get_worker_mode(self):
-        if self.pool_enable:
-            if self.worker_mode == WorkerConstant.RUN_MODE_PROCESS:
-                return WaiterConstant.WORKER_MODE_PROCESS_POOL
-            elif self.worker_mode == WorkerConstant.RUN_MODE_THREAD:
-                return WaiterConstant.WORKER_MODE_THREAD_POOL
-        elif self.worker_mode == WorkerConstant.RUN_MODE_PROCESS:
-            return WaiterConstant.WORKER_MODE_PROCESS
-        elif self.worker_mode == WorkerConstant.RUN_MODE_THREAD:
-            return WaiterConstant.WORKER_MODE_THREAD
+    def get_worker_mode(self, worker_mode, pool_enable):
+        if pool_enable:
+            if worker_mode == WorkerConstant.RUN_MODE_PROCESS:
+                return WaiterConstant.WORKER_MODE_PROCESS_POOL, pool_enable
+            elif worker_mode == WorkerConstant.RUN_MODE_THREAD:
+                return WaiterConstant.WORKER_MODE_THREAD_POOL, pool_enable
+        elif worker_mode == WorkerConstant.RUN_MODE_PROCESS:
+            return WaiterConstant.WORKER_MODE_PROCESS, pool_enable
+        elif worker_mode == WorkerConstant.RUN_MODE_THREAD:
+            return WaiterConstant.WORKER_MODE_THREAD, pool_enable
     
     def register_handler(self):
         from zoo_framework.handler.event_reactor import EventReactor
@@ -53,11 +52,11 @@ class BaseWaiter(object):
         self.workers = worker_list
         
         # 生成池或者列表
-        if self.worker_mode == WorkerConstant.RUN_MODE_THREAD:
+        if self.worker_mode == WaiterConstant.WORKER_MODE_THREAD_POOL:
             if self.pool_enable:
                 self.resource_pool = ThreadPoolExecutor(max_workers=self.pool_size)
         
-        if self.worker_mode == WorkerConstant.RUN_MODE_PROCESS:
+        if self.worker_mode == WaiterConstant.WORKER_MODE_PROCESS_POOL:
             if self.pool_enable:
                 self.resource_pool = Pool(processes=self.pool_size)
     
