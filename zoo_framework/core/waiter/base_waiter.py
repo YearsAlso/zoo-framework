@@ -68,6 +68,8 @@ class BaseWaiter(object):
     def execute_service(self):
         workers = []
         for worker in self.workers:
+            self.worker_band(worker.name)
+            
             if worker is None:
                 continue
             
@@ -109,7 +111,32 @@ class BaseWaiter(object):
     
     def worker_band(self, worker_name):
         # 根据模式
-        pass
+        worker_prop = self.worker_props.get(worker_name)
+        if worker_prop is None:
+            return
+
+        worker = worker_prop.get("worker")
+        run_time = worker_prop.get("run_time")
+        run_timeout = worker_prop.get("run_timeout")
+        container = worker_prop.get("container")
+        
+        now_time = time.time()
+        
+        if now_time - run_time < run_timeout:
+            return
+        
+        if self.worker_mode is WaiterConstant.WORKER_MODE_PROCESS_POOL:
+            container.close()
+        elif self.worker_mode is WaiterConstant.WORKER_MODE_THREAD_POOL:
+            if container.cancel() is False:
+                return
+        elif self.worker_mode is WaiterConstant.WORKER_MODE_PROCESS:
+            container.terminate()
+        elif self.worker_mode is WaiterConstant.WORKER_MODE_THREAD:
+            container.kill()
+            
+        self.unregister_worker(worker)
+        
     
     def register_worker(self, worker, worker_container):
         '''
