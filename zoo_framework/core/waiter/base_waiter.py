@@ -73,6 +73,10 @@ class BaseWaiter(object):
             
             if worker.is_loop:
                 workers.append(worker)
+                
+            # 判定是否超时
+            self.worker_band(worker.name)
+            
             if self.worker_props.get(worker.name) is None:
                 self._dispatch_worker(worker)
         
@@ -102,6 +106,10 @@ class BaseWaiter(object):
             t = Thread(target=self.worker_running, args=(worker, self.worker_running_callback))
             t.start()
             self.register_worker(worker, t)
+    
+    def worker_band(self, worker_name):
+        # 根据模式
+        pass
     
     def register_worker(self, worker, worker_container):
         '''
