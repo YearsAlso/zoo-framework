@@ -10,10 +10,9 @@
     "picklePath": "./zooStates.pic"
   },
   "worker": {
-    "mode": "process",
     "runPolicy": "simple",
     "pool": {
-      "size": 5,
+      "size": 16,
       "enable": false
     }
   }

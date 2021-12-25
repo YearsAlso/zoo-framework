@@ -19,8 +19,7 @@ class BaseWaiter(object):
     def __init__(self):
         from zoo_framework.params import WorkerParams
         # 获得模式
-        self.worker_mode, self.pool_enable = self.get_worker_mode(WorkerParams.WORKER_RUN_MODE,
-                                                                  WorkerParams.WORKER_POOL_ENABLE)
+        self.worker_mode, self.pool_enable = self.get_worker_mode(WorkerParams.WORKER_POOL_ENABLE)
         # 获得资源池的大小
         self.pool_size = WorkerParams.WORKER_POOL_SIZE
         # 资源池初始化
@@ -29,15 +28,10 @@ class BaseWaiter(object):
         self.worker_props = {}
         self.register_handler()
     
-    def get_worker_mode(self, worker_mode, pool_enable):
+    def get_worker_mode(self, pool_enable):
         if pool_enable:
-            if worker_mode == WorkerConstant.RUN_MODE_PROCESS:
-                return WaiterConstant.WORKER_MODE_PROCESS_POOL, pool_enable
-            elif worker_mode == WorkerConstant.RUN_MODE_THREAD:
-                return WaiterConstant.WORKER_MODE_THREAD_POOL, pool_enable
-        elif worker_mode == WorkerConstant.RUN_MODE_PROCESS:
-            return WaiterConstant.WORKER_MODE_PROCESS, pool_enable
-        elif worker_mode == WorkerConstant.RUN_MODE_THREAD:
+            return WaiterConstant.WORKER_MODE_THREAD_POOL, pool_enable
+        else:
             return WaiterConstant.WORKER_MODE_THREAD, pool_enable
     
     def register_handler(self):
@@ -53,12 +47,7 @@ class BaseWaiter(object):
         
         # 生成池或者列表
         if self.worker_mode == WaiterConstant.WORKER_MODE_THREAD_POOL:
-            if self.pool_enable:
-                self.resource_pool = ThreadPoolExecutor(max_workers=self.pool_size)
-        
-        if self.worker_mode == WaiterConstant.WORKER_MODE_PROCESS_POOL:
-            if self.pool_enable:
-                self.resource_pool = Pool(processes=self.pool_size)
+            self.resource_pool = ThreadPoolExecutor(max_workers=self.pool_size)
     
     def __del__(self):
         if self.resource_pool is not None:
@@ -90,19 +79,10 @@ class BaseWaiter(object):
         :param worker:
         :return:
         '''
-        if self.worker_mode is WaiterConstant.WORKER_MODE_PROCESS_POOL:
-            sub_res = self.resource_pool.apply_async(self.worker_running,
-                                                     args=(worker, self.worker_running_callback))
-            self.register_worker(worker, sub_res)
-        elif self.worker_mode is WaiterConstant.WORKER_MODE_THREAD_POOL:
+        if self.worker_mode is WaiterConstant.WORKER_MODE_THREAD_POOL:
             t = self.resource_pool.submit(self.worker_running, worker, self.worker_running_callback)
             t.add_done_callback(self.worker_report)
             self.register_worker(worker, t)
-        elif self.worker_mode is WaiterConstant.WORKER_MODE_PROCESS:
-            from multiprocessing import Process
-            p = Process(target=self.worker_running, args=(worker, self.worker_running_callback))
-            p.start()
-            self.register_worker(worker, p)
         elif self.worker_mode is WaiterConstant.WORKER_MODE_THREAD:
             from threading import Thread
             t = Thread(target=self.worker_running, args=(worker, self.worker_running_callback))
@@ -125,17 +105,17 @@ class BaseWaiter(object):
         if now_time - run_time < run_timeout:
             return
         
-        if self.worker_mode is WaiterConstant.WORKER_MODE_PROCESS_POOL:
-            container.close()
-        elif self.worker_mode is WaiterConstant.WORKER_MODE_THREAD_POOL:
-            if container.cancel() is False:
-                return
-        elif self.worker_mode is WaiterConstant.WORKER_MODE_PROCESS:
-            container.terminate()
-        elif self.worker_mode is WaiterConstant.WORKER_MODE_THREAD:
-            container.kill()
-            
-        self.unregister_worker(worker)
+        # if self.worker_mode is WaiterConstant.WORKER_MODE_PROCESS_POOL:
+        #     container.close()
+        # elif self.worker_mode is WaiterConstant.WORKER_MODE_THREAD_POOL:
+        #     if container.cancel() is False:
+        #         return
+        # elif self.worker_mode is WaiterConstant.WORKER_MODE_PROCESS:
+        #     container.terminate()
+        # elif self.worker_mode is WaiterConstant.WORKER_MODE_THREAD:
+        #     container.kill()
+        #
+        # self.unregister_worker(worker)
         
     
     def register_worker(self, worker, worker_container):
@@ -153,7 +133,8 @@ class BaseWaiter(object):
         }
     
     def unregister_worker(self, worker):
-        del self.worker_props[worker.name]
+        if self.worker_props.get(worker.name) is not None:
+            del self.worker_props[worker.name]
     
     def worker_running_callback(self, worker):
         self.unregister_worker(worker)

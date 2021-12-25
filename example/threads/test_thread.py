@@ -5,7 +5,7 @@ from zoo_framework import LogUtils, worker
 from zoo_framework.workers import BaseWorker
 
 
-@worker(count=3)
+@worker(count=6)
 class TestThread(BaseWorker):
     def __init__(self):
         BaseWorker.__init__(self, {
@@ -18,4 +18,4 @@ class TestThread(BaseWorker):
     
     def _execute(self):
         LogUtils.debug("Test", TestThread.__name__)
-        sleep(20)
+        # sleep(20)
