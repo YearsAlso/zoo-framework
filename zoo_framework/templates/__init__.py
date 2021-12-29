@@ -1,14 +1,14 @@
 
 
-thread_template = '''from zoo_framework.threads import BaseThread
+worker_template = '''from zoo_framework.workers import BaseWorker
 
 
-class {{thread_name.title()}}Thread(BaseThread):
+class {{worker_name.title()}}Worker(BaseWorker):
     def __init__(self):
-        BaseThread.__init__(self, {
+        BaseWorker.__init__(self, {
             "is_loop": True,
             "delay_time": 10,
-            "name": "{{thread_name}}_thread"
+            "name": "{{worker_name}}_worker"
         })
 
     def _execute(self):
@@ -23,8 +23,8 @@ class {{thread_name.title()}}Thread(BaseThread):
     def _on_done(self):
         pass'''
 
-thread_mod_insert_template = """
-\r\nfrom .{{thread_name}}_thread import {{thread_name.title()}}Thread
+worker_mod_insert_template = """
+\r\nfrom .{{worker_name}}_worker import {{worker_name.title()}}Worker
 """
 
 main_template = """

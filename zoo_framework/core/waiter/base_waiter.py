@@ -1,6 +1,6 @@
 import time
 
-from constant import WaiterConstant
+from zoo_framework.constant import WaiterConstant
 from zoo_framework.handler.event_reactor import EventReactor
 
 from zoo_framework.constant import WorkerConstant
@@ -105,17 +105,14 @@ class BaseWaiter(object):
         if now_time - run_time < run_timeout:
             return
         
-        # if self.worker_mode is WaiterConstant.WORKER_MODE_PROCESS_POOL:
-        #     container.close()
-        # elif self.worker_mode is WaiterConstant.WORKER_MODE_THREAD_POOL:
-        #     if container.cancel() is False:
-        #         return
-        # elif self.worker_mode is WaiterConstant.WORKER_MODE_PROCESS:
-        #     container.terminate()
-        # elif self.worker_mode is WaiterConstant.WORKER_MODE_THREAD:
-        #     container.kill()
-        #
-        # self.unregister_worker(worker)
+
+        if self.worker_mode is WaiterConstant.WORKER_MODE_THREAD_POOL:
+            if container.cancel() is False:
+                return
+        elif self.worker_mode is WaiterConstant.WORKER_MODE_THREAD:
+            container.kill()
+
+        self.unregister_worker(worker)
         
     
     def register_worker(self, worker, worker_container):

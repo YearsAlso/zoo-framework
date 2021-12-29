@@ -5,13 +5,13 @@ with open("README.md", "r") as f:
     long_description = f.read()
 
 setup(name='zoo-framework',  # 包名
-      version='0.3.1',  # 版本号
+      version='0.3.2',  # 版本号
       description='A simple and quick multi-threaded framework',
       long_description_content_type="text/markdown",
       long_description=long_description,
       author='XiangMeng',
       author_email='mengxiang931015@live.com',
-      install_requires=["click","jinja2"],
+      install_requires=["click","jinja2","gevent"],
       license='Apache License',
       packages=find_packages(),
       platforms=["all"],
@@ -30,4 +30,4 @@ setup(name='zoo-framework',  # 包名
       entry_points={
           'console_scripts': ['zfc = zoo_framework.__main__:zfc']
       }
-      )
+)
