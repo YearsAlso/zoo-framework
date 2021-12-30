@@ -18,4 +18,4 @@ class TestThread(BaseWorker):
     
     def _execute(self):
         LogUtils.debug("Test", TestThread.__name__)
-        sleep(20)
+        # sleep(20)

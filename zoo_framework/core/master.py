@@ -38,5 +38,5 @@ class Master(object):
         while True:
             self.waiter.execute_service()
             if self.loop_interval > 0:
-                LogUtils.info("Master Sleep")
+                LogUtils.debug("Master Sleep")
                 sleep(self.loop_interval)

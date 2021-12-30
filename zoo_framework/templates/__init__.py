@@ -1,8 +1,9 @@
 
 
 worker_template = '''from zoo_framework.workers import BaseWorker
+from zoo_framework import worker
 
-
+@worker(count=1)
 class {{worker_name.title()}}Worker(BaseWorker):
     def __init__(self):
         BaseWorker.__init__(self, {

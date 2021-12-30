@@ -1,4 +1,4 @@
-from zoo_framework.core import Master,worker_list
+from zoo_framework.core import Master, worker_list
 import threads
 
 

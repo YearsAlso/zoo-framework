@@ -101,18 +101,21 @@ class BaseWaiter(object):
         container = worker_prop.get("container")
         
         now_time = time.time()
-        
-        if now_time - run_time < run_timeout:
+
+        if run_timeout is None or run_timeout <= 0:
             return
         
-
-        if self.worker_mode is WaiterConstant.WORKER_MODE_THREAD_POOL:
-            if container.cancel() is False:
-                return
-        elif self.worker_mode is WaiterConstant.WORKER_MODE_THREAD:
-            container.kill()
-
-        self.unregister_worker(worker)
+        if (now_time - run_time) < run_timeout:
+            return
+        
+        #
+        # if self.worker_mode is WaiterConstant.WORKER_MODE_THREAD_POOL:
+        #     if container.cancel() is False:
+        #         return
+        # elif self.worker_mode is WaiterConstant.WORKER_MODE_THREAD:
+        #     container.kill()
+        #
+        # self.unregister_worker(worker)
         
     
     def register_worker(self, worker, worker_container):
