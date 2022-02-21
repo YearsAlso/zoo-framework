@@ -1,19 +1,18 @@
-from zoo_framework.params import StateMachineParams
-from core import worker
+
+
 from zoo_framework.statemachine.state_machine_manager import StateMachineManager
-from utils import FileUtils
+from zoo_framework.utils import FileUtils
 from .base_worker import BaseWorker
 import pickle
 
 
-@worker()
 class StateMachineWorker(BaseWorker):
     
     def __init__(self):
         BaseWorker.__init__(self, {
             "is_loop": True,
             "delay_time": 5,
-            "name": "StateMachineThread"
+            "name": "StateMachineWorker"
         })
         self.is_loop = True
     
@@ -21,6 +20,7 @@ class StateMachineWorker(BaseWorker):
         pass
     
     def _execute(self):
+        from zoo_framework.params import StateMachineParams
         state_machine_manager = StateMachineManager()
         
         if state_machine_manager.have_loaded() is False:

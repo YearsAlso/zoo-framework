@@ -26,14 +26,13 @@ class BaseHandler:
         if events is None:
             return
 
-        event_handler = events.get(topic)
-        if event_handler is None:
+        event = events.get(topic)
+        if event is None:
             return
 
         try:
             _content = self._serialize_content(content)
-            g = gevent.spawn(event_handler, _content)
-            g.join(self.event_timout)
+            event(_content)
             self._on_success(topic, content)
         except Exception as e:
             self._on_error(topic, content, e)

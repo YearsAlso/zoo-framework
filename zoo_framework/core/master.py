@@ -1,6 +1,7 @@
 from time import sleep
 
-from zoo_framework.core.waiter import WaiterFactory
+from zoo_framework.workers.event_worker import EventWorker
+from zoo_framework.workers import StateMachineWorker
 from zoo_framework.utils import LogUtils
 
 from .aop import worker_list, config_funcs
@@ -9,12 +10,15 @@ from .params_factory import ParamsFactory
 
 class Master(object):
     def __init__(self, loop_interval=1):
+        from zoo_framework.core.waiter import WaiterFactory
         # load params
         ParamsFactory("./config.json")
         self.config()
         
         from zoo_framework.params import WorkerParams
         self.workers = worker_list
+        self.workers.append(StateMachineWorker())
+        self.workers.append(EventWorker())
         self.loop_interval = loop_interval
         
         # 根据策略生成waiter

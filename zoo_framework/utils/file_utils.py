@@ -1,5 +1,5 @@
 import os
-
+import shutil
 
 class FileUtils:
     @classmethod
@@ -59,3 +59,7 @@ class FileUtils:
     def create_file(cls, path):
         file = open(path, 'w')
         file.close()
+
+    @classmethod
+    def copy_file(cls, src_path,target_path):
+        shutil.copy(src_path, target_path)

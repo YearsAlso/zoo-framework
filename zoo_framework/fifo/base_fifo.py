@@ -20,8 +20,8 @@ class BaseFIFO(object):
         cls.fifo.extend(values)
 
     @classmethod
-    def size(self):
-        return len(self.fifo)
+    def size(cls):
+        return len(cls.fifo)
 
     @classmethod
     def push_values_if_null(cls, value):
