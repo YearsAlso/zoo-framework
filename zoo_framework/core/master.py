@@ -1,6 +1,6 @@
 from time import sleep
 
-from zoo_framework.workers.event_worker import EventWorker
+from register.handler_register import EventWorker
 from zoo_framework.workers import StateMachineWorker
 from zoo_framework.utils import LogUtils
 

@@ -1,4 +1,4 @@
-from zoo_framework.handler.event_reactor import EventReactor
+from zoo_framework.handler.event_reactor import HandlerRegister
 
 from zoo_framework.constant import WorkerConstant
 from .base_waiter import BaseWaiter
@@ -43,4 +43,4 @@ class SafeWaiter(BaseWaiter):
         if len(self.worker_props.keys()) == 0:
             self.rebuild_worker = True
         
-        EventReactor().dispatch(result.topic, result.content)
+        HandlerRegister().dispatch(result.topic, result.content)

@@ -3,7 +3,7 @@ from zoo_framework.handler import BaseHandler
 
 
 @cage
-class EventReactor:
+class HandlerRegister:
     handler_map: {str: BaseHandler} = {
         "default": BaseHandler()
     }

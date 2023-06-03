@@ -2,12 +2,14 @@ import time
 
 import gevent
 
+from zoo_framework import cage
 from zoo_framework.fifo.event_fifo import EventFIFO
 from zoo_framework.fifo.node import EventFIFONode
 from zoo_framework.workers import BaseWorker
-from zoo_framework.handler.event_reactor import EventReactor
+from zoo_framework.handler.event_reactor import HandlerRegister
 
 
+@cage
 class EventWorker(BaseWorker):
     def __init__(self):
         BaseWorker.__init__(self, {
@@ -16,11 +18,12 @@ class EventWorker(BaseWorker):
             "name": "EventWorker"
         })
         self.is_loop = True
-        
-        self.eventReactor = EventReactor()
-    
+
+        self.eventReactor = HandlerRegister()
+
     def _execute(self):
         while True:
+            g_queue = []
             # 获得需要处理的事件
             while EventFIFO.size() > 0:
                 node: EventFIFONode = EventFIFO.pop_value()
@@ -28,6 +31,8 @@ class EventWorker(BaseWorker):
                     continue
                 handler = self.eventReactor.get_handler(node.handler_name)
                 g = gevent.spawn(handler.handle, (node.topic, node.content, node.handler_name))
-                # 执行处理方法
-                g.start()
+                g_queue.append(g)
+
+            # 执行处理方法
+            gevent.joinall(g_queue, timeout=5)
             time.sleep(0.2)

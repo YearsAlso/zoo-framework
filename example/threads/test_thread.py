@@ -11,8 +11,7 @@ class TestThread(BaseWorker):
         BaseWorker.__init__(self, {
             "is_loop": False,
             "delay_time": 1,
-            "name": "TestThread",
-            "run_timeout": 3
+            "name": "TestThread"
         })
         self.is_loop = True
     
