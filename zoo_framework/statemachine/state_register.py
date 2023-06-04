@@ -20,6 +20,15 @@ class StateRegister:
         """
         self._state_index_map = ThreadSafeDict()
 
+    def observe_state(self, key: str, effect: Any):
+        """
+        观察状态节点
+        """
+        node = self.get_state_node(key)
+        if node is None:
+            return
+        node.add_effect(effect)
+
     def register_top_node(self, key: str, value: Any, effect: list = None):
         """
         注册根节点
@@ -32,6 +41,10 @@ class StateRegister:
         """
         注册状态节点
         """
+        if len(key.split(".")) == 1:
+            self.register_top_node(key, value, effect)
+            return
+
         node = StateNode(key, value, effect)
         self._state_index_map[node.get_key()] = node
 
@@ -52,7 +65,6 @@ class StateRegister:
                 self.register_node(key, value)
             return
 
-        # TODO: 如果是字典类型,
         if StateNodeType.get_type_by_value(value) == StateNodeType.branch:
             for k, v in value.items():
                 self.set_state(f"{key}.{k}", v, effect)
@@ -62,7 +74,7 @@ class StateRegister:
             if node is None:
                 self.register_node(key, value, effect)
             else:
-                node.set_value(value)
+                node.set_state(value)
 
     def update_state_node(self, key: str, node: StateNode):
         """

@@ -70,3 +70,13 @@ class StateMachineManager(object):
         获取状态机
         """
         return self._state_register_map
+
+    def observe_state(self, scope, key, effect):
+        """
+        观察状态节点
+        """
+        if self._state_register_map.get(scope) is None:
+            self.create_scope(scope)
+
+        state_register = self._state_register_map[scope]
+        state_register.add_effect(key, effect)

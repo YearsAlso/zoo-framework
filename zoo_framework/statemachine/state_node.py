@@ -11,18 +11,18 @@ class StateNode(object):
     """
     状态节点
     """
-    _effect = []
+    _effect_list: list[types.FunctionType] = []
     _version = time.time()
     _is_top = False
     _parent: Any = None
     _children: list[Any] = []
     _type = StateNodeType.string
 
-    def __init__(self, key, value, effect=None):
-        if effect is None:
-            effect = []
+    def __init__(self, key, value, effect_list=None):
+        if effect_list is None:
+            effect_list = []
         self._value = value
-        self._effect = effect
+        self._effect_list = effect_list
         self.key = key
 
     def set_top(self, is_top: bool):
@@ -109,7 +109,7 @@ class StateNode(object):
         执行状态节点的副作用
         """
         effect_queue = []
-        for effect in self._effect:
+        for effect in self._effect_list:
             g = gevent.spawn(effect)
             effect_queue.append(g)
 
@@ -126,3 +126,12 @@ class StateNode(object):
         获取状态节点的值
         """
         return self._value
+
+    def add_effect(self, effect: types.FunctionType):
+        """
+        添加状态节点的副作用
+        """
+        if effect is None:
+            return
+        if isinstance(effect, types.FunctionType) and effect not in self._effect_list:
+            self._effect_list.append(effect)
