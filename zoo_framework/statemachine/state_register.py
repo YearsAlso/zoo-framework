@@ -20,7 +20,7 @@ class StateRegister:
         """
         self._state_index_map = ThreadSafeDict()
 
-    def observe_state(self, key: str, effect: Any):
+    def observe_state_node(self, key: str, effect: Any):
         """
         观察状态节点
         """
@@ -48,7 +48,7 @@ class StateRegister:
         node = StateNode(key, value, effect)
         self._state_index_map[node.get_key()] = node
 
-    def set_state(self, key: str, value: Any, effect: list = None):
+    def set_state_node(self, key: str, value: Any, effect: list = None):
         """
         设置状态节点的值
         """
@@ -67,7 +67,7 @@ class StateRegister:
 
         if StateNodeType.get_type_by_value(value) == StateNodeType.branch:
             for k, v in value.items():
-                self.set_state(f"{key}.{k}", v, effect)
+                self.set_state_node(f"{key}.{k}", v, effect)
             return
         else:
             node = self.get_state_node(key)
@@ -102,6 +102,8 @@ class StateRegister:
         for i in range(1, len(key_queue)):
             node: StateNode = self.get_state_node(current_key)
             children_node: StateNode = self.get_state_node(f"{current_key}.{key_queue[i]}")
+
+            # 一种key不能重复添加
             node.add_child(children_node)
 
     def get_state_node(self, key: str) -> StateNode:
@@ -138,7 +140,7 @@ class StateRegister:
             return
 
         node.set_key(target_key)
-        self.set_state(target_key, node)
+        self.set_state_node(target_key, node)
         # TODO: 删除子节点
         self.delete_state_node(key)
 
@@ -156,7 +158,7 @@ class StateRegister:
             for child in node.get_children():
                 self.delete_state_node(child.get_key())
 
-        self.set_state(key, None)
+        self.set_state_node(key, None)
 
     def copy_state_node(self, key: str, target_key: Any):
         """
@@ -167,4 +169,4 @@ class StateRegister:
             return
         new_node = copy.deepcopy(node)
         new_node.set_key(target_key)
-        self.set_state(target_key, new_node)
+        self.set_state_node(target_key, new_node)

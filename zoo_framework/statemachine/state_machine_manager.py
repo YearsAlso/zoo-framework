@@ -47,7 +47,7 @@ class StateMachineManager(object):
             self.create_scope(scope)
 
         state_register = self._state_register_map[scope]
-        state_register[key] = value
+        state_register.set_state_node(key, value)
 
     def get_state(self, scope, key):
         """
@@ -57,7 +57,7 @@ class StateMachineManager(object):
             return None
 
         state_register = self._state_register_map[scope]
-        return state_register.get(key)
+        return state_register.get_state_node(key)
 
     def remove_state(self, topic):
         """
@@ -78,5 +78,5 @@ class StateMachineManager(object):
         if self._state_register_map.get(scope) is None:
             self.create_scope(scope)
 
-        state_register = self._state_register_map[scope]
-        state_register.add_effect(key, effect)
+        state_register: StateRegister = self._state_register_map[scope]
+        state_register.observe_state_node(key, effect)

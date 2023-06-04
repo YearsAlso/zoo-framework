@@ -69,12 +69,14 @@ class StateNode(object):
         获取子节点的值
         """
         _result = {}
-        for i, child in self._children:
+        i = 0
+        for child in self._children:
             print(f"${child.get_key}:{child.get_value()}")
             key = child.get_key
             if key is None:
                 continue
             if key in _result.keys():
+                i += 1
                 _result[f"{key}-{i}"] = child.get_value()
             else:
                 _result[child.get_key()] = child.get_value()
@@ -110,7 +112,7 @@ class StateNode(object):
         """
         effect_queue = []
         for effect in self._effect_list:
-            g = gevent.spawn(effect)
+            g = gevent.spawn(effect, {"value": self._value, "version": self._version})
             effect_queue.append(g)
 
         gevent.joinall(effect_queue, timeout=5)
@@ -135,3 +137,9 @@ class StateNode(object):
             return
         if isinstance(effect, types.FunctionType) and effect not in self._effect_list:
             self._effect_list.append(effect)
+
+    def get_children(self) -> list[Any]:
+        """
+        获取子节点
+        """
+        return self._children
