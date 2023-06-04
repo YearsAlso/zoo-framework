@@ -47,3 +47,7 @@ class ThreadSafeDict:
     def get(self, handler_name):
         with self._lock:
             return self._dict.get(handler_name)
+
+    def has_key(self, key):
+        with self._lock:
+            return key in self._dict

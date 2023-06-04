@@ -1,6 +1,6 @@
-from core.thread_safe_dict import ThreadSafeDict
+from zoo_framework.core.thread_safe_dict import ThreadSafeDict
 from zoo_framework.core import cage
-from statemachine.state_register import StateRegister
+from zoo_framework.statemachine.state_register import StateRegister
 
 
 @cage
