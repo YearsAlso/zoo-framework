@@ -2,11 +2,11 @@ import time
 
 import gevent
 
-from zoo_framework import cage
+from zoo_framework.core.aop import cage
 from zoo_framework.fifo.event_fifo import EventFIFO
 from zoo_framework.fifo.node import EventFIFONode
 from zoo_framework.workers import BaseWorker
-from zoo_framework.handler.event_reactor import HandlerRegister
+from zoo_framework.handler.handler_register import HandlerRegister
 
 
 @cage

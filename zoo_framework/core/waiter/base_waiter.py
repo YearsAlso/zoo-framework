@@ -1,7 +1,7 @@
 import time
 
 from zoo_framework.constant import WaiterConstant
-from zoo_framework.handler.event_reactor import HandlerRegister
+from zoo_framework.handler.handler_register import HandlerRegister
 
 from zoo_framework.constant import WorkerConstant
 
@@ -35,7 +35,7 @@ class BaseWaiter(object):
             return WaiterConstant.WORKER_MODE_THREAD, pool_enable
     
     def register_handler(self):
-        from zoo_framework.handler.event_reactor import HandlerRegister
+        from zoo_framework.handler.handler_register import HandlerRegister
         HandlerRegister().register("waiter", WaiterResultHandler())
     
     def init_lock(self):
