@@ -16,18 +16,20 @@ class EventWorker(BaseWorker):
             "name": "EventWorker"
         })
         self.is_loop = True
-        
+
         self.eventReactor = EventReactor()
-    
+
     def _execute(self):
         while True:
+            g_list = []
             # 获得需要处理的事件
             while EventFIFO.size() > 0:
                 node: EventFIFONode = EventFIFO.pop_value()
                 if node is None:
                     continue
                 handler = self.eventReactor.get_handler(node.handler_name)
-                g = gevent.spawn(handler.handle, (node.topic, node.content, node.handler_name))
-                # 执行处理方法
-                g.start()
+                g = gevent.spawn(handler.handle, node.topic, node.content, node.handler_name)
+                g_list.append(g)
+            # 执行处理方法
+            gevent.joinall(g_list)
             time.sleep(0.2)
