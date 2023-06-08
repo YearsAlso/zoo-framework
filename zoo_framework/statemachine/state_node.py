@@ -11,14 +11,15 @@ class StateNode(object):
     """
     状态节点
     """
-    _effect_list: list[types.FunctionType] = []
-    _version = time.time()
-    _is_top = False
-    _parent: Any = None
-    _children: list[Any] = []
-    _type = StateNodeType.string
 
     def __init__(self, key, value, effect_list=None):
+        self._effect_list: list[types.FunctionType] = []
+        self._version = time.time()
+        self._is_top = False
+        self._parent: Any = None
+        self._children: list[Any] = []
+        self._type = StateNodeType.string
+
         if effect_list is None:
             effect_list = []
         self._value = value
@@ -47,6 +48,8 @@ class StateNode(object):
         """
         添加子节点
         """
+        if child in self._children or child == self:
+            return
         self._children.append(child)
 
     def get_type(self):
@@ -97,22 +100,23 @@ class StateNode(object):
         for i, child in self._children:
             child.set_key(f"{self.key}.{i}")
 
-    def set_state(self, state):
+    def set_state(self, value):
         """
         设置状态节点的值
         """
-        StateNodeType.get_type_by_value(state)
-        self._value = state
+        version = self._version
+        self._type = StateNodeType.get_type_by_value(value)
+        self._value = value
         self._update_version()
-        self._perform_effect()
+        self._perform_effect(value, version)
 
-    def _perform_effect(self):
+    def _perform_effect(self, value, version):
         """
         执行状态节点的副作用
         """
         effect_queue = []
         for effect in self._effect_list:
-            g = gevent.spawn(effect, {"value": self._value, "version": self._version})
+            g = gevent.spawn(effect, {"value": value, "version": version})
             effect_queue.append(g)
 
         gevent.joinall(effect_queue, timeout=5)

@@ -17,13 +17,21 @@ class TestThread(BaseWorker):
         self.is_loop = True
 
     @staticmethod
-    def _on_test_number_change(value):
-        LogUtils.debug("Test", "Test number change to ")
+    def _on_test_number_change(data):
+        value = data.get('value')
+        version = data.get('version')
+        LogUtils.info("Test", f"Test number change to {value}-{version}")
+
+    def _on_create(self):
+        StateMachineManager().set_state("Test", "Test.number", 0)
+        StateMachineManager().observe_state("Test", "Test.number", self._on_test_number_change)
 
     def _execute(self):
         LogUtils.debug("Test", TestThread.__name__)
 
-        StateMachineManager().set_state("Test", "Test.number", random.Random().randint(0, 100))
-        StateMachineManager().observe_state("Test", "Test.number", TestThread._on_test_number_change)
+        state = StateMachineManager().get_state("Test", "Test.number")
+        i = state.get_value()
+        LogUtils.info("Test", i)
+        i += 1
+        StateMachineManager().set_state("Test", "Test.number", i)
         sleep(1)
-        LogUtils.info("Test", StateMachineManager().get_state("Test", "Test.number").get_value())
