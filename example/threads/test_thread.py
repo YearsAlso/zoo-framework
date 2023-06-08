@@ -6,7 +6,7 @@ from zoo_framework import LogUtils, worker, StateMachineManager
 from zoo_framework.workers import BaseWorker
 
 
-@worker(count=6)
+@worker(count=2)
 class TestThread(BaseWorker):
     def __init__(self):
         BaseWorker.__init__(self, {
@@ -15,12 +15,13 @@ class TestThread(BaseWorker):
             "name": "TestThread"
         })
         self.is_loop = True
+        self.i = 0
 
     @staticmethod
     def _on_test_number_change(data):
         value = data.get('value')
         version = data.get('version')
-        LogUtils.info("Test", f"Test number change to {value}-{version}")
+        LogUtils.info("Test", f"Test number change to {value}")
 
     def _on_create(self):
         StateMachineManager().set_state("Test", "Test.number", 0)
@@ -31,7 +32,7 @@ class TestThread(BaseWorker):
 
         state = StateMachineManager().get_state("Test", "Test.number")
         i = state.get_value()
-        LogUtils.info("Test", i)
-        i += 1
-        StateMachineManager().set_state("Test", "Test.number", i)
+        # LogUtils.info("Test", i)
+        self.i += 1
+        StateMachineManager().set_state("Test", "Test.number", self.i)
         sleep(1)
