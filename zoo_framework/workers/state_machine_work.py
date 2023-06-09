@@ -6,7 +6,6 @@ from zoo_framework.statemachine.state_machine_manager import StateMachineManager
 from zoo_framework.utils import FileUtils
 from .base_worker import BaseWorker
 import pickle
-from multiprocessing import Lock
 
 
 class StateMachineWorker(BaseWorker):
@@ -17,7 +16,6 @@ class StateMachineWorker(BaseWorker):
             "delay_time": 5,
             "name": "StateMachineWorker"
         })
-        self._lock = Lock()
         self.is_loop = True
 
     def _destroy(self, result):
@@ -26,6 +24,8 @@ class StateMachineWorker(BaseWorker):
     def _execute(self):
         from zoo_framework.params import StateMachineParams
         state_machine_manager = StateMachineManager()
+
+        # TODO: 状态树按照作用域进行划分，每个作用域对应一个文件，文件名为作用域名
 
         if state_machine_manager.have_loaded() is False:
             if FileUtils.file_exists(StateMachineParams.PICKLE_PATH):
@@ -54,6 +54,5 @@ class StateMachineWorker(BaseWorker):
             with open(StateMachineParams.PICKLE_PATH, 'wb') as f:
                 state_machines = state_machine_manager.get_state_machines()
                 copy_value = copy.deepcopy(state_machines)
-                with self._lock:
-                    pickle.dump(copy_value, f)
-        sleep(5)
+                # 加载只加载其中的值，不加载锁文件
+                pickle.dump(copy_value, f)
