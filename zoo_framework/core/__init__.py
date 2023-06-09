@@ -1,4 +1,4 @@
-from zoo_framework.core.aop import worker_list
+from zoo_framework.core.aop import worker_register
 from zoo_framework.core.aop import worker
 from zoo_framework.core.aop import cage
 from zoo_framework.core.aop import event

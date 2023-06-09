@@ -16,6 +16,7 @@ class TestThread(BaseWorker):
         })
         self.is_loop = True
         self.i = 0
+        self.state_machine_manager = StateMachineManager()
 
     @staticmethod
     def _on_test_number_change(data):

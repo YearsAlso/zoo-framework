@@ -1,4 +1,4 @@
-from multiprocessing import Manager, Lock
+from multiprocessing import Lock
 
 
 class ThreadSafeDict:

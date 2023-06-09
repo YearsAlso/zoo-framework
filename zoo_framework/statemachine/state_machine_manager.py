@@ -10,6 +10,7 @@ class StateMachineManager(object):
     """
     状态机管理器
     """
+
     def __init__(self):
         """
         初始化状态机管理器
@@ -35,9 +36,8 @@ class StateMachineManager(object):
         """
         加载状态机
         """
-        if state_machine is None:
-            state_machine = StateRegister()
-        self._state_register_map = state_machine
+        if state_machine is not None and isinstance(state_machine, dict):
+            self._state_register_map = state_machine
         self._local_store_loaded = True
 
     def get_and_create_scope(self, scope: str):

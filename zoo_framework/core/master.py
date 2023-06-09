@@ -4,7 +4,7 @@ from register.handler_register import EventWorker
 from zoo_framework.workers import StateMachineWorker
 from zoo_framework.utils import LogUtils
 
-from .aop import worker_list, config_funcs
+from .aop import worker_register, config_funcs
 from .params_factory import ParamsFactory
 
 
@@ -16,7 +16,7 @@ class Master(object):
         self.config()
         
         from zoo_framework.params import WorkerParams
-        self.workers = worker_list
+        self.workers = worker_register
         self.workers.append(StateMachineWorker())
         self.workers.append(EventWorker())
         self.loop_interval = loop_interval

@@ -24,6 +24,9 @@ class ZooThread(threading.Thread):
                 return id
 
     def raise_exception(self):
+        """
+        引发异常
+        """
         thread_id = self.get_id()
         # 精髓就是这句话，给线程发过去一个exceptions，线程就那边响应完就停了
         res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id,
