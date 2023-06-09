@@ -10,18 +10,20 @@ class StateMachineManager(object):
     """
     状态机管理器
     """
+    def __init__(self):
+        """
+        初始化状态机管理器
+        """
+        self._state_register_map = ThreadSafeDict()
 
-    # 状态机注册表
-    _state_register_map = ThreadSafeDict()
+        # 本地存储是否已经加载
+        self._local_store_loaded = False
 
-    # 本地存储是否已经加载
-    _local_store_loaded = False
+        # 本地存储策略
+        self._local_store_strategy = None
 
-    # 本地存储策略
-    _local_store_strategy = None
-
-    # 本地存储时间间隔
-    _local_store_interval = 0
+        # 本地存储时间间隔
+        self._local_store_interval = 0
 
     def have_loaded(self):
         """
@@ -78,11 +80,28 @@ class StateMachineManager(object):
 
         return node.get_value()
 
-    def remove_state(self, scope: str):
+    def remove_state(self, scope: str, key: str):
         """
         移除状态节点
         """
-        self._state_register_map[scope] = None
+        if self._state_register_map.get(scope) is None:
+            return None
+
+        if self._state_register_map[scope].get_state_node(key) is None:
+            return None
+
+        # 移除状态节点
+        state_register: StateRegister = self._state_register_map[scope]
+        node = state_register.get_state_node(key)
+
+        value = node.get_value()
+        state_register.remove_state_node(key)
+
+        # 如果是头部节点，移除作用域
+        if node.is_top():
+            self._state_register_map.pop(scope)
+
+        return value
 
     def get_state_machines(self):
         """

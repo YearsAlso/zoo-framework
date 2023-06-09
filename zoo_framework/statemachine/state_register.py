@@ -142,9 +142,9 @@ class StateRegister:
         node.set_key(target_key)
         self.set_state_node(target_key, node)
         # TODO: 删除子节点
-        self.delete_state_node(key)
+        self.remove_state_node(key)
 
-    def delete_state_node(self, key: str):
+    def remove_state_node(self, key: str):
         """
         删除状态节点
         """
@@ -156,7 +156,7 @@ class StateRegister:
         if node.get_type() == StateNodeType.branch:
             # 如果是分支节点，删除所有子节点
             for child in node.get_children():
-                self.delete_state_node(child.get_key())
+                self.remove_state_node(child.get_key())
 
         self.set_state_node(key, None)
 

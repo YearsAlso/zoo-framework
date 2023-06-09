@@ -38,3 +38,30 @@ class TestStateMache(unittest.TestCase):
         for i in range(1, 10):
             StateMachineManager().set_state("Test", "Test.number", i)
             sleep(1)
+
+    def test_key_depth(self):
+        """
+        测试键深度
+        """
+
+        StateMachineManager().set_state("Test", "Test.number", 0)
+        StateMachineManager().set_state("Test", "Test.number.1", 1)
+        StateMachineManager().set_state("Test", "Test.number.1.1", 2)
+        StateMachineManager().set_state("Test", "Test.number.1.1.1", 3)
+
+        self.assertEqual(StateMachineManager().get_state("Test", "Test.number"), 0)
+        self.assertEqual(StateMachineManager().get_state("Test", "Test.number.1"), 1)
+        self.assertEqual(StateMachineManager().get_state("Test", "Test.number.1.1"), 2)
+        self.assertEqual(StateMachineManager().get_state("Test", "Test.number.1.1.1"), 3)
+
+    # 测试删除性能
+    def test_delete(self):
+        """
+        测试删除性能
+        """
+
+        StateMachineManager().remove_state("Test", "Test.number")
+        StateMachineManager().remove_state("Test", "Test.number.1")
+        StateMachineManager().remove_state("Test", "Test.number.1.1")
+        StateMachineManager().remove_state("Test", "Test.number.1.1.1")
+

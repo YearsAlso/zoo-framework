@@ -32,6 +32,12 @@ class StateNode(object):
         """
         self._is_top = is_top
 
+    def is_top(self):
+        """
+        是否是根节点
+        """
+        return self._is_top
+
     def to_be_top(self):
         """
         设置为根节点

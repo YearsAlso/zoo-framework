@@ -51,3 +51,7 @@ class ThreadSafeDict:
     def has_key(self, key):
         with self._lock:
             return key in self._dict
+
+    def pop(self, key):
+        with self._lock:
+            return self._dict.pop(key)
