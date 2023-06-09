@@ -30,9 +30,8 @@ class TestThread(BaseWorker):
     def _execute(self):
         LogUtils.debug("Test", TestThread.__name__)
 
-        state = StateMachineManager().get_state("Test", "Test.number")
-        i = state.get_value()
-        # LogUtils.info("Test", i)
+        i = StateMachineManager().get_state("Test", "Test.number")
+        LogUtils.info("Test", i)
         self.i += 1
         StateMachineManager().set_state("Test", "Test.number", self.i)
         sleep(1)

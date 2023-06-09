@@ -1,3 +1,5 @@
+from typing import Any
+
 from zoo_framework.core.thread_safe_dict import ThreadSafeDict
 from zoo_framework.core import cage
 from zoo_framework.statemachine.state_register import StateRegister
@@ -5,14 +7,27 @@ from zoo_framework.statemachine.state_register import StateRegister
 
 @cage
 class StateMachineManager(object):
+    """
+    状态机管理器
+    """
+
+    # 状态机注册表
     _state_register_map = ThreadSafeDict()
-    _loaded = False
+
+    # 本地存储是否已经加载
+    _local_store_loaded = False
+
+    # 本地存储策略
+    _local_store_strategy = None
+
+    # 本地存储时间间隔
+    _local_store_interval = 0
 
     def have_loaded(self):
         """
         是否已经加载
         """
-        return self._loaded
+        return self._local_store_loaded
 
     def load_state_machines(self, state_machine=None):
         """
@@ -21,9 +36,9 @@ class StateMachineManager(object):
         if state_machine is None:
             state_machine = StateRegister()
         self._state_register_map = state_machine
-        self._loaded = True
+        self._local_store_loaded = True
 
-    def get_and_create_scope(self, scope):
+    def get_and_create_scope(self, scope: str):
         """
         获取并创建作用域
         """
@@ -31,7 +46,7 @@ class StateMachineManager(object):
             self.create_scope(scope)
         return self._state_register_map[scope]
 
-    def create_scope(self, scope):
+    def create_scope(self, scope: str):
         """
         创建作用域
         """
@@ -39,7 +54,7 @@ class StateMachineManager(object):
             return
         self._state_register_map[scope] = StateRegister()
 
-    def set_state(self, scope, key, value):
+    def set_state(self, scope: str, key: str, value):
         """
         设置状态节点的值
         """
@@ -49,7 +64,7 @@ class StateMachineManager(object):
         state_register = self._state_register_map[scope]
         state_register.set_state_node(key, value)
 
-    def get_state(self, scope, key):
+    def get_state(self, scope: str, key: str) -> Any:
         """
         获取状态节点
         """
@@ -57,13 +72,17 @@ class StateMachineManager(object):
             return None
 
         state_register = self._state_register_map[scope]
-        return state_register.get_state_node(key)
+        node = state_register.get_state_node(key)
+        if None is node:
+            return None
 
-    def remove_state(self, topic):
+        return node.get_value()
+
+    def remove_state(self, scope: str):
         """
         移除状态节点
         """
-        self._state_register_map[topic] = None
+        self._state_register_map[scope] = None
 
     def get_state_machines(self):
         """
@@ -71,7 +90,7 @@ class StateMachineManager(object):
         """
         return self._state_register_map
 
-    def observe_state(self, scope, key, effect):
+    def observe_state(self, scope: str, key: str, effect: callable):
         """
         观察状态节点
         """
