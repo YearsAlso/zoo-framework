@@ -22,7 +22,7 @@ class TestThread(BaseWorker):
     def _on_test_number_change(data):
         value = data.get('value')
         version = data.get('version')
-        LogUtils.info("Test", f"Test number change to {value}")
+        LogUtils.info("Test", f"[{version}] Test number change to {value}")
 
     def _on_create(self):
         StateMachineManager().set_state("Test", "Test.number", 0)
@@ -32,7 +32,6 @@ class TestThread(BaseWorker):
         LogUtils.debug("Test", TestThread.__name__)
 
         i = StateMachineManager().get_state("Test", "Test.number")
-        LogUtils.info("Test", i)
-        self.i += 1
-        StateMachineManager().set_state("Test", "Test.number", self.i)
+        LogUtils.info(f"Test get i:[{i}],self.i:[{self.i}]")
+        StateMachineManager().set_state("Test", "Test.number", self.i + 1)
         sleep(1)

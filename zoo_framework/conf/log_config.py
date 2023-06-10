@@ -15,6 +15,17 @@ level_relations = {
 }
 
 
+log_colors_config = {
+    # 终端输出日志颜色配置
+    'debug': 'white',
+    'info': 'cyan',
+    'warning': 'yellow',
+    'error': 'red',
+    'crit': 'bold_red',
+}
+
+
+
 @configure(topic="log_config")
 def log_config(level: str = "info"):
     logger = logging.getLogger()

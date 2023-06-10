@@ -74,7 +74,7 @@ class StateRegister:
             if node is None:
                 self.register_node(key, value, effect)
             else:
-                node.set_state(value)
+                node.set_value(value)
 
     def update_state_node(self, key: str, node: StateNode):
         """

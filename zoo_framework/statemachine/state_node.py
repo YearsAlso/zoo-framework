@@ -4,6 +4,7 @@ from typing import Any
 
 import gevent
 
+from zoo_framework.utils import LogUtils
 from zoo_framework.statemachine.state_node_type import StateNodeType
 
 
@@ -14,7 +15,7 @@ class StateNode(object):
 
     def __init__(self, key, value, effect_list=None):
         self._effect_list: list[types.FunctionType] = []
-        self._version = time.time()
+        self._version = int(time.time())
         self._is_top = False
         self._parent: Any = None
         self._children: list[Any] = []
@@ -80,7 +81,7 @@ class StateNode(object):
         _result = {}
         i = 0
         for child in self._children:
-            print(f"${child.get_key}:{child.get_value()}")
+            LogUtils.debug(f"${child.get_key}:{child.get_value()}")
             key = child.get_key
             if key is None:
                 continue
@@ -106,11 +107,11 @@ class StateNode(object):
         for i, child in self._children:
             child.set_key(f"{self.key}.{i}")
 
-    def set_state(self, value):
+    def set_value(self, value):
         """
         设置状态节点的值
         """
-        version = self._version
+        version = int(time.time())
         self._type = StateNodeType.get_type_by_value(value)
         self._value = value
         self._update_version()
@@ -131,7 +132,7 @@ class StateNode(object):
         """
         更新状态节点的版本号
         """
-        self.version = time.time()
+        self.version = int(time.time())
 
     def get_state(self):
         """

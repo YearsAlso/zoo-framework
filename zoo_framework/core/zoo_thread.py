@@ -1,6 +1,8 @@
 import ctypes
 import threading
 
+from zoo_framework.utils import LogUtils
+
 
 class ZooThread(threading.Thread):
     def __init__(self, name):
@@ -11,9 +13,9 @@ class ZooThread(threading.Thread):
         # target function of the thread class
         try:  # 用try/finally 的方式处理exception，从而kill thread
             while True:
-                print('running ' + self.name)
+                LogUtils.debug('running ' + self.name)
         finally:
-            print('ended')
+            LogUtils.debug('ended')
 
     def get_id(self):
         # returns id of the respective thread
