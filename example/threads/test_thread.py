@@ -1,9 +1,11 @@
 import random
 from time import sleep
 
-from zoo_framework import LogUtils, worker, StateMachineManager
+from zoo_framework.core.aop import worker
+from zoo_framework.statemachine import StateMachineManager
 
 from zoo_framework.workers import BaseWorker
+from zoo_framework.utils import LogUtils
 
 
 @worker(count=2)
@@ -22,7 +24,7 @@ class TestThread(BaseWorker):
     def _on_test_number_change(data):
         value = data.get('value')
         version = data.get('version')
-        LogUtils.info("Test", f"[{version}] Test number change to {value}")
+        LogUtils.debug("Test", f"[{version}] Test number change to {value}")
 
     def _on_create(self):
         StateMachineManager().set_state("Test", "Test.number", 0)
