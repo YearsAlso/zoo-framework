@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import asyncio
 
-from register.handler_register import EventWorker
+from workers.event_worker import EventWorker
 from zoo_framework.workers import StateMachineWorker
 from zoo_framework.utils import LogUtils
 
@@ -18,16 +18,16 @@ class Master(object):
         self.config()
 
         from zoo_framework.params import WorkerParams
-        self.workers = worker_register
-        self.workers.register(StateMachineWorker.__name__, StateMachineWorker())
-        self.workers.append(EventWorker.__name__, EventWorker())
+        self.worker_register = worker_register
+        self.worker_register.register(StateMachineWorker.__name__, StateMachineWorker())
+        self.worker_register.register(EventWorker.__name__, EventWorker())
         self.loop_interval = loop_interval
 
         # 根据策略生成waiter
         waiter = WaiterFactory.get_waiter(WorkerParams.WORKER_RUN_POLICY)
         if waiter is not None:
             self.waiter = waiter
-            self.waiter.call_workers(self.workers)
+            self.waiter.call_workers(self.worker_register.get_all_worker())
         else:
             raise Exception("Master hasn't available waiter,the application can't start.")
 

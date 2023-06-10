@@ -1,7 +1,7 @@
 # TODO: 使用 register 的方式来注册 worker
+from zoo_framework.register import WorkerRegister
 
-
-worker_register = {}
+worker_register = WorkerRegister()
 
 
 def worker(count: int = 1):

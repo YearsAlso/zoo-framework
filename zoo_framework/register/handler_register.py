@@ -1,38 +1,37 @@
-import time
-
-import gevent
-
+from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 from zoo_framework.core.aop import cage
-from zoo_framework.fifo.event_fifo import EventFIFO
-from zoo_framework.fifo.node import EventFIFONode
-from zoo_framework.workers import BaseWorker
-from zoo_framework.handler.handler_register import HandlerRegister
 
 
 @cage
-class EventWorker(BaseWorker):
+class HandlerRegister:
+    """
+    事件处理器注册器
+    """
+    handler_map = ThreadSafeDict()
+
     def __init__(self):
-        BaseWorker.__init__(self, {
-            "is_loop": True,
-            "delay_time": 5,
-            "name": "EventWorker"
-        })
-        self.is_loop = True
+        for key, value in self.handler_map.items():
+            from zoo_framework.params import EventParams
+            value.set_event_timeout(EventParams.EVENT_JOIN_TIMEOUT)
 
-        self.eventReactor = HandlerRegister()
+    @classmethod
+    def dispatch(cls, topic, content, handler_name="default"):
+        """
+        分发事件
+        """
+        handler = cls.get_handler(handler_name)
+        handler.handle(topic, content, handler_name)
 
-    def _execute(self):
-        while True:
-            g_queue = []
-            # 获得需要处理的事件
-            while EventFIFO.size() > 0:
-                node: EventFIFONode = EventFIFO.pop_value()
-                if node is None:
-                    continue
-                handler = self.eventReactor.get_handler(node.handler_name)
-                g = gevent.spawn(handler.handle, (node.topic, node.content, node.handler_name))
-                g_queue.append(g)
+    @classmethod
+    def get_handler(cls, handler_name="default"):
+        """
+        获取事件处理器
+        """
+        return cls.handler_map.get(handler_name)
 
-            # 执行处理方法
-            gevent.joinall(g_queue, timeout=5)
-            time.sleep(0.2)
+    @classmethod
+    def register(cls, handler_name: str, handler):
+        """
+        注册事件处理器
+        """
+        cls.handler_map[handler_name] = handler

@@ -1,4 +1,4 @@
-from utils.thread_safe_dict import ThreadSafeDict
+from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 
 config_funcs = ThreadSafeDict()
 

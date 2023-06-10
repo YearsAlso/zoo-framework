@@ -1,10 +1,9 @@
 import time
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any
 
 from zoo_framework.register.worker_register import WorkerRegister
 from zoo_framework.constant import WaiterConstant
-from zoo_framework.handler.handler_register import HandlerRegister
+from zoo_framework.register.handler_register import HandlerRegister
 from zoo_framework.handler.waiter_result_handler import WaiterResultHandler
 from zoo_framework.workers import BaseWorker
 
@@ -42,15 +41,15 @@ class BaseWaiter(object):
         """
         注册handler
         """
-        from zoo_framework.handler.handler_register import HandlerRegister
+        from zoo_framework.register.handler_register import HandlerRegister
         HandlerRegister().register("waiter", WaiterResultHandler())
 
     def init_lock(self):
         pass
 
     # 集结worker们
-    def call_workers(self, worker_register: WorkerRegister):
-        self.workers = worker_register.get_all_worker()
+    def call_workers(self, worker_list: list):
+        self.workers = worker_list
 
         # 生成池或者列表
         if self.worker_mode == WaiterConstant.WORKER_MODE_THREAD_POOL:

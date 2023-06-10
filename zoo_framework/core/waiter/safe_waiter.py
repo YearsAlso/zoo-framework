@@ -1,6 +1,5 @@
-from zoo_framework.handler.handler_register import HandlerRegister
+from register.handler_register import HandlerRegister
 
-from zoo_framework.constant import WorkerConstant
 from .base_waiter import BaseWaiter
 
 

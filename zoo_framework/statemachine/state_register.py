@@ -2,7 +2,7 @@ import copy
 from typing import Any
 
 from zoo_framework.statemachine.state_node_type import StateNodeType
-from utils.thread_safe_dict import ThreadSafeDict
+from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 from zoo_framework.statemachine.state_node import StateNode
 from zoo_framework.utils import LogUtils
 

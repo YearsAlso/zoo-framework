@@ -1,4 +1,4 @@
-from utils.thread_safe_dict import ThreadSafeDict
+from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 
 # 单例对象注册器
 cage_register_map = ThreadSafeDict()

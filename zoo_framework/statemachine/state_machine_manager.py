@@ -1,6 +1,6 @@
 from typing import Any
 
-from utils.thread_safe_dict import ThreadSafeDict
+from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 from zoo_framework.core.aop import cage
 from zoo_framework.statemachine.state_register import StateRegister
 
