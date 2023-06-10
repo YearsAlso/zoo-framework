@@ -1,4 +1,4 @@
-from zoo_framework.core.thread_safe_dict import ThreadSafeDict
+from utils.thread_safe_dict import ThreadSafeDict
 from zoo_framework.core.aop import cage
 from zoo_framework.handler import BaseHandler
 

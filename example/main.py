@@ -1,4 +1,4 @@
-from zoo_framework.core import Master, worker_register
+from zoo_framework.core import Master
 import threads
 import asyncio
 
