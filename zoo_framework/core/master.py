@@ -1,4 +1,5 @@
-from time import sleep
+# -*- coding: utf-8 -*-
+import asyncio
 
 from register.handler_register import EventWorker
 from zoo_framework.workers import StateMachineWorker
@@ -39,10 +40,18 @@ class Master(object):
         for key, value in config_funcs.items():
             value()
 
-    def run(self):
+    async def perform(self):
+        """
+        执行任务
+        """
         # TODO： 可以考虑使用异步的方式来执行
         while True:
             self.waiter.execute_service()
             if self.loop_interval > 0:
                 LogUtils.debug("Master Sleep")
-                sleep(self.loop_interval)
+                await asyncio.sleep(self.loop_interval)
+
+    def run(self):
+        loop = asyncio.get_event_loop()
+        loop.create_task(self.perform())
+        loop.run_forever()

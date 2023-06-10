@@ -1,5 +1,6 @@
 from zoo_framework.core import Master, worker_register
 import threads
+import asyncio
 
 
 def main():
