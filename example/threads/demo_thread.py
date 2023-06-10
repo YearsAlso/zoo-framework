@@ -8,8 +8,8 @@ from zoo_framework.workers import BaseWorker
 from zoo_framework.utils import LogUtils
 
 
-@worker(count=2)
-class TestThread(BaseWorker):
+@worker(count=8)
+class DemoThread(BaseWorker):
     def __init__(self):
         BaseWorker.__init__(self, {
             "is_loop": False,
@@ -31,7 +31,7 @@ class TestThread(BaseWorker):
         StateMachineManager().observe_state("Test", "Test.number", self._on_test_number_change)
 
     def _execute(self):
-        LogUtils.debug("Test", TestThread.__name__)
+        LogUtils.debug("Test", DemoThread.__name__)
 
         i = StateMachineManager().get_state("Test", "Test.number")
         LogUtils.info(f"Test get i:[{i}],self.i:[{self.i}]")

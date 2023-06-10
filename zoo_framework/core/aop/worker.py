@@ -1,4 +1,4 @@
-
+# TODO: 使用 register 的方式来注册 worker
 worker_register = []
 
 

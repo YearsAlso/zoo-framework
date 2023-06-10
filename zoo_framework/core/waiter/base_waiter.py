@@ -1,4 +1,5 @@
 import time
+from typing import Any
 
 from zoo_framework.constant import WaiterConstant
 from zoo_framework.handler.handler_register import HandlerRegister
@@ -27,17 +28,25 @@ class BaseWaiter(object):
         self.pool_size = WorkerParams.WORKER_POOL_SIZE
         # 资源池初始化
         self.resource_pool = None
+
+        # TODO：将 worker 使用register的方式注册，并且属性和方法都可以通过register的方式注册
         self.workers = []
         self.worker_props = {}
         self.register_handler()
 
     def get_worker_mode(self, pool_enable):
+        """
+        获得worker的模式
+        """
         if pool_enable:
             return WaiterConstant.WORKER_MODE_THREAD_POOL, pool_enable
         else:
             return WaiterConstant.WORKER_MODE_THREAD, pool_enable
 
     def register_handler(self):
+        """
+        注册handler
+        """
         from zoo_framework.handler.handler_register import HandlerRegister
         HandlerRegister().register("waiter", WaiterResultHandler())
 
@@ -45,7 +54,7 @@ class BaseWaiter(object):
         pass
 
     # 集结worker们
-    def call_workers(self, worker_list):
+    def call_workers(self, worker_list: list[Any]):
         self.workers = worker_list
 
         # 生成池或者列表

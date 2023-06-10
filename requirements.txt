@@ -1,0 +1,5 @@
+gevent~=21.8.0
+click~=8.0.3
+Jinja2~=3.0.2
+setuptools~=49.2.1
+python-dotenv~=1.0.0
