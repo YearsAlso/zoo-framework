@@ -64,4 +64,3 @@ class TestStateMache(unittest.TestCase):
         StateMachineManager().remove_state("Test", "Test.number.1")
         StateMachineManager().remove_state("Test", "Test.number.1.1")
         StateMachineManager().remove_state("Test", "Test.number.1.1.1")
-

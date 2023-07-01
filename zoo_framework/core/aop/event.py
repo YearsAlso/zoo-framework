@@ -7,5 +7,5 @@ def event(topic: str, handler_name: str = "default"):
             event_map[handler_name] = {}
         event_map[handler_name][topic] = func
         return func
-    
+
     return inner

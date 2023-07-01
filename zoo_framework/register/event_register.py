@@ -79,4 +79,3 @@ class EventRegister:
             if index == event_index_index[1]:
                 if event.name == event_index_index[0]:
                     return event.name
-

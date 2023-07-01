@@ -4,3 +4,4 @@ Jinja2~=3.0.2
 setuptools~=49.2.1
 python-dotenv~=1.0.0
 asyncio~=3.4.3
+pre-commit~=3.3.3

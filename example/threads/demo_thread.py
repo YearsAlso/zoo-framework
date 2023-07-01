@@ -8,7 +8,7 @@ from zoo_framework.workers import BaseWorker
 from zoo_framework.utils import LogUtils
 
 
-@worker(count=8)
+@worker(count=20)
 class DemoThread(BaseWorker):
     def __init__(self):
         BaseWorker.__init__(self, {
@@ -33,6 +33,7 @@ class DemoThread(BaseWorker):
     def _execute(self):
         LogUtils.debug("Test", DemoThread.__name__)
 
+        # FIXME: 操作状态机有内存泄漏
         i = StateMachineManager().get_state("Test", "Test.number")
         LogUtils.info(f"Test get i:[{i}],self.i:[{self.i}]")
         StateMachineManager().set_state("Test", "Test.number", self.i + 1)

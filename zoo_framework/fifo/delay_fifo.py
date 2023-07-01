@@ -1,4 +1,3 @@
 
 class DelayFIFO(object):
     fifo = []
-    

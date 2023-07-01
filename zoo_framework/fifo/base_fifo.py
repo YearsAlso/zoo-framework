@@ -1,6 +1,6 @@
 class BaseFIFO(object):
     fifo = []
-    
+
     def __init__(self):
         pass
 

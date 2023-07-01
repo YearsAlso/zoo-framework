@@ -11,7 +11,7 @@ class EventFIFO(BaseFIFO):
             super().push_value(node)
         except Exception as e:
             LogUtils.error(str(e), EventFIFO.__name__)
-    
+
     @classmethod
     def dispatch(cls, topic, content, handler_name="default"):
         node = EventFIFONode({
