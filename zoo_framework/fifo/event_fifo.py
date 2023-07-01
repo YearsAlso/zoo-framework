@@ -4,16 +4,15 @@ from zoo_framework.utils import LogUtils
 
 
 class EventFIFO(BaseFIFO):
-    @classmethod
-    def push_value(cls, value):
+
+    def push_value(self, value):
         try:
             node = EventFIFONode(value)
             super().push_value(node)
         except Exception as e:
             LogUtils.error(str(e), EventFIFO.__name__)
 
-    @classmethod
-    def dispatch(cls, topic, content, handler_name="default"):
+    def dispatch(self, topic, content, handler_name="default"):
         node = EventFIFONode({
             "topic": topic,
             "content": content,

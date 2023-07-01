@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import asyncio
 
-from workers.event_worker import EventWorker
+from zoo_framework.workers import EventWorker
 from zoo_framework.workers import StateMachineWorker
 from zoo_framework.utils import LogUtils
 
@@ -11,6 +11,7 @@ from .params_factory import ParamsFactory
 
 class Master(object):
     def __init__(self, loop_interval=1):
+        # TODO: 创建各类注册器
         # TODO: loop_interval 这个参数有些多余，可以考虑去掉
         from zoo_framework.core.waiter import WaiterFactory
         # load params

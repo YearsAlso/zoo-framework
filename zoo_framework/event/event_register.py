@@ -3,6 +3,9 @@ from zoo_framework.core.aop import cage
 
 @cage
 class EventRegister:
+    """
+    事件注册器
+    """
     def __init__(self):
         self.event_list = []
 

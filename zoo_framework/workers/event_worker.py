@@ -7,7 +7,7 @@ from zoo_framework.core.aop import cage
 from zoo_framework.fifo.event_fifo import EventFIFO
 from zoo_framework.fifo.node import EventFIFONode
 from zoo_framework.workers import BaseWorker
-from zoo_framework.register.handler_register import HandlerRegister
+from zoo_framework.handler import HandlerRegister
 
 
 @cage
@@ -24,6 +24,8 @@ class EventWorker(BaseWorker):
         self.eventReactor.register("default", BaseHandler())
 
     def _execute(self):
+
+        from zoo_framework.params import EventParams
         while True:
             g_queue = []
             # 获得需要处理的事件
@@ -36,5 +38,5 @@ class EventWorker(BaseWorker):
                 g_queue.append(g)
 
             # 执行处理方法
-            gevent.joinall(g_queue, timeout=5)
+            gevent.joinall(g_queue, timeout=EventParams.EVENT_JOIN_TIMEOUT)
             time.sleep(0.2)
