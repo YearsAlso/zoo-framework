@@ -14,7 +14,6 @@ level_relations = {
     'crit': logging.CRITICAL
 }
 
-
 log_colors_config = {
     # 终端输出日志颜色配置
     'debug': 'white',
@@ -25,10 +24,13 @@ log_colors_config = {
 }
 
 
-
 @configure(topic="log_config")
 def log_config(level: str = "info"):
     logger = logging.getLogger()
+    log_config_instance(logger, level)
+
+
+def log_config_instance(logger, level: str = "info"):
     if level_relations.get(LogParams.LOG_LEVEL) is None:
         raise Exception("Config params \"log.level\"  only support to 'debug','info','warning','error','crit'")
 
@@ -49,3 +51,4 @@ def log_config(level: str = "info"):
     filer.setFormatter(formatter)
     logger.addHandler(choler)
     logger.addHandler(filer)
+    return logger
