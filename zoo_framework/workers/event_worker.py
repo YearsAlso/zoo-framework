@@ -2,12 +2,12 @@ import time
 
 import gevent
 
-from zoo_framework.handler import BaseHandler
+from zoo_framework.reactor import BaseReactor
 from zoo_framework.core.aop import cage
 from zoo_framework.fifo.event_fifo import EventFIFO
 from zoo_framework.fifo.node import EventFIFONode
 from zoo_framework.workers import BaseWorker
-from zoo_framework.handler import HandlerRegister
+from zoo_framework.reactor import EventReactorRegister
 
 
 @cage
@@ -20,8 +20,8 @@ class EventWorker(BaseWorker):
         })
         self.is_loop = True
 
-        self.eventReactor = HandlerRegister()
-        self.eventReactor.register("default", BaseHandler())
+        self.eventReactor = EventReactorRegister()
+        self.eventReactor.register("default", BaseReactor())
 
     def _execute(self):
 

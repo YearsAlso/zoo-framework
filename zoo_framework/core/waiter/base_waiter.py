@@ -2,15 +2,15 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 
 from zoo_framework.constant import WaiterConstant
-from zoo_framework.handler.handler_register import HandlerRegister
-from zoo_framework.handler.waiter_result_handler import WaiterResultHandler
+from zoo_framework.reactor.event_reactor_register import EventReactorRegister
+from zoo_framework.reactor.waiter_result_reactor import WaiterResultHandler
 from zoo_framework.workers import BaseWorker
 
 
 class BaseWaiter(object):
-    '''
-    基础的waiter
-    '''
+    """
+    基础的 waiter
+    """
     _lock = None
 
     def __init__(self):
@@ -41,8 +41,8 @@ class BaseWaiter(object):
         注册handler
         """
         # TODO: 不在使用主动注入，而是在创建注册器时，自动注册
-        from zoo_framework.handler.handler_register import HandlerRegister
-        HandlerRegister().register("waiter", WaiterResultHandler())
+        from zoo_framework.reactor.event_reactor_register import EventReactorRegister
+        EventReactorRegister().register("waiter", WaiterResultHandler())
 
     def init_lock(self):
         pass
@@ -164,4 +164,4 @@ class BaseWaiter(object):
     @staticmethod
     def worker_report(worker):
         result = worker.result()
-        HandlerRegister().dispatch(result.topic, result.content)
+        EventReactorRegister().dispatch(result.topic, result.content)

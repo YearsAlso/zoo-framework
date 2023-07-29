@@ -2,7 +2,7 @@ from zoo_framework.core.aop.event import event_map
 import gevent
 
 
-class BaseHandler:
+class BaseReactor:
     def __init__(self):
         self.event_timout = 1
 

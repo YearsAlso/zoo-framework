@@ -3,9 +3,9 @@ from zoo_framework.core.aop import cage
 
 
 @cage
-class HandlerRegister:
+class EventReactorRegister:
     """
-    事件处理器注册器
+    事件响应处理器
     """
     handler_map = ThreadSafeDict()
 

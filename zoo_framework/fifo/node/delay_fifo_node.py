@@ -7,3 +7,7 @@ class DelayFIFONode(object):
         self.expired_time = expired_time
         self.loop_times = loop_times
         self.index = index
+
+    def is_expire(self):
+        if self.expired_time <= time.time():
+            return True

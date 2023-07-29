@@ -7,10 +7,13 @@ from zoo_framework.statemachine.state_node import StateNode
 from zoo_framework.utils import LogUtils
 
 
-class StateRegister:
+class StateScope:
     """
-    状态节点注册器
+    状态域
     """
+
+    # 节点索引映射
+    # TODO： 将索引创建优化为工厂模式
     _state_index_map: ThreadSafeDict = {}
 
     def __init__(self):

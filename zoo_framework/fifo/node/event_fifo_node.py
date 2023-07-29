@@ -1,5 +1,9 @@
 class EventFIFONode(object):
+    """
+    事件队列节点
+    """
+
     def __init__(self, value: dict):
         self.topic = value['topic']
         self.content = value['content']
-        self.handler_name = value['handler_name']
+        self.provider_name = value['provider_name']

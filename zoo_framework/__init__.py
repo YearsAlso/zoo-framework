@@ -5,7 +5,7 @@ from zoo_framework.fifo import *
 from zoo_framework.statemachine import *
 from zoo_framework.workers import *
 from zoo_framework.utils import *
-from zoo_framework.handler import *
+from zoo_framework.reactor import *
 from dotenv import load_dotenv, find_dotenv
 
 __all__ = ["conf", "params", "core", "fifo", "statemachine", "workers", "utils", "handler"]

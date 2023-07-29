@@ -2,10 +2,12 @@ from zoo_framework.fifo import EventFIFO
 from zoo_framework.utils import LogUtils
 
 
-class EventProvider:
+class EventChannel:
     """
-    事件提供者
+    事件通道
     """
+
+    # 事件队列
     _event_fifo: EventFIFO = EventFIFO()
 
     @classmethod
@@ -19,8 +21,8 @@ class EventProvider:
             LogUtils.error(str(e), EventFIFO.__name__)
 
     @classmethod
-    def dispatch(cls, topic, content, handler_name="default"):
+    def dispatch(cls, topic, content, channel_name="default"):
         """
         将事件推入事件队列
         """
-        cls._event_fifo.dispatch(topic, content, handler_name)
+        cls._event_fifo.dispatch(topic, content, channel_name)
