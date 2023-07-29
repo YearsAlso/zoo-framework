@@ -7,7 +7,7 @@ from zoo_framework.core.aop import cage
 from zoo_framework.fifo.event_fifo import EventFIFO
 from zoo_framework.fifo.node import EventFIFONode
 from zoo_framework.workers import BaseWorker
-from zoo_framework.reactor import EventReactorRegister
+from zoo_framework.reactor import EventReactorManager
 
 
 @cage
@@ -20,8 +20,10 @@ class EventWorker(BaseWorker):
         })
         self.is_loop = True
 
-        self.eventReactor = EventReactorRegister()
-        self.eventReactor.register("default", BaseReactor())
+        # 事件处理器注册器
+        self.eventReactorRegister = EventReactorManager()
+        # 注册默认事件处理器
+        self.eventReactorRegister.register("default", BaseReactor())
 
     def _execute(self):
 
@@ -33,10 +35,12 @@ class EventWorker(BaseWorker):
                 node: EventFIFONode = EventFIFO.pop_value()
                 if node is None:
                     continue
-                handler = self.eventReactor.get_handler(node.handler_name)
-                g = gevent.spawn(handler.handle, (node.topic, node.content, node.handler_name))
+                handler = self.eventReactorRegister.get_reactor(node.provider_name)
+                g = gevent.spawn(handler.execute, (node.topic, node.content, node.provider_name))
                 g_queue.append(g)
 
-            # 执行处理方法
-            gevent.joinall(g_queue, timeout=EventParams.EVENT_JOIN_TIMEOUT)
-            time.sleep(0.2)
+            if len(g_queue) > 0:
+                # 执行处理方法
+                gevent.joinall(g_queue, timeout=EventParams.EVENT_JOIN_TIMEOUT)
+
+            time.sleep(EventParams.EVENT_SLEEP_TIME)

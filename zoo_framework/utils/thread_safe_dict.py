@@ -1,6 +1,8 @@
 from multiprocessing import Lock
 
 _lock = Lock()
+
+
 class ThreadSafeDict:
     """
     Thread safe dictionary
@@ -54,3 +56,11 @@ class ThreadSafeDict:
     def pop(self, key):
         with _lock:
             return self._dict.pop(key)
+
+    def get_values(self):
+        with _lock:
+            return list(self._dict.values())
+
+    def get_keys(self):
+        with _lock:
+            return list(self._dict.keys())

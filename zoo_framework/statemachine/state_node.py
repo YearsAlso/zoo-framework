@@ -121,12 +121,15 @@ class StateNode(object):
         """
         执行状态节点的副作用
         """
-        effect_queue = []
+        if len(self._effect_list) == 0:
+            return
+
+        g_effect_queue = []
         for effect in self._effect_list:
             g = gevent.spawn(effect, {"value": value, "version": version})
-            effect_queue.append(g)
+            g_effect_queue.append(g)
 
-        gevent.joinall(effect_queue, timeout=5)
+        gevent.joinall(g_effect_queue, timeout=5)
 
     def _update_version(self):
         """

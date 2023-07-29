@@ -1,4 +1,4 @@
-from zoo_framework.reactor.event_reactor_register import EventReactorRegister
+from zoo_framework.reactor.event_reactor_manager import EventReactorManager
 
 from .base_waiter import BaseWaiter
 
@@ -42,4 +42,4 @@ class SafeWaiter(BaseWaiter):
         if len(self.worker_props.keys()) == 0:
             self.rebuild_worker = True
 
-        EventReactorRegister().dispatch(result.topic, result.content)
+        EventReactorManager().dispatch(result.topic, result.content)

@@ -22,6 +22,8 @@ class StateMachineWorker(BaseWorker):
         pass
 
     def _execute(self):
+        # 执行持久化
+        # TODO: 持久化相关的内容放入到调度器中，由调度器决定何时进行持久化
         from zoo_framework.params import StateMachineParams
         state_machine_manager = StateMachineManager()
 

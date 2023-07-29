@@ -9,13 +9,34 @@ class EventChannelRegister:
     """
     _single = None
     _instance = None
-    _provider_map = ThreadSafeDict()
+    # 事件通道字典
+    _channel_map = ThreadSafeDict()
 
-    def register(self, provider_name, provider):
-        self._provider_map[provider_name] = provider
+    @classmethod
+    def register(cls, channel_name, provider):
+        cls._channel_map[channel_name] = provider
 
-    def unregister(self, provider_name):
-        self._provider_map.pop(provider_name)
+    @classmethod
+    def unregister(cls, channel_name):
+        cls._channel_map.pop(channel_name)
 
-    def get_provider(self, provider_name):
-        return self._provider_map.get(provider_name)
+    @classmethod
+    def get_channel(cls, channel_name):
+        if channel_name not in cls._channel_map:
+            # 创建事件通道
+            from zoo_framework.event.event_channel import EventChannel
+            cls._channel_map[channel_name] = EventChannel()
+            return cls._channel_map.get(channel_name)
+        return cls._channel_map.get(channel_name)
+
+    @classmethod
+    def get_all_channel(cls):
+        return cls._channel_map.get_values()
+
+    @classmethod
+    def get_channel_name_list(cls):
+        return cls._channel_map.get_keys()
+
+    @classmethod
+    def get_channel_count(cls):
+        return len(cls._channel_map)

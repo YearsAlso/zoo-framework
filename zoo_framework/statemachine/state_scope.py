@@ -13,7 +13,7 @@ class StateScope:
     """
 
     # 节点索引映射
-    # TODO： 将索引创建优化为工厂模式
+    # TODO： 将索引创建优化为工厂模式，索引设置为对象，对象可以使用多种方式实现
     _state_index_map: ThreadSafeDict = {}
 
     def __init__(self):

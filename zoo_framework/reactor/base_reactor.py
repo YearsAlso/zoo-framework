@@ -21,7 +21,10 @@ class BaseReactor:
     def _serialize_content(self, content):
         return content
 
-    def handle(self, topic, content, handler_name="default"):
+    def execute(self, topic, content, handler_name="default"):
+        """
+        执行事件
+        """
         events = event_map.get(handler_name)
         if events is None:
             return
