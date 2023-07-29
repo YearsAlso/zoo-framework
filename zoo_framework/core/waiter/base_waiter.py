@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from zoo_framework.constant import WaiterConstant
 from zoo_framework.reactor.event_reactor_manager import EventReactorManager
-from zoo_framework.reactor.waiter_result_reactor import WaiterResultHandler
+from zoo_framework.reactor.waiter_result_reactor import WaiterResultReactor
 from zoo_framework.workers import BaseWorker
 
 
@@ -42,7 +42,7 @@ class BaseWaiter(object):
         """
         # TODO: 不在使用主动注入，而是在创建注册器时，自动注册
         from zoo_framework.reactor.event_reactor_manager import EventReactorManager
-        EventReactorManager().register("waiter", WaiterResultHandler())
+        EventReactorManager().register("waiter", WaiterResultReactor())
 
     def init_lock(self):
         pass

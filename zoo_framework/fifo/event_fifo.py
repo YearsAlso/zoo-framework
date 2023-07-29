@@ -25,3 +25,10 @@ class EventFIFO(BaseFIFO):
             "provider_name": provider_name
         })
         super().push_value(node)
+
+    def get_top(self):
+        """
+        获取事件队列的第一个事件
+        """
+        if self.size() > 0:
+            return self._fifo[0]

@@ -15,7 +15,7 @@ class EventChannel:
     _reactor_manager = EventReactorManager()
 
     def __init__(self, channel_name):
-        # 是否公开, 通道不公开时, 只能通过事件反应器来触发
+        # 是否公开, 通道不公开时, 只能通过事件反应器来触发事件,如果公开, 则可以通过事件通道来触发事件
         self.public = False
         # 通道名称
         self.channel_name = channel_name
@@ -38,19 +38,35 @@ class EventChannel:
         """
         return self.public
 
-    @classmethod
-    def push_topic(cls, value):
+    def size(self):
+        """
+        获取事件队列大小
+        """
+        return self._event_fifo.size()
+
+    def pop_value(self) -> EventFIFONode:
+        """
+        从事件队列中弹出事件
+        """
+        return self._event_fifo.pop_value()
+
+    def get_top(self)->EventFIFONode:
+        """
+        获取事件队列的第一个事件
+        """
+        return self._event_fifo.get_top()
+
+    def push_topic(self, value):
         """
         将事件推入事件队列
         """
         try:
-            _event_fifo = cls._event_fifo.push_value(value)
+            _event_fifo = self._event_fifo.push_value(value)
         except Exception as e:
             LogUtils.error(str(e), EventFIFO.__name__)
 
-    @classmethod
-    def dispatch(cls, topic, content, channel_name="default"):
+    def dispatch(self, topic, content):
         """
         将事件推入事件队列
         """
-        cls._event_fifo.dispatch(topic, content, channel_name)
+        self._event_fifo.dispatch(topic, content, self.channel_name)

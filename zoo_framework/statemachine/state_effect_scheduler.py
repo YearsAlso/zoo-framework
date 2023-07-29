@@ -11,6 +11,9 @@ class StateEffectScheduler(object):
     # TODO: 通过管道管理器
     _event_channel = EventChannelManager().get_channel(__name__)
 
+    # 响应列表
+    _response_list = set()
+
     def __init__(self, state_machine):
         self.state_machine = state_machine
         self.state_effect_map = {}

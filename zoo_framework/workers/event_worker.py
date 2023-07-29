@@ -2,7 +2,9 @@ import time
 
 import gevent
 
-from zoo_framework.reactor import BaseReactor
+from zoo_framework.event import EventChannel
+from zoo_framework.event.event_channel_manager import EventChannelManager
+from zoo_framework.reactor import EventReactor
 from zoo_framework.core.aop import cage
 from zoo_framework.fifo.event_fifo import EventFIFO
 from zoo_framework.fifo.node import EventFIFONode
@@ -21,26 +23,32 @@ class EventWorker(BaseWorker):
         self.is_loop = True
 
         # 事件处理器注册器
-        self.eventReactorRegister = EventReactorManager()
+        self.eventChannelManager: EventChannelManager = EventChannelManager()
         # 注册默认事件处理器
-        self.eventReactorRegister.register("default", BaseReactor())
+        self.eventChannelManager.register_reactor("default")
 
     def _execute(self):
 
         from zoo_framework.params import EventParams
-        while True:
-            g_queue = []
-            # 获得需要处理的事件
-            while EventFIFO.size() > 0:
-                node: EventFIFONode = EventFIFO.pop_value()
-                if node is None:
+        channel_names = self.eventChannelManager.get_channel_name_list()
+        g_queue = []
+        # TODO：获得除去失败事件通道的所有事件通道
+        for channel_name in channel_names:
+            channel: EventChannel = self.eventChannelManager.get_channel(channel_name)
+            if channel is None:
+                continue
+            # 获得所有的事件通道
+            while channel.size() > 0:
+                event_node: EventFIFONode = channel.pop_value()
+                if event_node is None:
                     continue
-                handler = self.eventReactorRegister.get_reactor(node.provider_name)
-                g = gevent.spawn(handler.execute, (node.topic, node.content, node.provider_name))
+                handler = self.eventChannelManager.get_reactor(event_node.reactor_name)
+                g = gevent.spawn(handler.execute, (event_node.topic, event_node.content, event_node.reactor_name))
+
                 g_queue.append(g)
 
-            if len(g_queue) > 0:
-                # 执行处理方法
-                gevent.joinall(g_queue, timeout=EventParams.EVENT_JOIN_TIMEOUT)
+        # 根据优先级排序
 
-            time.sleep(EventParams.EVENT_SLEEP_TIME)
+        if len(g_queue) > 0:
+            # 执行处理方法
+            gevent.joinall(g_queue, timeout=EventParams.EVENT_JOIN_TIMEOUT)

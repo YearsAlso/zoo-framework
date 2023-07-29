@@ -1,7 +1,7 @@
-from .base_reactor import BaseReactor
+from .event_reactor import EventReactor
 from zoo_framework.core.aop import cage
 
 
 @cage
-class WaiterResultHandler(BaseReactor):
+class WaiterResultReactor(EventReactor):
     pass

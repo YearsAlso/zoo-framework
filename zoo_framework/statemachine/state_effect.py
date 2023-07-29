@@ -9,8 +9,26 @@ class StateEffect(object):
         self.execute_count = 0
         self.always_execute = False
 
-        # 响应的权值
-        self.power = 0
+        # 响应优先级,添加优先级过滤器，根据执行策略，通过优先级过滤器，测算优先级，并将优先级最高的副作用放入优先级队列
+        self.priority = 0
+
+        # 响应次数
+        self.response_count = 0
+
+    def get_priority(self):
+        return self.priority
+
+    def set_priority(self, priority):
+        self.priority = priority
+
+    def get_response_count(self):
+        return self.response_count
+
+    def set_response_count(self, response_count):
+        self.response_count = response_count
+
+    def __index__(self):
+        return self.priority
 
     def set_always_execute(self, always_execute):
         self.always_execute = always_execute
