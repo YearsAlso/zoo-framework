@@ -21,10 +21,10 @@ class EventReactorManager:
         分发事件
         """
         reactor = cls.get_reactor(reactor_name)
-        reactor.execute(topic, content, reactor_name)
+        reactor.execute(topic, content)
 
     @classmethod
-    def get_reactor(cls, reactor_name="default", channel_name="all"):
+    def get_reactor(cls, reactor_name="default", channel_name="all") -> EventReactor:
         """
         获取事件处理器
         """
@@ -32,19 +32,10 @@ class EventReactorManager:
         return cls.reactor_map.get(reactor_name)
 
     @classmethod
-    def register(cls, reactor_name: str, callback, error_callback=None):
+    def register(cls, reactor: EventReactor):
         """
         注册事件处理器
         这个方法可以被重写，以实现不同的事件注册方式，比如设置重试机制等
         """
-        # 创建一个事件响应器
-        reactor = EventReactor(reactor_name)
-
-        # 设置事件调用方法
-        reactor.set_event_callback(callback)
-
-        # 设置错误处理方法
-        reactor.set_error_callback(error_callback)
-
         # 设置超时时间
-        cls.reactor_map[reactor_name] = reactor
+        cls.reactor_map[reactor.reactor_name] = reactor

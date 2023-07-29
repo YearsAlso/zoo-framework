@@ -1,5 +1,6 @@
 from zoo_framework.core.aop import cage
 from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
+from .event_channel import EventChannel
 
 
 @cage
@@ -9,19 +10,21 @@ class EventChannelRegister:
     """
     _single = None
     _instance = None
+
     # 事件通道字典
-    _channel_map = ThreadSafeDict()
+    _channel_map: ThreadSafeDict = ThreadSafeDict()
 
     @classmethod
-    def register(cls, channel_name, provider):
-        cls._channel_map[channel_name] = provider
+    def register(cls, channel_name, reactor):
+        channel = cls.get_channel(channel_name)
+        channel.register_reactor(reactor)
 
     @classmethod
     def unregister(cls, channel_name):
         cls._channel_map.pop(channel_name)
 
     @classmethod
-    def get_channel(cls, channel_name):
+    def get_channel(cls, channel_name) -> EventChannel:
         if channel_name not in cls._channel_map:
             # 创建事件通道
             from zoo_framework.event.event_channel import EventChannel

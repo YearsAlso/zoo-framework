@@ -27,6 +27,8 @@ class EventWorker(BaseWorker):
         # 注册默认事件处理器
         self.eventChannelManager.register_reactor("default")
 
+        self.eventReactorManager: EventReactorManager = EventReactorManager()
+
     def _execute(self):
 
         from zoo_framework.params import EventParams
@@ -42,8 +44,8 @@ class EventWorker(BaseWorker):
                 event_node: EventFIFONode = channel.pop_value()
                 if event_node is None:
                     continue
-                handler = self.eventChannelManager.get_reactor(event_node.reactor_name)
-                g = gevent.spawn(handler.execute, (event_node.topic, event_node.content, event_node.reactor_name))
+                reactor = self.eventReactorManager.get_reactor(event_node.reactor_name)
+                g = gevent.spawn(reactor.execute, (event_node.topic, event_node.content, event_node.reactor_name))
 
                 g_queue.append(g)
 

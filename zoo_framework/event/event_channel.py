@@ -1,3 +1,4 @@
+from zoo_framework.fifo.node import EventFIFONode
 from zoo_framework import EventReactorManager
 from zoo_framework.fifo import EventFIFO
 from zoo_framework.utils import LogUtils
@@ -19,6 +20,12 @@ class EventChannel:
         self.public = False
         # 通道名称
         self.channel_name = channel_name
+
+    def get_reactor(self, reactor_name):
+        """
+        获取事件反应器
+        """
+        return self._reactor_manager.get_reactor(reactor_name)
 
     def get_channel_name(self):
         """
@@ -50,7 +57,7 @@ class EventChannel:
         """
         return self._event_fifo.pop_value()
 
-    def get_top(self)->EventFIFONode:
+    def get_top(self) -> EventFIFONode:
         """
         获取事件队列的第一个事件
         """
@@ -70,3 +77,6 @@ class EventChannel:
         将事件推入事件队列
         """
         self._event_fifo.dispatch(topic, content, self.channel_name)
+
+    def register_reactor(self, reactor):
+        self._reactor_manager.register(reactor)
