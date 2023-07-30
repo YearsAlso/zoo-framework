@@ -1,5 +1,5 @@
 from .node import EventFIFONode
-from zoo_framework.fifo import BaseFIFO
+from .base_fifo import BaseFIFO
 from zoo_framework.utils import LogUtils
 
 

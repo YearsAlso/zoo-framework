@@ -63,3 +63,18 @@ class EventChannelManager:
                 reactor.execute(topic, content)
         else:
             raise Exception("channel not found")
+
+    @classmethod
+    def get_perform_reactors(cls, channel_name, topic):
+        """
+        获取事件通道的事件反应器
+        """
+        channel: EventChannel = cls._event_channel_register.get_channel(channel_name)
+
+        # 获得所有的事件反应器
+        # 并且将事件放入事件队列
+        if channel:
+            reactors = channel.get_reactor(topic)
+            return reactors
+        else:
+            raise Exception("channel not found")

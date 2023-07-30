@@ -9,7 +9,6 @@ from zoo_framework.core.aop import cage
 from zoo_framework.fifo.event_fifo import EventFIFO
 from zoo_framework.fifo.node import EventFIFONode
 from zoo_framework.workers import BaseWorker
-from zoo_framework.reactor import EventReactorManager
 
 
 @cage
@@ -24,13 +23,8 @@ class EventWorker(BaseWorker):
 
         # 事件处理器注册器
         self.eventChannelManager: EventChannelManager = EventChannelManager()
-        # 注册默认事件处理器
-        self.eventChannelManager.register_reactor("default")
-
-        self.eventReactorManager: EventReactorManager = EventReactorManager()
 
     def _execute(self):
-
         from zoo_framework.params import EventParams
         channel_names = self.eventChannelManager.get_channel_name_list()
         g_queue = []
@@ -42,12 +36,11 @@ class EventWorker(BaseWorker):
             # 获得所有的事件通道
             while channel.size() > 0:
                 event_node: EventFIFONode = channel.pop_value()
-                if event_node is None:
-                    continue
-                reactor = channel.get_reactor(event_node.reactor_name)
-                g = gevent.spawn(reactor.execute, (event_node.topic, event_node.content, event_node.reactor_name))
-
-                g_queue.append(g)
+                reactors = self.eventChannelManager.get_perform_reactors(channel_name, event_node.topic)
+                for reactor in reactors:
+                    # 执行事件反应器
+                    g = gevent.spawn(reactor.perform, (event_node.content, event_node.topic))
+                    g_queue.append(g)
 
         # 根据优先级排序
 
