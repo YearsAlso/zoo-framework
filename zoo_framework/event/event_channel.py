@@ -21,11 +21,11 @@ class EventChannel:
         # 通道名称
         self.channel_name = channel_name
 
-    def get_reactor(self, reactor_name) -> EventReactor:
+    def get_reactor(self, topic: str) -> list[EventReactor]:
         """
         获取事件反应器
         """
-        return self._reactor_manager.get_reactor(reactor_name)
+        return self._reactor_manager.get_reactor(topic)
 
     def get_channel_name(self):
         """
@@ -78,8 +78,8 @@ class EventChannel:
         """
         self._event_fifo.dispatch(topic, content, self.channel_name)
 
-    def register_reactor(self, reactor):
+    def register_reactor(self, topic, reactor):
         """
         注册事件反应器
         """
-        self._reactor_manager.register(reactor)
+        self._reactor_manager.bind_topic_reactor(topic, reactor)

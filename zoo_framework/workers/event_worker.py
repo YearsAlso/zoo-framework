@@ -44,7 +44,7 @@ class EventWorker(BaseWorker):
                 event_node: EventFIFONode = channel.pop_value()
                 if event_node is None:
                     continue
-                reactor = self.eventReactorManager.get_reactor(event_node.reactor_name)
+                reactor = channel.get_reactor(event_node.reactor_name)
                 g = gevent.spawn(reactor.execute, (event_node.topic, event_node.content, event_node.reactor_name))
 
                 g_queue.append(g)

@@ -42,7 +42,7 @@ class BaseWaiter(object):
         """
         # TODO: 不在使用主动注入，而是在创建注册器时，自动注册
         from zoo_framework.reactor.event_reactor_manager import EventReactorManager
-        EventReactorManager().register("waiter", WaiterResultReactor())
+        EventReactorManager().bind_topic_reactor("waiter", WaiterResultReactor())
 
     def init_lock(self):
         pass

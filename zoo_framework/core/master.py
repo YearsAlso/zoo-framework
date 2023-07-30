@@ -20,8 +20,8 @@ class Master(object):
 
         from zoo_framework.params import WorkerParams
         self.worker_register = worker_register
-        self.worker_register.register(StateMachineWorker.__name__, StateMachineWorker())
-        self.worker_register.register(EventWorker.__name__, EventWorker())
+        self.worker_register.bind_topic_reactor(StateMachineWorker.__name__, StateMachineWorker())
+        self.worker_register.bind_topic_reactor(EventWorker.__name__, EventWorker())
         self.loop_interval = loop_interval
 
         # 根据策略生成waiter

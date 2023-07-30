@@ -13,12 +13,12 @@ class EventChannelManager:
     _event_channel_register: EventChannelRegister = EventChannelRegister()
 
     @classmethod
-    def configure_channel(cls, channel_name, reactor: EventReactor):
+    def refresh_channel(cls, channel_name, topic, reactor: EventReactor):
         """
-        配置事件通道
+        刷新事件通道
         """
         channel: EventChannel = cls._event_channel_register.register(channel_name)
-        channel.register_reactor(reactor)
+        channel.register_reactor(topic, reactor)
 
     @classmethod
     def get_channel(cls, channel_name) -> EventChannel:
@@ -42,8 +42,24 @@ class EventChannelManager:
         return cls._event_channel_register.get_channel_name_list()
 
     @classmethod
-    def get_channel(cls, channel_name):
+    def get_channel_count(cls):
         """
-        获取事件通道
+        获取事件通道数量
         """
-        return cls._event_channel_register.get_channel(channel_name)
+        return cls._event_channel_register.get_channel_count()
+
+    @classmethod
+    def perform(cls, channel_name, topic, content):
+        """
+        分发事件
+        """
+        channel: EventChannel = cls._event_channel_register.get_channel(channel_name)
+
+        # 获得所有的事件反应器
+        # 并且将事件放入事件队列
+        if channel:
+            reactors = channel.get_reactor(topic)
+            for reactor in reactors:
+                reactor.execute(topic, content)
+        else:
+            raise Exception("channel not found")

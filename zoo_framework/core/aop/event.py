@@ -22,7 +22,7 @@ def event(topic: str, channel: str = "default", timeout: int = time.time() + 100
         reactor.set_done_callback(done_callback)
 
         # 判断是否有channel，如果没有，则创建一个channel
-        EventChannelManager().configure_channel(channel, reactor)
+        EventChannelManager().refresh_channel(channel, topic, reactor)
         return func
 
     return _event
