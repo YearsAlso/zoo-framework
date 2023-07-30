@@ -1,7 +1,6 @@
 from .event_priorities import EventPriorities
+from .event_reactor_req import EventReactorReq
 from .event_retry_strategy import EventRetryStrategy
-from zoo_framework.core.aop.event import event_map
-import gevent
 
 
 class EventReactor:
@@ -12,6 +11,7 @@ class EventReactor:
         self.handle_callback = None
         # 设置响应器名称
         self.reactor_name = reactor_name
+
         self.event_timout = 1
         # 设置内核优先级
         self.sys_priority: EventPriorities = EventPriorities.NORMAL.value
@@ -72,13 +72,14 @@ class EventReactor:
 
     # 根据重试策略，执行事件
     def _execute(self, topic, content):
+        req = EventReactorReq(topic, content, self.reactor_name)
         # 如果是失败后不再重试，直接执行
         if self.retry_strategy == EventRetryStrategy.RetryOnce:
             # 重试一次
-            self.retry_times = 0
+            self.retry_times = 1
             while self.retry_times > 0:
                 try:
-                    self.handle_callback(topic, content)
+                    self.handle_callback(req)
                     return
                 except Exception as e:
                     self.retry_times -= 1
@@ -86,7 +87,7 @@ class EventReactor:
         elif self.retry_strategy == EventRetryStrategy.RetryTimes:
             while self.retry_times > 0:
                 try:
-                    self.handle_callback(topic, content)
+                    self.handle_callback(req)
                     return
                 except Exception as e:
                     self.retry_times -= 1
@@ -94,14 +95,14 @@ class EventReactor:
         elif self.retry_strategy == EventRetryStrategy.RetryForever:
             while True:
                 try:
-                    self.handle_callback(topic, content)
+                    self.handle_callback(req)
                     return
                 except Exception as e:
                     self._on_error(topic, content, e)
         elif self.retry_strategy == EventRetryStrategy.RetryNever:
             while True:
                 try:
-                    self.handle_callback(topic, content)
+                    self.handle_callback(req)
                     return
                 except Exception as e:
                     self._on_error(topic, content, e)

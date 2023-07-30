@@ -1,11 +1,14 @@
+import time
+
+from zoo_framework.reactor.event_retry_strategy import EventRetryStrategy
 from zoo_framework.reactor import EventReactor
 from zoo_framework.event.event_channel_register import EventChannelRegister
-
-event_map = EventChannelRegister()
+from zoo_framework.event.event_channel_manager import EventChannelManager
 
 
 # 自定义事件装饰器，用于注册事件
-def event(topic: str, channel: str = "default", timeout: int = 0, retry_time: int = 0, retry_strategy=None,
+def event(topic: str, channel: str = "default", timeout: int = time.time() + 1000, retry_time: int = 1,
+          retry_strategy=EventRetryStrategy.RetryOnce,
           done_callback=None,
           error_callback=None, success_callback=None):
     def _event(func: callable):
@@ -18,7 +21,8 @@ def event(topic: str, channel: str = "default", timeout: int = 0, retry_time: in
         reactor.set_success_callback(success_callback)
         reactor.set_done_callback(done_callback)
 
-        event_map.register(channel, reactor)
+        # 判断是否有channel，如果没有，则创建一个channel
+        EventChannelManager().configure_channel(channel, reactor)
         return func
 
     return _event

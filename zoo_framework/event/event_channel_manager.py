@@ -1,3 +1,4 @@
+from zoo_framework.reactor import EventReactor
 from zoo_framework.core.aop import cage
 from .event_channel_register import EventChannelRegister
 from .event_channel import EventChannel
@@ -9,16 +10,15 @@ class EventChannelManager:
     事件通道管理器
     """
 
-    _event_channel_register = EventChannelRegister()
+    _event_channel_register: EventChannelRegister = EventChannelRegister()
 
     @classmethod
-    def register_channel(cls, channel_name, channel: EventChannel = None):
+    def configure_channel(cls, channel_name, reactor: EventReactor):
         """
-        注册事件通道
+        配置事件通道
         """
-        if channel is None:
-            channel = EventChannel(channel_name)
-        cls._event_channel_register.register_channel(channel_name, channel)
+        channel: EventChannel = cls._event_channel_register.register(channel_name)
+        channel.register_reactor(reactor)
 
     @classmethod
     def get_channel(cls, channel_name) -> EventChannel:

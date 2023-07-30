@@ -1,5 +1,5 @@
 from zoo_framework.fifo.node import EventFIFONode
-from zoo_framework import EventReactorManager
+from zoo_framework.reactor import EventReactorManager, EventReactor
 from zoo_framework.fifo import EventFIFO
 from zoo_framework.utils import LogUtils
 
@@ -21,7 +21,7 @@ class EventChannel:
         # 通道名称
         self.channel_name = channel_name
 
-    def get_reactor(self, reactor_name):
+    def get_reactor(self, reactor_name) -> EventReactor:
         """
         获取事件反应器
         """
@@ -79,4 +79,7 @@ class EventChannel:
         self._event_fifo.dispatch(topic, content, self.channel_name)
 
     def register_reactor(self, reactor):
+        """
+        注册事件反应器
+        """
         self._reactor_manager.register(reactor)

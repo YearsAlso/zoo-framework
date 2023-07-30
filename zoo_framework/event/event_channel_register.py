@@ -15,9 +15,12 @@ class EventChannelRegister:
     _channel_map: ThreadSafeDict = ThreadSafeDict()
 
     @classmethod
-    def register(cls, channel_name, reactor):
+    def register(cls, channel_name):
         channel = cls.get_channel(channel_name)
-        channel.register_reactor(reactor)
+        if channel is None:
+            channel = EventChannel(channel_name)
+            cls._channel_map[channel_name] = channel
+        return channel
 
     @classmethod
     def unregister(cls, channel_name):
@@ -28,7 +31,7 @@ class EventChannelRegister:
         if channel_name not in cls._channel_map:
             # 创建事件通道
             from zoo_framework.event.event_channel import EventChannel
-            cls._channel_map[channel_name] = EventChannel()
+            cls._channel_map[channel_name] = EventChannel(channel_name)
             return cls._channel_map.get(channel_name)
         return cls._channel_map.get(channel_name)
 
