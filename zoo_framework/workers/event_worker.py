@@ -7,7 +7,7 @@ from zoo_framework.event.event_channel_manager import EventChannelManager
 from zoo_framework.reactor import EventReactor
 from zoo_framework.core.aop import cage
 from zoo_framework.fifo.event_fifo import EventFIFO
-from zoo_framework.fifo.node import EventFIFONode
+from zoo_framework.fifo.node import EventNode
 from zoo_framework.workers import BaseWorker
 
 
@@ -26,7 +26,7 @@ class EventWorker(BaseWorker):
 
     def _execute(self):
         from zoo_framework.params import EventParams
-        channel_names = self.eventChannelManager.get_channel_name_list()
+        channel_names = self.eventChannelManager.get_all_channel_name()
         g_queue = []
         # TODO：获得除去失败事件通道的所有事件通道
         for channel_name in channel_names:
@@ -35,8 +35,8 @@ class EventWorker(BaseWorker):
                 continue
             # 获得所有的事件通道
             while channel.size() > 0:
-                event_node: EventFIFONode = channel.pop_value()
-                reactors = self.eventChannelManager.get_perform_reactors(channel_name, event_node.topic)
+                event_node: EventNode = channel.pop_value()
+                reactors = self.eventChannelManager.get_channel_reactors(event_node)
                 for reactor in reactors:
                     # 执行事件反应器
                     g = gevent.spawn(reactor.perform, (event_node.content, event_node.topic))

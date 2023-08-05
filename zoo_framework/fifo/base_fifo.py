@@ -1,4 +1,4 @@
-from fifo.node import EventFIFONode
+from zoo_framework.fifo.node import EventNode
 
 
 class BaseFIFO(object):
@@ -12,7 +12,7 @@ class BaseFIFO(object):
         cls._fifo.append(value)
 
     @classmethod
-    def pop_value(cls) -> EventFIFONode or None:
+    def pop_value(cls) -> EventNode or None:
         if len(cls._fifo) <= 0:
             return None
 
@@ -27,6 +27,6 @@ class BaseFIFO(object):
         return len(cls._fifo)
 
     @classmethod
-    def push_values_if_null(cls, value: EventFIFONode):
+    def push_values_if_null(cls, value: EventNode):
         if cls._fifo.index(value) == -1:
             cls._fifo.append(value)

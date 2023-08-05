@@ -4,6 +4,7 @@ from typing import Any
 
 import gevent
 
+from .state_effect import StateEffect
 from zoo_framework.utils import LogUtils
 from zoo_framework.statemachine.state_node_type import StateNodeType
 
@@ -14,7 +15,7 @@ class StateNode(object):
     """
 
     def __init__(self, key, value, effect_list=None):
-        self._effect_list: list[types.FunctionType] = []
+        self._effect_list: list[StateEffect] = []
         self._version = int(time.time())
         self._is_top = False
         self._parent: Any = None

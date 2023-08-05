@@ -1,4 +1,4 @@
-from zoo_framework.fifo.node import EventFIFONode
+from zoo_framework.fifo.node import EventNode
 from zoo_framework.reactor import EventReactorManager, EventReactor
 from zoo_framework.fifo import EventFIFO
 from zoo_framework.utils import LogUtils
@@ -21,7 +21,7 @@ class EventChannel:
         # 通道名称
         self.channel_name = channel_name
 
-    def get_reactor(self, topic: str) -> list[EventReactor]:
+    def get_reactors(self, topic: str) -> list[EventReactor]:
         """
         获取事件反应器
         """
@@ -51,24 +51,24 @@ class EventChannel:
         """
         return self._event_fifo.size()
 
-    def pop_value(self) -> EventFIFONode:
+    def pop_value(self) -> EventNode:
         """
         从事件队列中弹出事件
         """
         return self._event_fifo.pop_value()
 
-    def get_top(self) -> EventFIFONode:
+    def get_top(self) -> EventNode:
         """
         获取事件队列的第一个事件
         """
         return self._event_fifo.get_top()
 
-    def push_topic(self, value):
+    def push_event(self, event: EventNode):
         """
         将事件推入事件队列
         """
         try:
-            _event_fifo = self._event_fifo.push_value(value)
+            _event_fifo = self._event_fifo.push_value(event)
         except Exception as e:
             LogUtils.error(str(e), EventFIFO.__name__)
 
@@ -83,3 +83,12 @@ class EventChannel:
         注册事件反应器
         """
         self._reactor_manager.bind_topic_reactor(topic, reactor)
+
+    def refresh_event(self, event):
+        """
+        刷新事件
+        """
+        # 判断管道中是否存在该事件
+        if self._event_fifo.has_event(event): # 如果存在
+            # 替换事件
+            self._event_fifo.replace(event)
