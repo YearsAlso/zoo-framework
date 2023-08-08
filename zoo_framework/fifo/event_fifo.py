@@ -1,4 +1,4 @@
-from .node import EventFIFONode
+from .node import EventNode
 from .base_fifo import BaseFIFO
 from zoo_framework.utils import LogUtils
 
@@ -10,7 +10,7 @@ class EventFIFO(BaseFIFO):
         将事件推入事件队列
         """
         try:
-            node = EventFIFONode(value)
+            node = EventNode(value)
             super().push_value(node)
         except Exception as e:
             LogUtils.error(str(e), EventFIFO.__name__)
@@ -19,7 +19,7 @@ class EventFIFO(BaseFIFO):
         """
         将事件推入事件队列
         """
-        node = EventFIFONode({
+        node = EventNode({
             "topic": topic,
             "content": content,
             "provider_name": provider_name
@@ -32,3 +32,17 @@ class EventFIFO(BaseFIFO):
         """
         if self.size() > 0:
             return self._fifo[0]
+
+    def has_event(self, event):
+        """
+        判断事件是否存在
+        """
+        return self._fifo.index(event) != -1
+
+    def replace(self, event):
+        """
+        替换事件
+        """
+        index = self._fifo.index(event)
+        if index != -1:
+            self._fifo[index] = event

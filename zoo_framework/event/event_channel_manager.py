@@ -88,7 +88,7 @@ class EventChannelManager:
                         reactor.execute(event.topic, event.content)
 
     @classmethod
-    def get_channel_reactors(cls, event: EventNode) -> list[EventReactor] | None:
+    def get_channel_reactors(cls, event: EventNode) -> list[EventReactor] or None:
         """
         获取事件频道的事件反应器
         """
@@ -99,6 +99,8 @@ class EventChannelManager:
         # 并且将事件放入事件队列
         if channel is None:
             raise Exception("channel not found")
+            return None
+
         # 获得事件响应策略
         if event.response_mechanism == 1:
             # 获得第一个事件反应器
@@ -122,3 +124,4 @@ class EventChannelManager:
                 for reactor in reactors:
                     if reactor.reactor_name == event.reactor_name:
                         return [reactor]
+        return []

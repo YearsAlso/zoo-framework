@@ -36,7 +36,18 @@ class EventWorker(BaseWorker):
             # 获得所有的事件通道
             while channel.size() > 0:
                 event_node: EventNode = channel.pop_value()
+                # 判断事件是否过期
+                if event_node.is_expire():
+                    event_node.expire_callback()
+                    continue
+                # 获得事件反应器
                 reactors = self.eventChannelManager.get_channel_reactors(event_node)
+                # 如果这里为空，需要查看node 是否有重试次数，如果有重试次数，需要重新放入队列
+                if len(reactors) == 0:
+                    if event_node.get_retry_times() > 0:
+                        event_node.retry_times = event_node.get_retry_times() - 1
+                        channel.push_event(event_node)
+                    continue
                 for reactor in reactors:
                     # 执行事件反应器
                     g = gevent.spawn(reactor.perform, (event_node.content, event_node.topic))

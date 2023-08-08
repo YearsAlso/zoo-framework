@@ -29,14 +29,14 @@ class DemoThread(BaseWorker):
         cls._logger.debug("Test", f"[{version}] Test number change to {value}")
 
     def _on_create(self):
-        StateMachineManager().set_state("Test", "Test.number", 0)
-        StateMachineManager().observe_state("Test", "Test.number", self._on_test_number_change)
+        StateMachineManager().set_state("TestScope", "Test.number", 0)
+        StateMachineManager().observe_state("TestScope", "Test.number", self._on_test_number_change)
 
     def _execute(self):
         self._logger.debug("Test")
 
         # FIXME: 操作状态机有内存泄漏
-        i = StateMachineManager().get_state("Test", "Test.number")
+        i = StateMachineManager().get_state("TestScope", "Test.number")
         self._logger.info(f"Test get i:[{i}],self.i:[{self.i}]")
-        StateMachineManager().set_state("Test", "Test.number", i + 1)
+        StateMachineManager().set_state("TestScope", "Test.number", i + 1)
         sleep(1)

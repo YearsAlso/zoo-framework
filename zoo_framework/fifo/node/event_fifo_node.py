@@ -11,7 +11,7 @@ class EventNode(object):
     # 事件参数
     content: str
     # 响应次数
-    response_count: int
+    retry_times: int
     # 响应机制，1.先抢到的先响应; 2.者优先级高的先响应; 3.全部响应; 4.指定响应者响应
     response_mechanism: int = 3
     # 制定响应者名称
@@ -28,11 +28,13 @@ class EventNode(object):
     timeout_response: callable = None
     # 创建时间
     create_time: int = time.time()
+    # 失败响应
+    fail_response: callable = None
 
     def __init__(self, topic: str, content: str, channel_name: str = "default", priority: int = 0):
         self.topic = topic
         self.content = content
-        self.response_count = 0
+        self.retry_times = 0
         self.priority = priority
         self.channel_name = channel_name
 
@@ -56,6 +58,12 @@ class EventNode(object):
         # 根据优先级和创建时间计算优先级
         # TODO: 优先级计算公式待优化
         return self.priority + self.create_time % 100000
+
+    def set_fail_response(self, fail_response: callable):
+        """
+        设置失败响应
+        """
+        self.fail_response = fail_response
 
     def set_reactor_name(self, reactor_name: str):
         """
@@ -85,21 +93,31 @@ class EventNode(object):
         """
         return self.content
 
-    def get_response_count(self) -> int:
-        """
-        获取响应次数
-        """
-        return self.response_count
-
-    def set_response_count(self, response_count: int):
-        """
-        设置响应次数
-        """
-        self.response_count = response_count
-
     def set_timeout(self, timeout: int, timeout_response: callable = None):
         """
         设置超时时间
         """
         self.timeout = timeout
         self.timeout_response = timeout_response
+
+    def is_expire(self):
+        """
+        是否过期
+        """
+        if self.timeout is None or self.timeout == 0:
+            return False
+
+        return 0 < self.timeout < (time.time() - self.create_time)
+
+    def expire_callback(self):
+        """
+        过期回调
+        """
+        if self.timeout_response is not None:
+            self.timeout_response(self)
+
+    def get_retry_times(self):
+        """
+        获取重试次数
+        """
+        return self.retry_times
