@@ -1,4 +1,7 @@
 class BaseStateMachine(dict):
+    """
+    Base class for all state machines.
+    """
     topic = ""
 
     def __init__(self, topic):

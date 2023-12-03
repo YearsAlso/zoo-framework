@@ -17,7 +17,7 @@ class StateMachineManager(object):
         """
 
         # 状态域映射
-        self._state_scop_map = ThreadSafeDict()
+        self._state_scope_map = ThreadSafeDict()
 
         # 本地存储是否已经加载
         self._local_store_loaded = False
@@ -39,43 +39,43 @@ class StateMachineManager(object):
         加载状态机
         """
         if state_machine is not None and isinstance(state_machine, dict):
-            self._state_scop_map = state_machine
+            self._state_scope_map = state_machine
         self._local_store_loaded = True
 
     def get_and_create_scope(self, scope: str):
         """
         获取并创建作用域
         """
-        if self._state_scop_map.get(scope) is None:
+        if self._state_scope_map.get(scope) is None:
             self.create_scope(scope)
-        return self._state_scop_map[scope]
+        return self._state_scope_map[scope]
 
     def create_scope(self, scope: str):
         """
         创建作用域
         """
-        if self._state_scop_map.has_key(scope):
+        if self._state_scope_map.has_key(scope):
             return
-        self._state_scop_map[scope] = StateScope()
+        self._state_scope_map[scope] = StateScope()
 
     def set_state(self, scope: str, key: str, value):
         """
         设置状态节点的值
         """
-        if self._state_scop_map.get(scope) is None:
+        if self._state_scope_map.get(scope) is None:
             self.create_scope(scope)
 
-        state_register = self._state_scop_map[scope]
+        state_register = self._state_scope_map[scope]
         state_register.set_state_node(key, value)
 
     def get_state(self, scope: str, key: str) -> Any:
         """
         获取状态节点
         """
-        if self._state_scop_map.get(scope) is None:
+        if self._state_scope_map.get(scope) is None:
             return None
 
-        state_register = self._state_scop_map[scope]
+        state_register = self._state_scope_map[scope]
         node = state_register.get_state_node(key)
         if None is node:
             return None
@@ -86,14 +86,14 @@ class StateMachineManager(object):
         """
         移除状态节点
         """
-        if self._state_scop_map.get(scope) is None:
+        if self._state_scope_map.get(scope) is None:
             return None
 
-        if self._state_scop_map[scope].get_state_node(key) is None:
+        if self._state_scope_map[scope].get_state_node(key) is None:
             return None
 
         # 移除状态节点
-        state_register: StateScope = self._state_scop_map[scope]
+        state_register: StateScope = self._state_scope_map[scope]
         node = state_register.get_state_node(key)
 
         value = node.get_value()
@@ -101,7 +101,7 @@ class StateMachineManager(object):
 
         # 如果是头部节点，移除作用域
         if node.is_top():
-            self._state_scop_map.pop(scope)
+            self._state_scope_map.pop(scope)
 
         return value
 
@@ -109,14 +109,14 @@ class StateMachineManager(object):
         """
         获取状态机
         """
-        return self._state_scop_map
+        return self._state_scope_map
 
     def observe_state(self, scope: str, key: str, effect: callable):
         """
         观察状态节点
         """
-        if self._state_scop_map.get(scope) is None:
+        if self._state_scope_map.get(scope) is None:
             self.create_scope(scope)
 
-        state_register: StateScope = self._state_scop_map[scope]
+        state_register: StateScope = self._state_scope_map[scope]
         state_register.observe_state_node(key, effect)

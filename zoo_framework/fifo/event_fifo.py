@@ -4,6 +4,9 @@ from zoo_framework.utils import LogUtils
 
 
 class EventFIFO(BaseFIFO):
+    """
+    事件队列
+    """
 
     def push_value(self, value):
         """

@@ -49,9 +49,12 @@ class BaseWaiter(object):
 
     # 集结worker们
     def call_workers(self, worker_list: list):
+        """
+        集结worker们
+        """
         self.workers = worker_list
 
-        # 生成池或者列表
+        # 生成池或者列表，这里使用线程池，如果使用进程池，需要考虑进程间通信，暂时不考虑
         if self.worker_mode == WaiterConstant.WORKER_MODE_THREAD_POOL:
             self.resource_pool = ThreadPoolExecutor(max_workers=self.pool_size)
 
@@ -61,7 +64,11 @@ class BaseWaiter(object):
 
     # 执行服务
     def execute_service(self):
-        workers = []
+        """
+        执行服务
+        """
+        # 参与下次循环的worker
+        next_loop_workers = []
         for worker in self.workers:
             self.worker_band(worker.name)
 
@@ -69,7 +76,7 @@ class BaseWaiter(object):
                 continue
 
             if worker.is_loop:
-                workers.append(worker)
+                next_loop_workers.append(worker)
 
             # 判定是否超时
             self.worker_band(worker.name)
@@ -77,14 +84,14 @@ class BaseWaiter(object):
             if self.worker_props.get(worker.name) is None:
                 self._dispatch_worker(worker)
 
-        self.workers = workers
+        self.workers = next_loop_workers
 
     def _dispatch_worker(self, worker):
-        '''
+        """
         派遣 worker
         :param worker:
         :return:
-        '''
+        """
         if self.worker_mode is WaiterConstant.WORKER_MODE_THREAD_POOL:
             t = self.resource_pool.submit(self.worker_running, worker, self.worker_running_callback)
             t.add_done_callback(self.worker_report)
@@ -96,10 +103,10 @@ class BaseWaiter(object):
             self.register_worker(worker, t)
 
     def worker_band(self, worker_name):
-        '''
+        """
         绑定worker
         :param worker_name: worker的名字
-        '''
+        """
         # 根据模式
         worker_prop = self.worker_props.get(worker_name)
         if worker_prop is None:
@@ -128,12 +135,12 @@ class BaseWaiter(object):
         # self.unregister_worker(worker)
 
     def register_worker(self, worker, worker_container):
-        '''
+        """
         register the worker to self.worker_props
         :param worker: worker
         :param worker_container: worker running thread or process
         :return:
-        '''
+        """
         self.worker_props[worker.name] = {
             "worker": worker,
             "run_time": time.time(),
@@ -149,7 +156,11 @@ class BaseWaiter(object):
         self.unregister_worker(worker)
 
     # 派遣worker
-    def worker_running(self, worker, callback=None):
+    @staticmethod
+    def worker_running(worker, callback=None):
+        """
+        派遣worker
+        """
         if not isinstance(worker, BaseWorker):
             return
 

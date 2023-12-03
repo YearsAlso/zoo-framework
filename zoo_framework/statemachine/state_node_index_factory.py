@@ -1,5 +1,5 @@
 from zoo_framework.core.aop import cage
-from statemachine.state_node_index import StateNodeIndex
+from zoo_framework.statemachine.state_node_index import StateNodeIndex
 
 
 @cage

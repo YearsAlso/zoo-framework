@@ -2,6 +2,10 @@ import time
 
 
 class DelayFIFONode(object):
+    """
+    延迟FIFO节点
+    """
+
     def __init__(self, value, index, expired_time, loop_times=1):
         self.value = value
         self.expired_time = expired_time
