@@ -7,6 +7,17 @@ from .worker import worker_register
 from .configure import config_funcs
 from .validation import validation
 from .logger import logger
+from .stopwatch import stopwatch
 
-__all__ = ["cage", "configure", "event", "params", "worker", "worker_register", "config_funcs", "logger",
-           "validation"]
+__all__ = [
+    "cage",
+    "configure",
+    "event",
+    "params",
+    "worker",
+    "worker_register",
+    "config_funcs",
+    "logger",
+    "stopwatch",
+    "validation"
+]

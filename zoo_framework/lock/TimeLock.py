@@ -1,4 +1,4 @@
-from lock import BaseLock
+from .base_lock import BaseLock
 
 
 class TimeLock(BaseLock):

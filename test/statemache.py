@@ -1,6 +1,7 @@
 import unittest
 from time import sleep
 
+from zoo_framework.core.aop import stopwatch
 from zoo_framework.statemachine import StateMachineManager
 
 
@@ -20,6 +21,7 @@ class TestStateMache(unittest.TestCase):
         get_value = StateMachineManager().get_state("Test", "Test.number")
         self.assertEqual(set_value, get_value)
 
+    @stopwatch
     def test_observe(self):
         """
         测试观察者
@@ -39,11 +41,11 @@ class TestStateMache(unittest.TestCase):
             StateMachineManager().set_state("Test", "Test.number", i)
             sleep(1)
 
+    @stopwatch
     def test_key_depth(self):
         """
         测试键深度
         """
-
         StateMachineManager().set_state("Test", "Test.number", 0)
         StateMachineManager().set_state("Test", "Test.number.1", 1)
         StateMachineManager().set_state("Test", "Test.number.1.1", 2)
@@ -55,6 +57,7 @@ class TestStateMache(unittest.TestCase):
         self.assertEqual(StateMachineManager().get_state("Test", "Test.number.1.1.1"), 3)
 
     # 测试删除性能
+    @stopwatch
     def test_delete(self):
         """
         测试删除性能
