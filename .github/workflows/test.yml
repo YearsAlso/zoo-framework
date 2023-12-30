@@ -1,19 +1,13 @@
-# 打包测试，如果next tag是beta，那么就打包beta，否则打包latest
 name: Test
-on:
-  workflow_run:
-    workflows: ["Pylint"]
-    types: [requested]
-    branches-ignore:
-      - "main"
+
+on: [ push ]
 
 jobs:
   build:
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [ ubuntu-latest ]
-        python-version: [ "3.9", "3.10", "3.11" ]
+        python-version: [ "3.10", "3.11" ]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
