@@ -22,6 +22,8 @@ class Master(object):
         self.worker_register = worker_register
         self.worker_register.register(StateMachineWorker.__name__, StateMachineWorker())
         self.worker_register.register(EventWorker.__name__, EventWorker())
+
+        # TODO: add svm to manager worker
         self.loop_interval = loop_interval
 
         # 根据策略生成waiter
