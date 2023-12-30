@@ -1,11 +1,6 @@
 # 打包测试，如果next tag是beta，那么就打包beta，否则打包latest
 name: Test
-on:
-  workflow_run:
-    workflows:
-      - Pylint
-    types:
-      - completed
+on: [push]
 
 jobs:
   build:
