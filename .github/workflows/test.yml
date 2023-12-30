@@ -1,17 +1,11 @@
 # 打包测试，如果next tag是beta，那么就打包beta，否则打包latest
-name: Package
+name: Test
 on:
   workflow_run:
     workflows:
       - Pylint
     types:
       - completed
-  push:
-    tags:
-      - 'next*'
-      - 'main'
-      - 'master'
-      - 'release*'
 
 jobs:
   build:
@@ -33,11 +27,4 @@ jobs:
       - name: Test with pytest
         run: |
           pip install pytest pytest-cov
-          pytest tests.py --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
-      - name: Build package
-        run: python setup.py sdist build
-      - name: Archive production artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: dist
-          path: dist/
+          pytest ./test/ci_tests.py --doctest-modules --junitxml=junit/test-results.xml --cov=com --cov-report=xml --cov-report=html
