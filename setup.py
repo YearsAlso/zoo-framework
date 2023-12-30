@@ -1,11 +1,16 @@
 from distutils.core import setup
 from setuptools import find_packages
+import dotenv
+
+dotenv.load_dotenv()
+
+version = dotenv.get_key(".env", "VERSION")
 
 with open("README.md", "r") as f:
     long_description = f.read()
 
 setup(name='zoo-framework',  # 包名
-      version='0.5.1',  # 版本号
+      version=version,  # 版本号
       description='A simple and quick multi-threaded framework',
       long_description_content_type="text/markdown",
       long_description=long_description,

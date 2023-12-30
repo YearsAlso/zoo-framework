@@ -1,0 +1,42 @@
+name: Release
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows:
+      - Package
+    types:
+      - completed
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Build package
+        run: python setup.py sdist build
+      - name: Publish package
+        uses: pypa/gh-action-pypi-publish@v1
+        with:
+          password: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Install bumpversion
+        run: pip install bumpversion
+      - name: Update version number
+        run: |
+          # Bump version (patch level)
+          bumpversion patch VERSION --allow-dirty
+          # Update .env file
+          echo "VERSION=$(cat VERSION)" > .env
+          # Commit .env file
+          git config --global user.name 'GitHub Actions'
+          git config --global user.email 'github-actions@github.com'
+          git add .env
+          git commit -m "Update version number"
+          git push
