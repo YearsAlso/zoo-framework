@@ -2,10 +2,8 @@
 name: Test
 on:
   workflow_run:
-    workflows:
-      - Pylint
-    types:
-      - requested
+    workflows: ["Pylint"]
+    types: [requested]
     branches-ignore:
       - "main"
 
