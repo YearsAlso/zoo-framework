@@ -22,7 +22,7 @@ Zoo Framework 采用**动物园隐喻**设计：
 
 ```mermaid
 graph TB
-    subgraph 🎪 Zoo Framework
+    subgraph "🎪 Zoo Framework"
         M[👨‍🌾 Master<br/>园长] -->|调度| W[🍽️ Waiter<br/>饲养员]
         W -->|分发任务| Wr[👷 Workers<br/>动物群]
         
