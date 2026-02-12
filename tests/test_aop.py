@@ -74,8 +74,8 @@ class TestEventDecorator:
         result = multi_handler("test_data")
         assert result == "handled: test_data"
 
-    def test_event_decorator_preserves_function_metadata(self):
-        """测试 event 装饰器保留函数元数据"""
+    def test_event_decorator_preserves_function_name(self):
+        """测试 event 装饰器保留函数名"""
         
         @event("test_topic", channel="test_channel")
         def my_handler(data):
