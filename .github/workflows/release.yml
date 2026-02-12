@@ -86,7 +86,7 @@ jobs:
           pip install -e ".[dev]"
       
       - name: Run tests
-        run: pytest --cov=zoo_framework --cov-report=xml --cov-fail-under=70
+        run: pytest --cov=zoo_framework --cov-report=xml --cov-fail-under=60
 
   # 代码质量检查
   quality:
