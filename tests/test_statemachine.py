@@ -6,8 +6,9 @@
 import pytest
 from unittest.mock import MagicMock
 
-from zoo_framework.statemachine import StateNode, StateEffect
-from zoo_framework.statemachine.state_node import StateNodeType
+from zoo_framework.statemachine.state_node import StateNode
+from zoo_framework.statemachine.state_effect import StateEffect
+from zoo_framework.statemachine.state_node_type import StateNodeType
 
 
 class TestStateNode:
@@ -139,8 +140,6 @@ class TestStateNodeType:
 
     def test_state_node_type_values(self):
         """测试 StateNodeType 枚举值"""
-        from zoo_framework.statemachine.state_node_type import StateNodeType
-        
         assert StateNodeType.NORMAL.value == "normal"
         assert StateNodeType.TEMPORARY.value == "temporary"
         assert StateNodeType.PERSISTENT.value == "persistent"

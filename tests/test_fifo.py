@@ -6,7 +6,11 @@
 import pytest
 import time
 from zoo_framework.fifo import BaseFIFO, EventFIFO
-from zoo_framework.fifo.node import EventNode, PriorityLevel, EventPriorityCalculator
+from zoo_framework.fifo.node import EventNode
+from zoo_framework.fifo.node.event_fifo_node import (
+    PriorityLevel,
+    EventPriorityCalculator,
+)
 
 
 class TestBaseFIFO:

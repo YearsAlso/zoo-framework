@@ -5,7 +5,6 @@
 
 import pytest
 from zoo_framework.core.aop import cage, event
-from zoo_framework.core.aop.cage import Cage
 
 
 class TestCage:
