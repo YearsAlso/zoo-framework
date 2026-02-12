@@ -153,6 +153,25 @@ class StateNode(object):
         if isinstance(effect, types.FunctionType) and effect not in self._effect_list:
             self._effect_list.append(effect)
 
+    def remove_effect(self, effect: types.FunctionType):
+        """
+        移除状态节点的副作用 - 修复内存泄漏
+        
+        Args:
+            effect: 要移除的副作用函数
+            
+        Raises:
+            ValueError: 如果 effect 不在列表中
+        """
+        if effect is None:
+            return
+        
+        try:
+            self._effect_list.remove(effect)
+            LogUtils.debug(f"✅ Effect removed from state node '{self.key}'")
+        except ValueError:
+            LogUtils.warning(f"⚠️ Effect not found in state node '{self.key}'")
+
     def get_children(self) -> list[Any]:
         """
         获取子节点

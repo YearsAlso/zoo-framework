@@ -31,6 +31,22 @@ class StateScope:
             return
         node.add_effect(effect)
 
+    def unobserve_state_node(self, key: str, effect: Any):
+        """
+        移除状态节点观察者 - 修复内存泄漏
+        
+        Args:
+            key: 状态键名
+            effect: 观察者回调函数
+            
+        Raises:
+            KeyError: 如果状态节点不存在
+        """
+        node = self.get_state_node(key)
+        if node is None:
+            raise KeyError(f"State node '{key}' not found")
+        node.remove_effect(effect)
+
     def register_top_node(self, key: str, value: Any, effect: list = None):
         """
         注册根节点

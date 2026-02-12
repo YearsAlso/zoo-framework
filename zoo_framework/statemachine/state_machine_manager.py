@@ -120,3 +120,21 @@ class StateMachineManager(object):
 
         state_register: StateScope = self._state_scope_map[scope]
         state_register.observe_state_node(key, effect)
+
+    def unobserve_state(self, scope: str, key: str, effect: callable):
+        """
+        移除状态节点观察者 - 修复内存泄漏
+        
+        Args:
+            scope: 作用域名
+            key: 状态键名
+            effect: 观察者回调函数
+            
+        Raises:
+            KeyError: 如果作用域或状态不存在
+        """
+        if self._state_scope_map.get(scope) is None:
+            raise KeyError(f"Scope '{scope}' not found")
+
+        state_register: StateScope = self._state_scope_map[scope]
+        state_register.unobserve_state_node(key, effect)
