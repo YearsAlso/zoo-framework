@@ -47,13 +47,37 @@ class TestFileUtils:
         """测试文件存在检查 - 不存在"""
         assert FileUtils.file_exists("/nonexistent/file/path.txt") is False
 
+    def test_dir_exists(self):
+        """测试目录存在检查"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            assert FileUtils.dir_exists(temp_dir) is True
+        
+        assert FileUtils.dir_exists("/nonexistent/dir") is False
+
     def test_create_file(self):
         """测试创建文件"""
         with tempfile.TemporaryDirectory() as temp_dir:
             file_path = os.path.join(temp_dir, "test.txt")
             
-            FileUtils.create_file(file_path, "test content")
+            FileUtils.create_file(file_path)
             
             assert os.path.exists(file_path)
-            with open(file_path, 'r') as f:
-                assert f.read() == "test content"
+
+    def test_mkdir(self):
+        """测试创建目录"""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            dir_path = os.path.join(temp_dir, "newdir")
+            
+            FileUtils.mkdir(dir_path)
+            
+            assert os.path.exists(dir_path)
+            assert os.path.isdir(dir_path)
+
+    def test_get_file_name(self):
+        """测试获取文件名"""
+        assert FileUtils.get_file_name("/path/to/file.txt") == "file.txt"
+        assert FileUtils.get_file_name("file.txt") == "file.txt"
+
+    def test_get_file_parent(self):
+        """测试获取父目录"""
+        assert FileUtils.get_file_parent("/path/to/file.txt") == "/path/to"

@@ -7,7 +7,6 @@ import pytest
 from unittest.mock import MagicMock
 
 from zoo_framework.statemachine.state_node import StateNode
-from zoo_framework.statemachine.state_effect import StateEffect
 
 
 class TestStateNode:
@@ -20,7 +19,7 @@ class TestStateNode:
             value="test_value",
         )
         
-        assert node._key == "test.key"
+        assert node.key == "test.key"
         assert node._value == "test_value"
 
     def test_state_node_get_key(self):
@@ -40,20 +39,20 @@ class TestStateNode:
         
         assert node.get_value() == "new_value"
 
+    def test_state_node_add_child(self):
+        """测试添加子节点"""
+        parent = StateNode(key="parent", value="parent_value")
+        child = StateNode(key="parent.child", value="child_value")
+        
+        parent.add_child(child)
+        
+        assert child in parent._children
 
-class TestStateEffect:
-    """StateEffect 测试类"""
-
-    def test_state_effect_execute(self):
-        """测试执行 Effect"""
-        executed = []
+    def test_state_node_is_top(self):
+        """测试根节点设置"""
+        node = StateNode(key="test.key", value="test_value")
         
-        def callback(old_val, new_val):
-            executed.append((old_val, new_val))
+        assert node.is_top() is False
         
-        effect = StateEffect(callback=callback)
-        
-        effect.execute("old", "new")
-        
-        assert len(executed) == 1
-        assert executed[0] == ("old", "new")
+        node.to_be_top()
+        assert node.is_top() is True

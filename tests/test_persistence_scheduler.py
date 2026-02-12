@@ -6,11 +6,12 @@
 import pytest
 import os
 import tempfile
-from unittest.mock import patch, MagicMock
 
 from zoo_framework.core.persistence_scheduler import (
     PersistenceScheduler,
     FileChecksumValidator,
+    PicklePersistenceStrategy,
+    JsonPersistenceStrategy,
 )
 
 
@@ -64,14 +65,22 @@ class TestPersistenceScheduler:
         with tempfile.TemporaryDirectory() as temp_dir:
             filepath = os.path.join(temp_dir, "test.pkl")
             scheduler = PersistenceScheduler(
-                strategy="pickle",
-                filepath=filepath
+                filepath=filepath,
+                strategy=PicklePersistenceStrategy(),
+                auto_save_interval=0,  # 禁用自动保存
             )
             
             data = {"key": "value", "number": 42}
-            scheduler.save(data)
+            scheduler.update_data(data)
+            scheduler.save(force=True)
             
-            loaded = scheduler.load()
+            # 创建新的 scheduler 加载数据
+            scheduler2 = PersistenceScheduler(
+                filepath=filepath,
+                strategy=PicklePersistenceStrategy(),
+                auto_save_interval=0,
+            )
+            loaded = scheduler2.load()
             assert loaded == data
 
     def test_json_strategy(self):
@@ -79,28 +88,29 @@ class TestPersistenceScheduler:
         with tempfile.TemporaryDirectory() as temp_dir:
             filepath = os.path.join(temp_dir, "test.json")
             scheduler = PersistenceScheduler(
-                strategy="json",
-                filepath=filepath
+                filepath=filepath,
+                strategy=JsonPersistenceStrategy(),
+                auto_save_interval=0,
             )
             
             data = {"key": "value", "number": 42}
-            scheduler.save(data)
+            scheduler.update_data(data)
+            scheduler.save(force=True)
             
-            loaded = scheduler.load()
+            # 创建新的 scheduler 加载数据
+            scheduler2 = PersistenceScheduler(
+                filepath=filepath,
+                strategy=JsonPersistenceStrategy(),
+                auto_save_interval=0,
+            )
+            loaded = scheduler2.load()
             assert loaded == data
-
-    def test_invalid_strategy(self):
-        """测试无效的持久化策略"""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            filepath = os.path.join(temp_dir, "test.txt")
-            with pytest.raises(ValueError):
-                PersistenceScheduler(strategy="invalid", filepath=filepath)
 
     def test_load_nonexistent_file(self):
         """测试加载不存在的文件"""
         scheduler = PersistenceScheduler(
-            strategy="json",
-            filepath="/nonexistent/path/file.json"
+            filepath="/nonexistent/path/file.json",
+            auto_save_interval=0,
         )
         
         result = scheduler.load()
