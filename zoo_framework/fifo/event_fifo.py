@@ -10,14 +10,20 @@ class EventFIFO(BaseFIFO):
     def push_value(self, value):
         """将事件推入事件队列."""
         try:
-            node = EventNode(value)
+            if isinstance(value, dict):
+                node = EventNode(**value)
+            elif isinstance(value, EventNode):
+                node = value
+            else:
+                # 对于非 dict 和非 EventNode 的值，创建一个默认事件节点
+                node = EventNode(topic="default", content=str(value))
             super().push_value(node)
         except Exception as e:
             LogUtils.error(str(e), EventFIFO.__name__)
 
     def dispatch(self, topic, content, provider_name="default"):
         """将事件推入事件队列."""
-        node = EventNode({"topic": topic, "content": content, "provider_name": provider_name})
+        node = EventNode(topic=topic, content=content)
         super().push_value(node)
 
     def get_top(self):
