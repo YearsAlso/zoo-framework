@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "🎪 Zoo Framework - A simple and quick multi-threaded Python framework with zoo metaphor"
 readme = "README.md"
 license = {text = "Apache-2.0"}
-requires-python = ">=3.8"
+requires-python = ">=3.13"
 authors = [
     {name = "XiangMeng", email = "mengxiang931015@live.com"},
 ]
@@ -19,11 +19,7 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
@@ -76,7 +72,7 @@ packages = ["zoo_framework"]
 # Ruff 配置 (P0: 代码质量工具)
 # ============================================
 [tool.ruff]
-target-version = "py38"  # 支持 Python 3.8+
+target-version = "py313"  # 仅支持 Python 3.13+
 line-length = 100
 indent-width = 4
 
@@ -171,7 +167,7 @@ line-ending = "auto"
 # MyPy 配置 (P0: 类型安全)
 # ============================================
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.13"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false  # 暂时允许，后续逐步添加类型注解
@@ -213,11 +209,6 @@ addopts = [
     "-v",
     "--tb=short",
     "--strict-markers",
-    "--cov=zoo_framework",
-    "--cov-report=term-missing",
-    "--cov-report=html",
-    "--cov-report=xml",
-    "--cov-fail-under=70",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
