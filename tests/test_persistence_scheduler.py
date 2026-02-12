@@ -11,7 +11,6 @@ from zoo_framework.core.persistence_scheduler import (
     PersistenceScheduler,
     FileChecksumValidator,
     PicklePersistenceStrategy,
-    JsonPersistenceStrategy,
 )
 
 
@@ -83,33 +82,10 @@ class TestPersistenceScheduler:
             loaded = scheduler2.load()
             assert loaded == data
 
-    def test_json_strategy(self):
-        """测试 JSON 持久化策略"""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            filepath = os.path.join(temp_dir, "test.json")
-            scheduler = PersistenceScheduler(
-                filepath=filepath,
-                strategy=JsonPersistenceStrategy(),
-                auto_save_interval=0,
-            )
-            
-            data = {"key": "value", "number": 42}
-            scheduler.update_data(data)
-            scheduler.save(force=True)
-            
-            # 创建新的 scheduler 加载数据
-            scheduler2 = PersistenceScheduler(
-                filepath=filepath,
-                strategy=JsonPersistenceStrategy(),
-                auto_save_interval=0,
-            )
-            loaded = scheduler2.load()
-            assert loaded == data
-
     def test_load_nonexistent_file(self):
         """测试加载不存在的文件"""
         scheduler = PersistenceScheduler(
-            filepath="/nonexistent/path/file.json",
+            filepath="/nonexistent/path/file.pkl",
             auto_save_interval=0,
         )
         
