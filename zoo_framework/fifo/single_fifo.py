@@ -2,9 +2,8 @@ from .base_fifo import BaseFIFO
 
 
 class SingleFIFO(BaseFIFO):
-    """
-    单一值队列
-    """
+    """单一值队列."""
+
     index_list = {}
 
     def __init__(self):

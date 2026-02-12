@@ -2,9 +2,8 @@ from enum import Enum
 
 
 class StateNodeType(Enum):
-    """
-    状态节点类型
-    """
+    """状态节点类型."""
+
     string = "string"
     number = "number"
     datetime = "datetime"
@@ -16,18 +15,15 @@ class StateNodeType(Enum):
 
     @staticmethod
     def get_type_by_value(value):
-        """
-        根据值获取类型
-        """
+        """根据值获取类型."""
         if isinstance(value, str):
             return StateNodeType.string
-        elif isinstance(value, int) or isinstance(value, float):
+        if isinstance(value, (int, float)):
             return StateNodeType.number
-        elif isinstance(value, bool):
+        if isinstance(value, bool):
             return StateNodeType.boolean
-        elif isinstance(value, list):
+        if isinstance(value, list):
             return StateNodeType.array
-        elif isinstance(value, dict):
+        if isinstance(value, dict):
             return StateNodeType.branch
-        else:
-            return None
+        return None

@@ -1,6 +1,4 @@
-
-
-worker_template = '''from zoo_framework.workers import BaseWorker
+worker_template = """from zoo_framework.workers import BaseWorker
 from zoo_framework import worker
 
 @worker(count=1)
@@ -22,7 +20,7 @@ class {{worker_name.title()}}Worker(BaseWorker):
         pass
 
     def _on_done(self):
-        pass'''
+        pass"""
 
 worker_mod_insert_template = """
 \r\nfrom .{{worker_name}}_worker import {{worker_name.title()}}Worker

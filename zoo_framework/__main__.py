@@ -1,25 +1,16 @@
 import json
+import os
 import sys
 
 import click
-import os
-import jinja2
-from jinja2 import Environment, PackageLoader, Template
-from zoo_framework.templates import worker_template, main_template, worker_mod_insert_template
+from jinja2 import Template
+
+from zoo_framework.templates import main_template, worker_mod_insert_template, worker_template
 
 DEFAULT_CONF = {
     "_exports": [],
-    "log": {
-        "path": "./logs",
-        "level": "debug"
-    },
-    "worker": {
-        "runPolicy": "simple",
-        "pool": {
-            "size": 5,
-            "enabled": False
-        }
-    }
+    "log": {"path": "./logs", "level": "debug"},
+    "worker": {"runPolicy": "simple", "pool": {"size": 5, "enabled": False}},
 }
 
 
@@ -28,7 +19,7 @@ def create_func(object_name):
         return
 
     os.mkdir(object_name)
-    src_dir = object_name + '/src'
+    src_dir = object_name + "/src"
     conf_dir = src_dir + "/conf"
     params_dir = src_dir + "/params"
     main_file = src_dir + "/main.py"
@@ -104,5 +95,5 @@ def zfc(create, worker, config):
         worker_func(str(worker).lower())
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     zfc()

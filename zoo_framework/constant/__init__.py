@@ -1,4 +1,4 @@
-from .worker_constant import WorkerConstant
 from .waiter_constant import WaiterConstant
+from .worker_constant import WorkerConstant
 
-__all__ = ["WorkerConstant", "WaiterConstant"]
+__all__ = ["WaiterConstant", "WorkerConstant"]

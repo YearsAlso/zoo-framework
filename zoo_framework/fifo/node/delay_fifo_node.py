@@ -1,10 +1,8 @@
 import time
 
 
-class DelayFIFONode(object):
-    """
-    延迟FIFO节点
-    """
+class DelayFIFONode:
+    """延迟FIFO节点."""
 
     def __init__(self, value, index, expired_time, loop_times=1):
         self.value = value
@@ -15,3 +13,4 @@ class DelayFIFONode(object):
     def is_expire(self):
         if self.expired_time <= time.time():
             return True
+        return None

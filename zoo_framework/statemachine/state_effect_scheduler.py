@@ -1,12 +1,10 @@
 from zoo_framework.event.event_channel_manager import EventChannelManager
+
 from .state_node_index_factory import StateNodeIndexFactory
-from zoo_framework.reactor import EventReactorManager
 
 
-class StateEffectScheduler(object):
-    """
-    状态节点副作用调度器
-    """
+class StateEffectScheduler:
+    """状态节点副作用调度器."""
 
     # TODO: 通过管道管理器
     _event_channel = EventChannelManager().get_channel(__name__)
@@ -20,8 +18,7 @@ class StateEffectScheduler(object):
         self.state_effect_index = StateNodeIndexFactory.create_index(self.state_machine)
 
     def add_state_effect(self, state_effect):
-        """
-        添加状态节点副作用
+        """添加状态节点副作用
         :param state_effect: 状态节点副作用
         :return:
         """
@@ -31,8 +28,7 @@ class StateEffectScheduler(object):
         self.state_effect_index.add_state_effect(state_effect)
 
     def remove_state_effect(self, state_effect):
-        """
-        移除状态节点副作用
+        """移除状态节点副作用
         :param state_effect: 状态节点副作用
         :return:
         """
@@ -41,23 +37,20 @@ class StateEffectScheduler(object):
             self.state_effect_index.remove_state_effect(state_effect)
 
     def get_state_effect(self, state):
-        """
-        获取状态节点副作用
+        """获取状态节点副作用
         :param state: 状态节点
         :return:
         """
         return self.state_effect_map.get(state, set())
 
     def get_state_effect_index(self):
-        """
-        获取状态节点副作用索引
+        """获取状态节点副作用索引
         :return:
         """
         return self.state_effect_index
 
     def execute_state_effect(self, state, *args, **kwargs):
-        """
-        执行状态节点副作用
+        """执行状态节点副作用
         :param state: 状态节点
         :return:
         """

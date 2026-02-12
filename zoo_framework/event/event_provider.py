@@ -1,13 +1,11 @@
 from zoo_framework.core.aop import cage
-from zoo_framework.event import EventChannelRegister, EventChannel
+from zoo_framework.event import EventChannel, EventChannelRegister
 from zoo_framework.fifo.node import EventNode
 
 
 @cage
-class EventProvider(object):
-    """
-    事件提供器
-    """
+class EventProvider:
+    """事件提供器."""
 
     _eventChannelRegister = EventChannelRegister()
 
@@ -20,9 +18,7 @@ class EventProvider(object):
             raise Exception("channel not found")
 
     def refresh(self, event: EventNode):
-        """
-        刷新事件
-        """
+        """刷新事件."""
         channel: EventChannel = self._eventChannelRegister.get_channel(event.channel_name)
         if channel:
             # 通道中是否存在该事件

@@ -7,14 +7,14 @@ from zoo_framework.reactor.waiter_result_reactor import WaiterResultReactor
 from zoo_framework.workers import BaseWorker
 
 
-class BaseWaiter(object):
-    """
-    基础的 waiter
-    """
+class BaseWaiter:
+    """基础的 waiter."""
+
     _lock = None
 
     def __init__(self):
         from zoo_framework.params import WorkerParams
+
         # 获得模式
         self.worker_mode, self.pool_enable = self.get_worker_mode(WorkerParams.WORKER_POOL_ENABLE)
         # 获得资源池的大小
@@ -28,20 +28,16 @@ class BaseWaiter(object):
         self.register_handler()
 
     def get_worker_mode(self, pool_enable):
-        """
-        获得worker的模式
-        """
+        """获得worker的模式."""
         if pool_enable:
             return WaiterConstant.WORKER_MODE_THREAD_POOL, pool_enable
-        else:
-            return WaiterConstant.WORKER_MODE_THREAD, pool_enable
+        return WaiterConstant.WORKER_MODE_THREAD, pool_enable
 
     def register_handler(self):
-        """
-        注册handler
-        """
+        """注册handler."""
         # TODO: 不在使用主动注入，而是在创建注册器时，自动注册
         from zoo_framework.reactor.event_reactor_manager import EventReactorManager
+
         EventReactorManager().bind_topic_reactor("waiter", WaiterResultReactor())
 
     def init_lock(self):
@@ -49,9 +45,7 @@ class BaseWaiter(object):
 
     # 集结worker们
     def call_workers(self, worker_list: list):
-        """
-        集结worker们
-        """
+        """集结worker们."""
         self.workers = worker_list
 
         # 生成池或者列表，这里使用线程池，如果使用进程池，需要考虑进程间通信，暂时不考虑
@@ -64,9 +58,7 @@ class BaseWaiter(object):
 
     # 执行服务
     def execute_service(self):
-        """
-        执行服务
-        """
+        """执行服务."""
         # 参与下次循环的worker
         next_loop_workers = []
         for worker in self.workers:
@@ -87,8 +79,7 @@ class BaseWaiter(object):
         self.workers = next_loop_workers
 
     def _dispatch_worker(self, worker):
-        """
-        派遣 worker
+        """派遣 worker
         :param worker:
         :return:
         """
@@ -98,24 +89,24 @@ class BaseWaiter(object):
             self.register_worker(worker, t)
         elif self.worker_mode is WaiterConstant.WORKER_MODE_THREAD:
             from threading import Thread
+
             t = Thread(target=self.worker_running, args=(worker, self.worker_running_callback))
             t.start()
             self.register_worker(worker, t)
 
     def worker_band(self, worker_name):
-        """
-        绑定worker
-        :param worker_name: worker的名字
+        """绑定worker
+        :param worker_name: worker的名字.
         """
         # 根据模式
         worker_prop = self.worker_props.get(worker_name)
         if worker_prop is None:
             return
 
-        worker = worker_prop.get("worker")
+        worker_prop.get("worker")
         run_time = worker_prop.get("run_time")
         run_timeout = worker_prop.get("run_timeout")
-        container = worker_prop.get("container")
+        worker_prop.get("container")
 
         now_time = time.time()
 
@@ -135,8 +126,7 @@ class BaseWaiter(object):
         # self.unregister_worker(worker)
 
     def register_worker(self, worker, worker_container):
-        """
-        register the worker to self.worker_props
+        """Register the worker to self.worker_props
         :param worker: worker
         :param worker_container: worker running thread or process
         :return:
@@ -145,7 +135,7 @@ class BaseWaiter(object):
             "worker": worker,
             "run_time": time.time(),
             "run_timeout": worker.run_timeout,
-            "container": worker_container
+            "container": worker_container,
         }
 
     def unregister_worker(self, worker):
@@ -158,11 +148,9 @@ class BaseWaiter(object):
     # 派遣worker
     @staticmethod
     def worker_running(worker, callback=None):
-        """
-        派遣worker
-        """
+        """派遣worker."""
         if not isinstance(worker, BaseWorker):
-            return
+            return None
 
         result = worker.run()
 

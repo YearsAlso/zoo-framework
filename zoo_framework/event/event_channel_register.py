@@ -1,13 +1,13 @@
 from zoo_framework.core.aop import cage
 from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
+
 from .event_channel import EventChannel
 
 
 @cage
 class EventChannelRegister:
-    """
-    事件通道注册器
-    """
+    """事件通道注册器."""
+
     _single = None
     _instance = None
 
@@ -31,6 +31,7 @@ class EventChannelRegister:
         if channel_name not in cls._channel_map:
             # 创建事件通道
             from zoo_framework.event.event_channel import EventChannel
+
             cls._channel_map[channel_name] = EventChannel(channel_name)
             return cls._channel_map.get(channel_name)
         return cls._channel_map.get(channel_name)

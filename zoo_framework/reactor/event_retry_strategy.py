@@ -2,9 +2,7 @@ from enum import Enum
 
 
 class EventRetryStrategy(Enum):
-    """
-    事件重试策略
-    """
+    """事件重试策略."""
 
     RetryOnce = 0
 

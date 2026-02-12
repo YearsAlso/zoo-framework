@@ -3,7 +3,7 @@ from zoo_framework.statemachine.state_node_index import StateNodeIndex
 
 
 @cage
-class StateNodeIndexFactory(object):
+class StateNodeIndexFactory:
     @classmethod
     def create_index(cls, state_node):
         return StateNodeIndex(state_node)

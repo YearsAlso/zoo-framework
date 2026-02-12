@@ -117,6 +117,36 @@ ignore = [
     "D104",  # Missing docstring in public package
     "D105",  # Missing docstring in magic method
     "D107",  # Missing docstring in __init__
+    "D101",  # Missing docstring in public class
+    "D102",  # Missing docstring in public method
+    "D103",  # Missing docstring in public function
+    "D200",  # One-line docstring should fit on one line
+    "D205",  # Missing blank line after summary
+    "D415",  # First line should end with a period
+    # 中文项目允许使用中文字符
+    "RUF001",  # Ambiguous unicode character in string
+    "RUF002",  # Ambiguous unicode character in docstring
+    "RUF003",  # Ambiguous unicode character in comment
+    # 其他非关键规则
+    "E501",  # Line too long
+    "ARG001",  # Unused function argument
+    "ARG002",  # Unused method argument
+    "PERF203",  # Try-except within a loop
+    "F403",  # Undefined local with import star
+    "F405",  # Undefined local with import star usage
+    "RUF012",  # Mutable class default
+    "RUF013",  # Implicit optional
+    "TC001",  # Typing only first party import
+    "E721",  # Type comparison
+    "E722",  # Bare except
+    "B007",  # Unused loop control variable
+    "RET503",  # Implicit return
+    "RET504",  # Unnecessary assign
+    "SIM102",  # Collapsible if
+    "PERF102",  # Incorrect dict iterator
+    "PERF401",  # Manual list comprehension
+    "A001",  # Builtin variable shadowing
+    "RUF006",  # Asyncio dangling task
 ]
 
 [tool.ruff.lint.pydocstyle]

@@ -33,9 +33,7 @@ class EventReactor:
         self.success_callback = callback
 
     def set_retry_strategy(self, retry_strategy: EventRetryStrategy, retry_times=0):
-        """
-        设置重试策略
-        """
+        """设置重试策略."""
         self.retry_times = retry_times
         self.retry_strategy = retry_strategy
 
@@ -92,14 +90,10 @@ class EventReactor:
                 except Exception as e:
                     self.retry_times -= 1
                     self._on_error(topic, content, e)
-        elif self.retry_strategy == EventRetryStrategy.RetryForever:
-            while True:
-                try:
-                    self.handle_callback(req)
-                    return
-                except Exception as e:
-                    self._on_error(topic, content, e)
-        elif self.retry_strategy == EventRetryStrategy.RetryNever:
+        elif (
+            self.retry_strategy == EventRetryStrategy.RetryForever
+            or self.retry_strategy == EventRetryStrategy.RetryNever
+        ):
             while True:
                 try:
                     self.handle_callback(req)
@@ -110,9 +104,7 @@ class EventReactor:
             raise Exception("未知的事件重试策略")
 
     def execute(self, topic, content):
-        """
-        执行事件
-        """
+        """执行事件."""
         # 获得执行方法
         event_handler = self.handle_callback
 

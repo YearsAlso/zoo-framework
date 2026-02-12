@@ -1,7 +1,5 @@
-class StateEffect(object):
-    """
-    状态节点的副作用
-    """
+class StateEffect:
+    """状态节点的副作用."""
 
     def __init__(self, state, effect):
         self.state = state
@@ -39,14 +37,11 @@ class StateEffect(object):
         # 记录执行时的系统时间和负载情况，向调度器报告
 
     def __repr__(self) -> str:
-        """
-        :return: str
-        """
-        return "StateEffect(state=%s, effect=%s)" % (self.state, self.effect)
+        """:return: str"""
+        return f"StateEffect(state={self.state}, effect={self.effect})"
 
     def __eq__(self, other) -> bool:
-        return (self.state == other.state and
-                self.effect == other.effect)
+        return self.state == other.state and self.effect == other.effect
 
     def __hash__(self) -> int:
         return hash((self.state, self.effect))

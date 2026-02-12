@@ -1,6 +1,4 @@
-params_validate_map = {
-
-}
+params_validate_map = {}
 
 
 def validation(params_key="") -> object:
@@ -26,3 +24,4 @@ def validation_params(params_key, value):
 
     if value in valid_values:
         return True
+    return None

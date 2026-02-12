@@ -1,59 +1,46 @@
-from zoo_framework.reactor import EventReactor
 from zoo_framework.core.aop import cage
-from .event_channel_register import EventChannelRegister
-from .event_channel import EventChannel
+from zoo_framework.reactor import EventReactor
+
 from ..fifo.node import EventNode
+from .event_channel import EventChannel
+from .event_channel_register import EventChannelRegister
 
 
 @cage
 class EventChannelManager:
-    """
-    事件通道管理器
-    """
+    """事件通道管理器."""
 
     _event_channel_register: EventChannelRegister = EventChannelRegister()
 
     @classmethod
     def refresh_channel(cls, channel_name, topic, reactor: EventReactor):
-        """
-        刷新事件频道
-        """
+        """刷新事件频道."""
         channel: EventChannel = cls._event_channel_register.register(channel_name)
         channel.register_reactor(topic, reactor)
 
     @classmethod
     def get_channel(cls, channel_name) -> EventChannel:
-        """
-        获取事件频道
-        """
+        """获取事件频道."""
         return cls._event_channel_register.get_channel(channel_name)
 
     @classmethod
     def get_channel_register(cls):
-        """
-        获取频道通道注册器
-        """
+        """获取频道通道注册器."""
         return cls._event_channel_register
 
     @classmethod
     def get_all_channel_name(cls):
-        """
-        获取事件频道名称列表
-        """
+        """获取事件频道名称列表."""
         return cls._event_channel_register.get_channel_name_list()
 
     @classmethod
     def get_all_channel_count(cls):
-        """
-        获取事件通道数量
-        """
+        """获取事件通道数量."""
         return cls._event_channel_register.get_channel_count()
 
     @classmethod
     def perform_event(cls, event: EventNode):
-        """
-        分发事件
-        """
+        """分发事件."""
         channel: EventChannel = cls._event_channel_register.get_channel(event.channel_name)
 
         # 获得所有的事件反应器
@@ -89,9 +76,7 @@ class EventChannelManager:
 
     @classmethod
     def get_channel_reactors(cls, event: EventNode) -> list[EventReactor] or None:
-        """
-        获取事件频道的事件反应器
-        """
+        """获取事件频道的事件反应器."""
         # 事件获得频道
         channel: EventChannel = cls._event_channel_register.get_channel(event.channel_name)
 

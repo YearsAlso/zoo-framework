@@ -13,7 +13,7 @@ class ParamsFactory:
             with open(config_path, "w") as f:
                 json.dump(self.config_params, f)
 
-        with open(config_path, "r") as f:
+        with open(config_path) as f:
             ParamsFactory.config_params = json.load(f)
 
         # 处理 exports
@@ -38,7 +38,7 @@ class ParamsFactory:
     def get_export_file(self, file_name):
         content = {}
         try:
-            with open(file_name, "r") as fp:
+            with open(file_name) as fp:
                 content = json.load(fp)
         except:
             pass
