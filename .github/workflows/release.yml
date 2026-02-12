@@ -1,42 +1,295 @@
-name: Release
+# 🚀 自动化发布工作流
+#
+# 版本策略：
+# - dev 分支: 测试版本，patch 自增 (0.1.0 → 0.1.1-beta)
+# - main 分支: 正式版本，minor 自增 (0.1.x → 0.2.0)
+#
+# 触发条件：
+# - PR 合并到 dev 分支
+# - PR 合并到 main 分支
+#
+# 🔑 需要配置的 Secrets：
+# - PYPI_API_TOKEN: PyPI API Token
+# - TEST_PYPI_API_TOKEN: TestPyPI API Token（可选，用于测试发布）
+
+name: 🚀 Release
+
 on:
-  workflow_dispatch:
-  workflow_run:
-    workflows:
-      - Package
-    types:
-      - completed
+  # PR 合并到 dev 分支触发测试版本
+  pull_request:
+    types: [closed]
+    branches: [dev]
+  
+  # PR 合并到 main 分支触发正式版本
+  # 注意：main 分支也使用 PR 合并触发
+  # 如果直接 push 到 main，可以取消下面的注释：
+  # push:
+  #   branches: [main]
 
 jobs:
-  publish:
+  # 确定版本类型和是否应该发布
+  determine-release:
+    name: 🔍 确定发布类型
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+    outputs:
+      should_release: ${{ steps.check.outputs.should_release }}
+      version_type: ${{ steps.check.outputs.version_type }}
+      release_type: ${{ steps.check.outputs.release_type }}
+      branch: ${{ steps.check.outputs.branch }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: 确定发布类型
+        id: check
+        run: |
+          # 获取目标分支
+          TARGET_BRANCH="${{ github.base_ref }}"
+          echo "目标分支: $TARGET_BRANCH"
+          echo "branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
+          
+          if [ "$TARGET_BRANCH" == "dev" ]; then
+            echo "🧪 检测到 dev 分支合并"
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "version_type=patch" >> $GITHUB_OUTPUT
+            echo "release_type=beta" >> $GITHUB_OUTPUT
+          elif [ "$TARGET_BRANCH" == "main" ]; then
+            echo "🚀 检测到 main 分支合并"
+            echo "should_release=true" >> $GITHUB_OUTPUT
+            echo "version_type=minor" >> $GITHUB_OUTPUT
+            echo "release_type=stable" >> $GITHUB_OUTPUT
+          else
+            echo "⏭️ 其他分支，不触发发布"
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          fi
+
+  # 运行测试
+  test:
+    name: 🧪 运行测试
+    needs: determine-release
+    if: needs.determine-release.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.11'
+      
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -e ".[dev]"
+      
+      - name: Run tests
+        run: pytest --cov=zoo_framework --cov-fail-under=70
+
+  # 代码质量检查
+  quality:
+    name: 🔍 代码质量检查
+    needs: determine-release
+    if: needs.determine-release.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      
+      - name: Run Ruff
+        run: ruff check zoo_framework
+      
+      - name: Run MyPy
+        run: mypy zoo_framework
+        continue-on-error: true
+
+  # 发布流程
+  release:
+    name: 🚀 发布
+    needs: [determine-release, test, quality]
+    if: needs.determine-release.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+      id-token: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build toml
+      
+      # 获取当前版本
+      - name: Get current version
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(python -c "import toml; print(toml.load('pyproject.toml')['project']['version'])")
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "当前版本: $CURRENT_VERSION"
+      
+      # 计算新版本
+      - name: Calculate new version
+        id: calc_version
+        run: |
+          CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
+          VERSION_TYPE="${{ needs.determine-release.outputs.version_type }}"
+          RELEASE_TYPE="${{ needs.determine-release.outputs.release_type }}"
+          
+          # 解析版本号
+          MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
+          MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
+          PATCH=$(echo $CURRENT_VERSION | cut -d. -f3 | cut -d- -f1)  # 去掉 -beta 后缀
+          
+          if [ "$VERSION_TYPE" == "minor" ]; then
+            # minor 自增: 0.1.0 → 0.2.0
+            MINOR=$((MINOR + 1))
+            PATCH=0
+            NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          else
+            # patch 自增: 0.1.0 → 0.1.1-beta
+            PATCH=$((PATCH + 1))
+            NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+            if [ "$RELEASE_TYPE" == "beta" ]; then
+              NEW_VERSION="${NEW_VERSION}-beta"
+            fi
+          fi
+          
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "新版本: $NEW_VERSION"
+      
+      # 更新版本号
+      - name: Update version
+        run: |
+          NEW_VERSION="${{ steps.calc_version.outputs.new_version }}"
+          
+          # 配置 git
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          # 更新 pyproject.toml
+          sed -i "s/version = \"${{ steps.current_version.outputs.version }}\"/version = \"$NEW_VERSION\"/" pyproject.toml
+          
+          # 更新 __init__.py
+          sed -i "s/__version__ = \"${{ steps.current_version.outputs.version }}\"/__version__ = \"$NEW_VERSION\"/" zoo_framework/__init__.py
+          
+          # 提交更改
+          git add pyproject.toml zoo_framework/__init__.py
+          git commit -m "chore(release): bump version to $NEW_VERSION [skip ci]"
+          git push
+      
+      # 创建 Git tag
+      - name: Create Git Tag
+        run: |
+          NEW_VERSION="${{ steps.calc_version.outputs.new_version }}"
+          BRANCH="${{ needs.determine-release.outputs.branch }}"
+          
+          # 创建 tag
+          git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
+          git push origin "v$NEW_VERSION"
+          echo "✅ Tag v$NEW_VERSION 已创建"
+      
+      # 构建包
       - name: Build package
-        run: python setup.py sdist build
-      - name: Publish package
-        uses: pypa/gh-action-pypi-publish@v1
+        run: python -m build
+      
+      # 发布到 PyPI（正式版本）
+      - name: Publish to PyPI (Stable)
+        if: needs.determine-release.outputs.release_type == 'stable'
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
-      - name: Install bumpversion
-        run: pip install bumpversion
-      - name: Update version number
+      
+      # 发布到 TestPyPI（测试版本）
+      - name: Publish to TestPyPI (Beta)
+        if: needs.determine-release.outputs.release_type == 'beta'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          password: ${{ secrets.TEST_PYPI_API_TOKEN || secrets.PYPI_API_TOKEN }}
+        continue-on-error: true
+      
+      # 生成 Changelog
+      - name: Generate Changelog
+        id: changelog
         run: |
-          # Bump version (patch level)
-          bumpversion patch VERSION --allow-dirty
-          # Update .env file
-          echo "VERSION=$(cat VERSION)" > .env
-          # Commit .env file
-          git config --global user.name 'GitHub Actions'
-          git config --global user.email 'github-actions@github.com'
-          git add .env
-          git commit -m "Update version number"
-          git push
+          # 获取上一个 tag
+          LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+          
+          if [ -z "$LAST_TAG" ]; then
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges | head -20)
+          else
+            CHANGELOG=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s (%h)" --no-merges | head -20)
+          fi
+          
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      # 创建 GitHub Release
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.calc_version.outputs.new_version }}
+          name: Release v${{ steps.calc_version.outputs.new_version }}
+          body: |
+            ## 🎉 Release v${{ steps.calc_version.outputs.new_version }}
+            
+            **类型:** ${{ needs.determine-release.outputs.release_type == 'beta' && '🧪 测试版本' || '🚀 正式版本' }}
+            **分支:** ${{ needs.determine-release.outputs.branch }}
+            **版本自增:** ${{ needs.determine-release.outputs.version_type }}
+            
+            ### 📋 变更记录
+            ${{ steps.changelog.outputs.changelog }}
+            
+            ### 📦 安装
+            
+            ${{ needs.determine-release.outputs.release_type == 'beta' && '
+            ```bash
+            # 测试版本（从 TestPyPI 安装）
+            pip install --index-url https://test.pypi.org/simple/ zoo-framework==' || '
+            ```bash
+            # 正式版本
+            pip install zoo-framework==' }}${{ steps.calc_version.outputs.new_version }}
+            ```
+            
+            ### 📚 文档
+            - [开发文档](https://github.com/${{ github.repository }}/blob/main/docs/README.md)
+            - [API 参考](https://github.com/${{ github.repository }}/blob/main/docs/API_REFERENCE.md)
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          draft: false
+          prerelease: ${{ needs.determine-release.outputs.release_type == 'beta' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      # 发送通知
+      - name: Notify Success
+        run: |
+          echo "🎉 发布成功！"
+          echo "版本: v${{ steps.calc_version.outputs.new_version }}"
+          echo "类型: ${{ needs.determine-release.outputs.release_type }}"
+          echo "PyPI: https://pypi.org/project/zoo-framework/${{ steps.calc_version.outputs.new_version }}/"

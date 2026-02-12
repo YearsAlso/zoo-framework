@@ -1,39 +1,52 @@
-# 打包测试，如果next tag是beta，那么就打包beta，否则打包latest
-name: Build
+# 📦 构建和测试打包
+#
+# 功能：
+# 1. 构建包
+# 2. 验证包完整性
+# 3. 保存构建产物
+
+name: 📦 Build
+
 on:
-  workflow_run:
-    workflows:
-      - Pylint
-    types:
-      - completed
   push:
-    tags:
-      - 'next*'
-      - 'main'
-      - 'master'
-      - 'release*'
+    branches: [main, dev, feat-*]
+    paths:
+      - 'zoo_framework/**'
+      - 'pyproject.toml'
+      - '.github/workflows/build.yml'
+  pull_request:
+    branches: [main, dev]
 
 jobs:
   build:
+    name: 构建包
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [ ubuntu-latest ]
-        python-version: [ "3.9", "3.10", "3.11" ]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+    
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
-      - name: Install dependencies
+          python-version: ${{ matrix.python-version }}
+      
+      - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install build twine
+      
       - name: Build package
-        run: python setup.py sdist build
+        run: python -m build
+      
+      - name: Check package
+        run: twine check dist/*
+      
       - name: Archive production artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: dist-py${{ matrix.python-version }}
           path: dist/
+          retention-days: 7
