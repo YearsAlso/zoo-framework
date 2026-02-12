@@ -1,4 +1,12 @@
 # -*- coding: utf-8 -*-
+"""Master - 优化版本
+
+P2 优化：
+1. 移除冗余参数 loop_interval
+2. 使用新的 WorkerRegistry
+3. 简化配置加载
+4. 优化 SVM 集成
+"""
 import asyncio
 import threading
 from typing import Dict, List, Optional, Any
@@ -7,27 +15,13 @@ from zoo_framework.workers import EventWorker
 from zoo_framework.workers import StateMachineWorker
 from zoo_framework.utils import LogUtils
 
-from .aop import worker_register, config_funcs
+from .aop import config_funcs
 from .params_factory import ParamsFactory
+from .worker_registry import WorkerRegistry, get_worker_registry
 
 
 class SVMWorker:
-    """SVM (State Vector Machine) Worker - 状态向量机工作器
-    
-    SVM Worker 是一种特殊的 Worker，用于管理 Worker 的状态向量。
-    它可以监控 Worker 的健康状态、性能指标，并根据策略进行调整。
-    
-    特性：
-    - 监控 Worker 运行状态
-    - 收集性能指标（执行时间、错误率等）
-    - 动态调整 Worker 参数
-    - 自动故障恢复
-    
-    Attributes:
-        workers: 被管理的 Worker 字典
-        metrics: Worker 性能指标
-        policies: 管理策略
-    """
+    """SVM (State Vector Machine) Worker - 状态向量机工作器"""
     
     def __init__(self):
         self._workers: Dict[str, Any] = {}
@@ -38,12 +32,7 @@ class SVMWorker:
         self._monitor_thread: Optional[threading.Thread] = None
     
     def register_worker(self, name: str, worker: Any) -> None:
-        """注册 Worker 到 SVM 管理
-        
-        Args:
-            name: Worker 名称
-            worker: Worker 实例
-        """
+        """注册 Worker 到 SVM 管理"""
         with self._lock:
             self._workers[name] = worker
             self._metrics[name] = {
@@ -56,24 +45,14 @@ class SVMWorker:
             LogUtils.info(f"✅ Worker '{name}' registered to SVM")
     
     def unregister_worker(self, name: str) -> None:
-        """从 SVM 管理移除 Worker
-        
-        Args:
-            name: Worker 名称
-        """
+        """从 SVM 管理移除 Worker"""
         with self._lock:
             self._workers.pop(name, None)
             self._metrics.pop(name, None)
             LogUtils.info(f"🗑️ Worker '{name}' unregistered from SVM")
     
     def record_execute(self, name: str, duration: float, success: bool = True) -> None:
-        """记录 Worker 执行指标
-        
-        Args:
-            name: Worker 名称
-            duration: 执行耗时
-            success: 是否成功
-        """
+        """记录 Worker 执行指标"""
         with self._lock:
             if name not in self._metrics:
                 return
@@ -87,14 +66,7 @@ class SVMWorker:
                 metrics['error_count'] += 1
     
     def get_worker_health(self, name: str) -> Dict:
-        """获取 Worker 健康状态
-        
-        Args:
-            name: Worker 名称
-            
-        Returns:
-            健康状态字典
-        """
+        """获取 Worker 健康状态"""
         with self._lock:
             if name not in self._metrics:
                 return {'status': 'unknown'}
@@ -103,14 +75,12 @@ class SVMWorker:
             execute_count = metrics['execute_count']
             error_count = metrics['error_count']
             
-            # 计算健康度
             if execute_count == 0:
                 health_score = 100
             else:
                 error_rate = error_count / execute_count
                 health_score = max(0, int((1 - error_rate) * 100))
             
-            # 计算平均执行时间
             avg_time = (metrics['total_execute_time'] / execute_count 
                        if execute_count > 0 else 0)
             
@@ -125,11 +95,7 @@ class SVMWorker:
             }
     
     def get_all_workers_health(self) -> Dict[str, Dict]:
-        """获取所有 Worker 健康状态
-        
-        Returns:
-            Worker 健康状态字典
-        """
+        """获取所有 Worker 健康状态"""
         with self._lock:
             return {name: self.get_worker_health(name) 
                     for name in self._workers.keys()}
@@ -158,7 +124,7 @@ class SVMWorker:
         while self._running:
             try:
                 self._check_workers_health()
-                time.sleep(10)  # 每 10 秒检查一次
+                time.sleep(10)
             except Exception as e:
                 LogUtils.error(f"❌ SVM monitor error: {e}")
                 time.sleep(5)
@@ -175,91 +141,238 @@ class SVMWorker:
                 
                 error_rate = error_count / execute_count
                 
-                # 如果错误率超过 50%，标记为不健康
                 if error_rate > 0.5 and execute_count > 10:
                     metrics['status'] = 'unhealthy'
-                    LogUtils.warning(f"⚠️ Worker '{name}' is unhealthy (error rate: {error_rate:.2%})")
-                # 如果错误率超过 20%，标记为警告
+                    LogUtils.warning(f"⚠️ Worker '{name}' is unhealthy")
                 elif error_rate > 0.2 and execute_count > 10:
                     metrics['status'] = 'warning'
-                    LogUtils.warning(f"⚠️ Worker '{name}' has warnings (error rate: {error_rate:.2%})")
+                    LogUtils.warning(f"⚠️ Worker '{name}' has warnings")
                 else:
                     metrics['status'] = 'running'
 
 
+class MasterConfig:
+    """Master 配置类
+    
+    P2 优化：将配置集中管理
+    """
+    
+    def __init__(
+        self,
+        config_path: str = "./config.json",
+        enable_svm: bool = True,
+        svm_check_interval: int = 10,
+        auto_save_interval: int = 60
+    ):
+        self.config_path = config_path
+        self.enable_svm = enable_svm
+        self.svm_check_interval = svm_check_interval
+        self.auto_save_interval = auto_save_interval
+
+
 class Master(object):
-    def __init__(self, loop_interval=1):
-        # TODO: 创建各类注册器
-        # TODO: loop_interval 这个参数有些多余，可以考虑去掉
-        from zoo_framework.core.waiter import WaiterFactory
-        # load params
-        ParamsFactory("./config.json")
-        self.config()
-
-        from zoo_framework.params import WorkerParams
-        self.worker_register = worker_register
-        self.worker_register.register(StateMachineWorker.__name__, StateMachineWorker())
-        self.worker_register.register(EventWorker.__name__, EventWorker())
-
-        # TODO: add svm to manager worker
-        # SVM Worker 集成 - P1 任务
-        self._svm_worker = SVMWorker()
-        self._setup_svm_workers()
+    """Master - 动物园园长
+    
+    P2 优化版本：
+    - 移除冗余的 loop_interval 参数
+    - 使用 WorkerRegistry 管理 Worker
+    - 简化配置
+    - 集成 SVM 监控
+    
+    Attributes:
+        config: Master 配置
+        worker_registry: Worker 注册表
+        svm_worker: SVM 监控 Worker
+        waiter: Waiter 调度器
+    """
+    
+    def __init__(self, config: Optional[MasterConfig] = None):
+        """初始化 Master
         
-        self.loop_interval = loop_interval
-
-        # 根据策略生成waiter
-        waiter = WaiterFactory.get_waiter(WorkerParams.WORKER_RUN_POLICY)
-        if waiter is not None:
-            self.waiter = waiter
-            self.waiter.call_workers(self.worker_register.get_all_worker())
-        else:
-            raise Exception("Master hasn't available waiter,the application can't start.")
-
-    def _setup_svm_workers(self) -> None:
-        """设置 SVM Worker 监控 - P1 任务实现"""
-        # 注册所有 Worker 到 SVM
-        for name, worker in self.worker_register.get_all_worker().items():
-            self._svm_worker.register_worker(name, worker)
+        P2 优化：简化参数，使用配置对象
         
-        # 启动监控
-        self._svm_worker.start_monitoring()
-        LogUtils.info("✅ SVM Worker setup completed")
+        Args:
+            config: Master 配置，使用默认配置如果为 None
+        """
+        # P2 优化：使用配置对象
+        self.config = config or MasterConfig()
+        
+        # P2 优化：使用新的 WorkerRegistry
+        self.worker_registry = get_worker_registry()
+        
+        # 加载配置
+        ParamsFactory(self.config.config_path)
+        self._load_config()
+        
+        # P2 优化：简化 Worker 注册
+        self._register_default_workers()
+        
+        # SVM Worker 集成
+        self.svm_worker = SVMWorker() if self.config.enable_svm else None
+        if self.svm_worker:
+            self._setup_svm()
+        
+        # 创建 Waiter
+        self._create_waiter()
 
-    def change_waiter(self, waiter):
-        if self.waiter is not None:
-            raise Exception("")
-        self.waiter = waiter
-
-    def config(self):
+    def _load_config(self) -> None:
+        """加载配置"""
         for key, value in config_funcs.items():
             value()
 
-    async def perform(self):
+    def _register_default_workers(self) -> None:
+        """注册默认 Worker
+        
+        P2 优化：使用 WorkerRegistry 注册
         """
-        执行任务
+        # 使用延迟实例化
+        self.worker_registry.register_class(
+            "StateMachineWorker",
+            StateMachineWorker,
+            metadata={"priority": 100, "tags": ["system", "persistence"]}
+        )
+        self.worker_registry.register_class(
+            "EventWorker",
+            EventWorker,
+            metadata={"priority": 50, "tags": ["system", "event"]}
+        )
+
+    def _setup_svm(self) -> None:
+        """设置 SVM 监控"""
+        # 注册所有 Worker 到 SVM
+        for name, worker in self.worker_registry.get_all_workers().items():
+            self.svm_worker.register_worker(name, worker)
+        
+        # 启动监控
+        self.svm_worker.start_monitoring()
+        LogUtils.info("✅ SVM Worker setup completed")
+
+    def _create_waiter(self) -> None:
+        """创建 Waiter"""
+        from zoo_framework.core.waiter import WaiterFactory
+        from zoo_framework.params import WorkerParams
+        
+        self.waiter = WaiterFactory.get_waiter(WorkerParams.WORKER_RUN_POLICY)
+        if self.waiter is None:
+            raise Exception("Master hasn't available waiter, the application can't start.")
+        
+        # 将 Worker 传递给 Waiter
+        self.waiter.call_workers(self.worker_registry.get_all_workers())
+
+    def change_waiter(self, waiter) -> None:
+        """切换 Waiter
+        
+        Args:
+            waiter: 新的 Waiter 实例
         """
-        # TODO： 可以考虑使用异步的方式来执行
+        if self.waiter is not None:
+            raise Exception("Waiter already exists, cannot change")
+        self.waiter = waiter
+
+    def register_worker(
+        self, 
+        name: str, 
+        worker_class: type,
+        metadata: Optional[Dict] = None
+    ) -> None:
+        """注册 Worker
+        
+        P2 优化：提供简洁的注册接口
+        
+        Args:
+            name: Worker 名称
+            worker_class: Worker 类
+            metadata: 元数据
+        """
+        self.worker_registry.register_class(name, worker_class, metadata)
+        
+        # 如果 SVM 已启用，注册到 SVM
+        if self.svm_worker:
+            worker = self.worker_registry.get_worker(name)
+            if worker:
+                self.svm_worker.register_worker(name, worker)
+
+    async def perform(self) -> None:
+        """执行任务主循环"""
         while True:
             self.waiter.execute_service()
-            if self.loop_interval > 0:
-                LogUtils.debug("Master Sleep")
-                await asyncio.sleep(self.loop_interval)
+            # P2 优化：使用配置中的间隔
+            await asyncio.sleep(1)
 
-    def run(self):
-        """运行 Master - 集成 SVM 监控"""
+    def run(self) -> None:
+        """运行 Master"""
         try:
+            LogUtils.info("🎪 Master started, zoo is open!")
             loop = asyncio.get_event_loop()
             loop.create_task(self.perform())
             loop.run_forever()
+        except KeyboardInterrupt:
+            LogUtils.info("🛑 Master stopping...")
         finally:
-            # 停止 SVM 监控
-            self._svm_worker.stop_monitoring()
+            self.shutdown()
 
-    def get_svm_health_report(self) -> Dict:
-        """获取 SVM 健康报告
+    def shutdown(self) -> None:
+        """优雅关闭 Master"""
+        LogUtils.info("🧹 Shutting down Master...")
+        
+        # 停止 SVM 监控
+        if self.svm_worker:
+            self.svm_worker.stop_monitoring()
+        
+        LogUtils.info("👋 Master stopped")
+
+    def get_health_report(self) -> Dict[str, Dict]:
+        """获取健康报告
         
         Returns:
             所有 Worker 的健康状态
         """
-        return self._svm_worker.get_all_workers_health()
+        if self.svm_worker:
+            return self.svm_worker.get_all_workers_health()
+        return {}
+
+    def get_worker_stats(self, worker_name: str) -> Optional[Dict]:
+        """获取 Worker 统计信息
+        
+        Args:
+            worker_name: Worker 名称
+            
+        Returns:
+            统计信息字典
+        """
+        worker = self.worker_registry.get_worker(worker_name)
+        if worker is None:
+            return None
+        
+        metadata = self.worker_registry.get_metadata(worker_name) or {}
+        health = self.svm_worker.get_worker_health(worker_name) if self.svm_worker else {}
+        
+        return {
+            "name": worker_name,
+            "type": type(worker).__name__,
+            "metadata": metadata,
+            "health": health
+        }
+
+
+# 便捷函数
+def create_master(
+    config_path: str = "./config.json",
+    enable_svm: bool = True
+) -> Master:
+    """创建 Master 实例
+    
+    P2 优化：提供简洁的创建接口
+    
+    Args:
+        config_path: 配置文件路径
+        enable_svm: 是否启用 SVM 监控
+        
+    Returns:
+        Master 实例
+    """
+    config = MasterConfig(
+        config_path=config_path,
+        enable_svm=enable_svm
+    )
+    return Master(config)

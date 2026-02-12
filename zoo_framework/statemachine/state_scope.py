@@ -1,30 +1,45 @@
 import copy
-from typing import Any
+from typing import Any, Optional
 
 from zoo_framework.statemachine.state_node_type import StateNodeType
-from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 from zoo_framework.statemachine.state_node import StateNode
+from zoo_framework.statemachine.state_index_factory import (
+    StateIndex, 
+    StateIndexFactory
+)
 from zoo_framework.utils import LogUtils
 
 
 class StateScope:
     """
-    状态域
+    状态域 - P2 优化版本
+    
+    P2 优化：
+    1. 使用工厂模式创建索引
+    2. 支持多种索引实现
+    3. 支持动态切换索引类型
+    
+    Attributes:
+        _state_index: 状态节点索引
     """
 
-    # 节点索引映射
-    # TODO： 将索引创建优化为工厂模式，索引设置为对象，对象可以使用多种方式实现
-    _state_index_map: ThreadSafeDict = {}
-
-    def __init__(self):
+    def __init__(self, index_type: str = "dict"):
+        """初始化状态域
+        
+        P2 优化：使用工厂模式创建索引
+        
+        Args:
+            index_type: 索引类型（"dict" 或 "hierarchical"）
         """
-        初始化状态节点注册器
-        """
-        self._state_index_map = ThreadSafeDict()
+        # P2 优化：使用工厂模式创建索引
+        self._state_index: StateIndex = StateIndexFactory.create_index(index_type)
 
     def observe_state_node(self, key: str, effect: Any):
-        """
-        观察状态节点
+        """观察状态节点
+        
+        Args:
+            key: 状态键名
+            effect: 观察者回调
         """
         node = self.get_state_node(key)
         if node is None:
@@ -32,8 +47,7 @@ class StateScope:
         node.add_effect(effect)
 
     def unobserve_state_node(self, key: str, effect: Any):
-        """
-        移除状态节点观察者 - 修复内存泄漏
+        """移除状态节点观察者 - 修复内存泄漏
         
         Args:
             key: 状态键名
@@ -48,29 +62,40 @@ class StateScope:
         node.remove_effect(effect)
 
     def register_top_node(self, key: str, value: Any, effect: list = None):
-        """
-        注册根节点
+        """注册根节点
+        
+        Args:
+            key: 节点键名
+            value: 节点值
+            effect: 副作用列表
         """
         node = StateNode(key, value, effect)
-        self._state_index_map[node.get_key()] = node
+        self._state_index.set(node.get_key(), node)
         node.to_be_top()
 
     def register_node(self, key: str, value: Any, effect: list = None):
-        """
-        注册状态节点
+        """注册状态节点
+        
+        Args:
+            key: 节点键名
+            value: 节点值
+            effect: 副作用列表
         """
         if len(key.split(".")) == 1:
             self.register_top_node(key, value, effect)
             return
 
         node = StateNode(key, value, effect)
-        self._state_index_map[node.get_key()] = node
+        self._state_index.set(node.get_key(), node)
 
     def set_state_node(self, key: str, value: Any, effect: list = None):
+        """设置状态节点的值
+        
+        Args:
+            key: 节点键名
+            value: 节点值
+            effect: 副作用列表
         """
-        设置状态节点的值
-        """
-
         # 1.节点拆分
         key_queue = key.split(".")
 
@@ -95,17 +120,23 @@ class StateScope:
                 node.set_value(value)
 
     def update_state_node(self, key: str, node: StateNode):
+        """更新状态节点
+        
+        Args:
+            key: 节点键名
+            node: 状态节点
         """
-        更新状态节点
-        """
-        self._state_index_map[key] = node
+        self._state_index.set(key, node)
 
     def _check_children(self, key: str):
+        """检查子节点"""
         pass
 
     def _check_and_build_tree(self, key_queue):
-        """
-        检查并构建树型结构
+        """检查并构建树型结构
+        
+        Args:
+            key_queue: 键队列
         """
         # 2. 依次创建节点
         current_key = key_queue[0]
@@ -124,15 +155,25 @@ class StateScope:
             # 一种key不能重复添加
             node.add_child(children_node)
 
-    def get_state_node(self, key: str) -> StateNode:
+    def get_state_node(self, key: str) -> Optional[StateNode]:
+        """获取状态节点
+        
+        Args:
+            key: 节点键名
+            
+        Returns:
+            状态节点或 None
         """
-        获取状态节点
-        """
-        return self._state_index_map.get(key)
+        return self._state_index.get(key)
 
     def get_state_value(self, key: str) -> Any:
-        """
-        获取状态节点的值
+        """获取状态节点的值
+        
+        Args:
+            key: 节点键名
+            
+        Returns:
+            节点值
         """
         node = self.get_state_node(key)
         if node is None:
@@ -140,8 +181,13 @@ class StateScope:
         return node.get_value()
 
     def get_state_children_value(self, key: str) -> Any:
-        """
-        获取状态节点的子节点的值
+        """获取状态节点的子节点的值
+        
+        Args:
+            key: 节点键名
+            
+        Returns:
+            子节点值字典
         """
         node = self.get_state_node(key)
         if node is None:
@@ -149,8 +195,11 @@ class StateScope:
         return node.get_children_value()
 
     def move_state_node(self, key: str, target_key: str):
-        """
-        移动状态节点
+        """移动状态节点
+        
+        Args:
+            key: 原键名
+            target_key: 目标键名
         """
         node = self.get_state_node(key)
         if node is None:
@@ -159,12 +208,14 @@ class StateScope:
 
         node.set_key(target_key)
         self.set_state_node(target_key, node)
-        # TODO: 删除子节点
+        # 删除子节点
         self.remove_state_node(key)
 
     def remove_state_node(self, key: str):
-        """
-        删除状态节点
+        """删除状态节点
+        
+        Args:
+            key: 节点键名
         """
         node = self.get_state_node(key)
         if node is None:
@@ -179,8 +230,11 @@ class StateScope:
         self.set_state_node(key, None)
 
     def copy_state_node(self, key: str, target_key: Any):
-        """
-        复制状态节点的值
+        """复制状态节点的值
+        
+        Args:
+            key: 原键名
+            target_key: 目标键名
         """
         node = self.get_state_node(key)
         if node is None:
@@ -188,3 +242,43 @@ class StateScope:
         new_node = copy.deepcopy(node)
         new_node.set_key(target_key)
         self.set_state_node(target_key, new_node)
+
+    def get_all_nodes(self):
+        """获取所有状态节点
+        
+        P2 优化：支持获取所有节点
+        
+        Returns:
+            节点字典
+        """
+        return self._state_index.get_all()
+
+    def find_nodes_by_prefix(self, prefix: str):
+        """根据前缀查找节点
+        
+        P2 优化：支持前缀查找
+        
+        Args:
+            prefix: 键前缀
+            
+        Returns:
+            节点列表
+        """
+        return self._state_index.find_by_prefix(prefix)
+
+    def has_state_node(self, key: str) -> bool:
+        """检查是否存在状态节点
+        
+        P2 优化：添加存在性检查
+        
+        Args:
+            key: 节点键名
+            
+        Returns:
+            是否存在
+        """
+        return self._state_index.has(key)
+
+
+# 导出公共 API
+__all__ = ["StateScope"]
