@@ -1,0 +1,213 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "zoo-framework"
+version = "0.1.0"
+description = "🎪 Zoo Framework - A simple and quick multi-threaded Python framework with zoo metaphor"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.8"
+authors = [
+    {name = "XiangMeng", email = "mengxiang931015@live.com"},
+]
+keywords = ["framework", "multi-threaded", "async", "state-machine", "event-driven"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "click>=8.0.0",
+    "jinja2>=3.0.0",
+    "gevent>=23.0.0",
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0.0",
+    "typing-extensions>=4.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    # 代码质量工具 (P0)
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+    "pre-commit>=3.5.0",
+    # 测试 (P1)
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.21.0",
+    # 构建工具
+    "build>=1.0.0",
+    "twine>=4.0.0",
+]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.4.0",
+]
+
+[project.scripts]
+zfc = "zoo_framework.__main__:zfc"
+zoo = "zoo_framework.__main__:zfc"
+
+[project.urls]
+Homepage = "https://github.com/YearsAlso/zoo-framework"
+Documentation = "https://yearsalso.github.io/zoo-framework/"
+Repository = "https://github.com/YearsAlso/zoo-framework"
+Issues = "https://github.com/YearsAlso/zoo-framework/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["zoo_framework"]
+
+# ============================================
+# Ruff 配置 (P0: 代码质量工具)
+# ============================================
+[tool.ruff]
+target-version = "py38"  # 支持 Python 3.8+
+line-length = 100
+indent-width = 4
+
+[tool.ruff.lint]
+select = [
+    # Pyflakes
+    "F",
+    # Pycodestyle
+    "E", "W",
+    # isort
+    "I",
+    # pydocstyle
+    "D",
+    # Pyupgrade
+    "UP",
+    # Flake8-bugbear
+    "B",
+    # Flake8-simplify
+    "SIM",
+    # Flake8-comprehensions
+    "C4",
+    # Flake8-builtins
+    "A",
+    # Flake8-return
+    "RET",
+    # Flake8-unused-arguments
+    "ARG",
+    # Flake8-type-checking
+    "TCH",
+    # Perflint
+    "PERF",
+    # Ruff-specific rules
+    "RUF",
+]
+ignore = [
+    # 暂时忽略文档字符串规则，后续逐步添加
+    "D100",  # Missing docstring in public module
+    "D104",  # Missing docstring in public package
+    "D105",  # Missing docstring in magic method
+    "D107",  # Missing docstring in __init__
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["zoo_framework"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint.per-file-ignores]
+# 测试文件允许缺少文档字符串和简化断言
+"tests/*" = ["D", "S101"]
+"test/*" = ["D", "S101"]
+"example/*" = ["D"]
+
+# ============================================
+# MyPy 配置 (P0: 类型安全)
+# ============================================
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false  # 暂时允许，后续逐步添加类型注解
+disallow_incomplete_defs = false
+check_untyped_defs = true
+disallow_untyped_decorators = false
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+show_column_numbers = true
+show_error_context = true
+
+# 第三方库缺失类型存根时的处理
+ignore_missing_imports = true
+
+# 排除文件
+exclude = [
+    "build",
+    "dist",
+    ".git",
+    "__pycache__",
+    ".pytest_cache",
+    ".mypy_cache",
+]
+
+# ============================================
+# Pytest 配置 (P1: 测试覆盖)
+# ============================================
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests", "test"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+    "--cov=zoo_framework",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--cov-fail-under=80",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+[tool.coverage.run]
+source = ["zoo_framework"]
+omit = [
+    "*/tests/*",
+    "*/test/*",
+    "*/example/*",
+    "*/venv/*",
+    "*/__pycache__/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]

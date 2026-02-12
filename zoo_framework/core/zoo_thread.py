@@ -1,6 +1,8 @@
 import ctypes
 import threading
 
+from zoo_framework.utils import LogUtils
+
 
 class ZooThread(threading.Thread):
     def __init__(self, name):
@@ -11,9 +13,9 @@ class ZooThread(threading.Thread):
         # target function of the thread class
         try:  # 用try/finally 的方式处理exception，从而kill thread
             while True:
-                print('running ' + self.name)
+                LogUtils.debug('running ' + self.name)
         finally:
-            print('ended')
+            LogUtils.debug('ended')
 
     def get_id(self):
         # returns id of the respective thread
@@ -24,6 +26,9 @@ class ZooThread(threading.Thread):
                 return id
 
     def raise_exception(self):
+        """
+        引发异常
+        """
         thread_id = self.get_id()
         # 精髓就是这句话，给线程发过去一个exceptions，线程就那边响应完就停了
         res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id,

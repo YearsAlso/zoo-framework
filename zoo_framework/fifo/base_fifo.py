@@ -1,29 +1,32 @@
+from zoo_framework.fifo.node import EventNode
+
+
 class BaseFIFO(object):
-    fifo = []
-    
+    _fifo = []
+
     def __init__(self):
         pass
 
     @classmethod
     def push_value(cls, value):
-        cls.fifo.append(value)
+        cls._fifo.append(value)
 
     @classmethod
-    def pop_value(cls):
-        if len(cls.fifo) <= 0:
+    def pop_value(cls) -> EventNode or None:
+        if len(cls._fifo) <= 0:
             return None
 
-        return cls.fifo.pop(0)
+        return cls._fifo.pop(0)
 
     @classmethod
-    def push_values(cls, values):
-        cls.fifo.extend(values)
+    def push_values(cls, values: list):
+        cls._fifo.extend(values)
 
     @classmethod
     def size(cls):
-        return len(cls.fifo)
+        return len(cls._fifo)
 
     @classmethod
-    def push_values_if_null(cls, value):
-        if cls.fifo.index(value) == -1:
-            cls.fifo.append(value)
+    def push_values_if_null(cls, value: EventNode):
+        if cls._fifo.index(value) == -1:
+            cls._fifo.append(value)

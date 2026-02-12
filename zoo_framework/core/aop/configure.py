@@ -1,5 +1,6 @@
+from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 
-config_funcs = {}
+config_funcs = ThreadSafeDict()
 
 
 def configure(topic: str):
