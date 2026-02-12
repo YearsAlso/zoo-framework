@@ -1,16 +1,21 @@
 import time
 
-from zoo_framework.reactor.event_retry_strategy import EventRetryStrategy
-from zoo_framework.reactor import EventReactor
-from zoo_framework.event.event_channel_register import EventChannelRegister
 from zoo_framework.event.event_channel_manager import EventChannelManager
+from zoo_framework.reactor import EventReactor
+from zoo_framework.reactor.event_retry_strategy import EventRetryStrategy
 
 
 # 自定义事件装饰器，用于注册事件
-def event(topic: str, channel: str = "default", timeout: int = time.time() + 1000, retry_time: int = 1,
-          retry_strategy=EventRetryStrategy.RetryOnce,
-          done_callback=None,
-          error_callback=None, success_callback=None):
+def event(
+    topic: str,
+    channel: str = "default",
+    timeout: int = time.time() + 1000,
+    retry_time: int = 1,
+    retry_strategy=EventRetryStrategy.RetryOnce,
+    done_callback=None,
+    error_callback=None,
+    success_callback=None,
+):
     def _event(func: callable):
         # 创建一个reactor
         reactor = EventReactor(func.__name__)

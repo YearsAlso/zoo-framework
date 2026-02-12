@@ -1,7 +1,7 @@
 from zoo_framework.fifo.node import EventNode
 
 
-class BaseFIFO(object):
+class BaseFIFO:
     _fifo = []
 
     def __init__(self):

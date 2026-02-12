@@ -1,38 +1,41 @@
 from .base_worker import BaseWorker
-from .worker_result import WorkerResult
-from .worker_props import WorkerProps
-from .state_machine_work import StateMachineWorker
-from .worker_register import WorkerRegister
 from .event_worker import EventWorker
+from .state_machine_work import StateMachineWorker
+from .worker_props import WorkerProps
+from .worker_register import WorkerRegister
+from .worker_result import WorkerResult
 
 # P2: 异步 Worker 支持
 try:
     from .async_worker import (
-        AsyncWorker,
-        AsyncEventWorker,
-        AsyncStateMachineWorker,
-        AsyncWorkerPool,
-        AsyncWorkerType,
+        AsyncEventWorker,  # noqa: F401
+        AsyncStateMachineWorker,  # noqa: F401
+        AsyncWorker,  # noqa: F401
+        AsyncWorkerPool,  # noqa: F401
+        AsyncWorkerType,  # noqa: F401
     )
+
     ASYNC_WORKER_AVAILABLE = True
 except ImportError:
     ASYNC_WORKER_AVAILABLE = False
 
 __all__ = [
     "BaseWorker",
-    "WorkerResult",
-    "WorkerProps",
-    "StateMachineWorker",
-    "WorkerRegister",
     "EventWorker",
+    "StateMachineWorker",
+    "WorkerProps",
+    "WorkerRegister",
+    "WorkerResult",
 ]
 
 # 如果异步 Worker 可用，添加到导出列表
 if ASYNC_WORKER_AVAILABLE:
-    __all__.extend([
-        "AsyncWorker",
-        "AsyncEventWorker",
-        "AsyncStateMachineWorker",
-        "AsyncWorkerPool",
-        "AsyncWorkerType",
-    ])
+    __all__.extend(
+        [
+            "AsyncEventWorker",
+            "AsyncStateMachineWorker",
+            "AsyncWorker",
+            "AsyncWorkerPool",
+            "AsyncWorkerType",
+        ]
+    )

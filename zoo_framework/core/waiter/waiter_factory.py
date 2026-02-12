@@ -1,7 +1,7 @@
-from .simple_waiter import SimpleWaiter
-from .safe_waiter import SafeWaiter
-from .stable_waiter import StableWaiter
 from .base_waiter import BaseWaiter
+from .safe_waiter import SafeWaiter
+from .simple_waiter import SimpleWaiter
+from .stable_waiter import StableWaiter
 
 
 class WaiterFactory:
@@ -9,9 +9,8 @@ class WaiterFactory:
     def get_waiter(name="simple") -> BaseWaiter:
         if name == "simple":
             return SimpleWaiter()
-        elif name == "stable":
+        if name == "stable":
             return StableWaiter()
-        elif name == "safe":
+        if name == "safe":
             return SafeWaiter()
-        else:
-            return SimpleWaiter()
+        return SimpleWaiter()

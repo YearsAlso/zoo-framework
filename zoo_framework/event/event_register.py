@@ -3,9 +3,8 @@ from zoo_framework.core.aop import cage
 
 @cage
 class EventRegister:
-    """
-    事件注册器
-    """
+    """事件注册器."""
+
     def __init__(self):
         self.event_list = []
 
@@ -19,6 +18,7 @@ class EventRegister:
         for event in self.event_list:
             if event.name == event_name:
                 return event
+        return None
 
     def get_event_list(self):
         return self.event_list
@@ -36,11 +36,13 @@ class EventRegister:
         for event in self.event_list:
             if event.name == event_name:
                 return event
+        return None
 
     def get_event_index(self, event_name):
         for index, event in enumerate(self.event_list):
             if event.name == event_name:
                 return index
+        return None
 
     def get_event_name_by_index(self, index):
         return self.event_list[index].name
@@ -49,6 +51,7 @@ class EventRegister:
         for index, event in enumerate(self.event_list):
             if event.name == event_name:
                 return index
+        return None
 
     def get_event_count(self):
         return len(self.event_list)
@@ -61,7 +64,7 @@ class EventRegister:
 
     def get_event_index_list(self):
         event_index_list = []
-        for index, event in enumerate(self.event_list):
+        for index, _event in enumerate(self.event_list):
             event_index_list.append(index)
         return event_index_list
 
@@ -73,12 +76,12 @@ class EventRegister:
 
     def get_event_index_by_name_index(self, event_name_index):
         for index, event in enumerate(self.event_list):
-            if event.name == event_name_index[0]:
-                if index == event_name_index[1]:
-                    return index
+            if event.name == event_name_index[0] and index == event_name_index[1]:
+                return index
+        return None
 
     def get_event_name_by_index_index(self, event_index_index):
         for index, event in enumerate(self.event_list):
-            if index == event_index_index[1]:
-                if event.name == event_index_index[0]:
-                    return event.name
+            if index == event_index_index[1] and event.name == event_index_index[0]:
+                return event.name
+        return None

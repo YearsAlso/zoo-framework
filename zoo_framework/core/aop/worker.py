@@ -6,9 +6,7 @@ worker_register: WorkerRegister = WorkerRegister()
 
 def worker(count: int = 1):
     def inner(cls):
-        """
-        注册worker
-        """
+        """注册worker."""
         if count == 1:
             worker_register.register(cls.__name__, cls())
             return cls

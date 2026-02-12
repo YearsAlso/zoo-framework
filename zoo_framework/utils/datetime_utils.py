@@ -3,11 +3,11 @@ from datetime import datetime, timedelta
 
 class DateTimeUtils:
     @classmethod
-    def get_format_now(cls, format_mod='%Y-%m-%d %H:%M:%S.%f'):
+    def get_format_now(cls, format_mod="%Y-%m-%d %H:%M:%S.%f"):
         return datetime.now().strftime(format_mod)
 
     @classmethod
-    def get_format_datetime(cls, target_time, format_mod='%Y-%m-%d %H:%M:%S.%f'):
+    def get_format_datetime(cls, target_time, format_mod="%Y-%m-%d %H:%M:%S.%f"):
         return target_time.strftime(format_mod)
 
     @classmethod
@@ -22,13 +22,13 @@ class DateTimeUtils:
     @classmethod
     def get_week_day(cls, date_str):
         week_day_dict = {
-            0: '星期一',
-            1: '星期二',
-            2: '星期三',
-            3: '星期四',
-            4: '星期五',
-            5: '星期六',
-            6: '星期天',
+            0: "星期一",
+            1: "星期二",
+            2: "星期三",
+            3: "星期四",
+            4: "星期五",
+            5: "星期六",
+            6: "星期天",
         }
         date = datetime.strptime(date_str, "%Y-%m-%d")
         day = date.weekday()
@@ -52,8 +52,7 @@ class DateTimeUtils:
         if month > 12:
             month = 1
             year += 1
-        now = datetime(year=year, month=month, day=1)
-        return now
+        return datetime(year=year, month=month, day=1)
 
     @classmethod
     def get_before_month(cls):
@@ -63,5 +62,4 @@ class DateTimeUtils:
         if month < 1:
             month = 12
             year -= 1
-        now = datetime(year=year, month=month, day=1)
-        return now
+        return datetime(year=year, month=month, day=1)

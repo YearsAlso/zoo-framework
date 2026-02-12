@@ -6,9 +6,7 @@ cage_register_map = ThreadSafeDict()
 
 def cage(cls):
     def _cage():
-        """
-        用于单例模式的装饰器
-        """
+        """用于单例模式的装饰器."""
         if cage_register_map.get(cls.__name__) is None:
             cage_register_map[cls.__name__] = cls()
         return cage_register_map[cls.__name__]

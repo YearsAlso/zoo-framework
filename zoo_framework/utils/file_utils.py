@@ -49,17 +49,17 @@ class FileUtils:
     @classmethod
     def get_file_size(cls, path):
         if not cls.file_exists(path):
-            raise Exception("File %s not found" % path)
+            raise Exception(f"File {path} not found")
 
         if not os.path.isfile(path):
-            raise Exception("File %s not found" % path)
+            raise Exception(f"File {path} not found")
 
         return os.path.getsize(path)
 
     @classmethod
     def create_file(cls, path):
-        file = open(path, 'w')
-        file.close()
+        with open(path, "w"):
+            pass
 
     @classmethod
     def copy_file(cls, src_path, target_path):

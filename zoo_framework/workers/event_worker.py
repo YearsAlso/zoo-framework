@@ -1,24 +1,20 @@
-import time
+from typing import TYPE_CHECKING
 
 import gevent
 
-from zoo_framework.event import EventChannel
-from zoo_framework.event.event_channel_manager import EventChannelManager
-from zoo_framework.reactor import EventReactor
 from zoo_framework.core.aop import cage
-from zoo_framework.fifo.event_fifo import EventFIFO
-from zoo_framework.fifo.node import EventNode
+from zoo_framework.event.event_channel_manager import EventChannelManager
 from zoo_framework.workers import BaseWorker
+
+if TYPE_CHECKING:
+    from zoo_framework.event import EventChannel
+    from zoo_framework.fifo.node import EventNode
 
 
 @cage
 class EventWorker(BaseWorker):
     def __init__(self):
-        BaseWorker.__init__(self, {
-            "is_loop": True,
-            "delay_time": 5,
-            "name": "EventWorker"
-        })
+        BaseWorker.__init__(self, {"is_loop": True, "delay_time": 5, "name": "EventWorker"})
         self.is_loop = True
 
         # 事件处理器注册器
@@ -26,6 +22,7 @@ class EventWorker(BaseWorker):
 
     def _execute(self):
         from zoo_framework.params import EventParams
+
         channel_names = self.eventChannelManager.get_all_channel_name()
         g_queue = []
         # TODO：获得除去失败事件通道的所有事件通道

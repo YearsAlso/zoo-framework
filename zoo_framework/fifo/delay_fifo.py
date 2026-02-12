@@ -3,9 +3,7 @@ from .node import DelayFIFONode
 
 
 class DelayFIFO(BaseFIFO):
-    """
-    延迟队列
-    """
+    """延迟队列."""
 
     def __init__(self):
         super().__init__()
@@ -27,8 +25,7 @@ class DelayFIFO(BaseFIFO):
         return len(self._fifo)
 
     def get_expire_values(self, current_time):
-        """
-        获取过期的值
+        """获取过期的值
         :param current_time:
         :return:
         """

@@ -4,9 +4,7 @@ _lock = Lock()
 
 
 class ThreadSafeDict:
-    """
-    Thread safe dictionary
-    """
+    """Thread safe dictionary."""
 
     def __init__(self, _dict=None):
         if _dict is None:
