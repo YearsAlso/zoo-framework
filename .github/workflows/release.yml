@@ -1,42 +1,242 @@
-name: Release
+# 🚀 自动化发布工作流
+#
+# 功能：
+# 1. 自动版本号自增（patch/minor/major）
+# 2. 自动打 Git tag
+# 3. 自动发布到 PyPI
+# 4. 自动创建 GitHub Release
+#
+# 📝 手动触发方式：
+# GitHub → Actions → Release → Run workflow → 选择版本类型
+#
+# 🔑 需要配置的 Secrets：
+# - PYPI_API_TOKEN: PyPI API Token（见下方配置说明）
+#
+# 📌 配置 PYPI_API_TOKEN 步骤：
+# 1. 访问 https://pypi.org/manage/account/token/
+# 2. 点击 "Add API token"
+# 3. Token name: "GitHub Actions"
+# 4. Scope: "Entire account" 或指定项目
+# 5. 复制生成的 token
+# 6. 到 GitHub → Settings → Secrets and variables → Actions
+# 7. 点击 "New repository secret"
+# 8. Name: PYPI_API_TOKEN, Value: 粘贴 token
+
+name: 🚀 Release
+
 on:
+  # 手动触发
   workflow_dispatch:
-  workflow_run:
-    workflows:
-      - Package
-    types:
-      - completed
+    inputs:
+      version_type:
+        description: '版本类型'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch  # 修复版本：0.0.1 → 0.0.2
+          - minor  # 次要版本：0.0.x → 0.1.0
+          - major  # 主要版本：0.x.x → 1.0.0
+      release_notes:
+        description: '发布说明（可选）'
+        required: false
+        type: string
+
+  # 推送到 main 分支时自动触发（可选，谨慎使用）
+  # push:
+  #   branches: [ main ]
+  #   paths:
+  #     - 'zoo_framework/**'
+  #     - 'pyproject.toml'
 
 jobs:
-  publish:
+  # 运行测试
+  test:
+    name: 🧪 运行测试
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
+          python-version: '3.11'
+      
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -e ".[dev]"
+      
+      - name: Run tests
+        run: pytest --cov=zoo_framework --cov-fail-under=70
+
+  # 代码质量检查
+  quality:
+    name: 🔍 代码质量检查
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      
+      - name: Run Ruff
+        run: ruff check zoo_framework
+      
+      - name: Run MyPy
+        run: mypy zoo_framework
+        continue-on-error: true
+
+  # 发布流程
+  release:
+    name: 🚀 发布到 PyPI
+    needs: [test, quality]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat-xmeng'
+    
+    permissions:
+      contents: write  # 用于创建 tag 和 release
+      id-token: write  # 用于 PyPI 可信发布（推荐）
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史用于生成 changelog
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build bump-my-version toml
+      
+      # 获取当前版本
+      - name: Get current version
+        id: current_version
+        run: |
+          CURRENT_VERSION=$(python -c "import toml; print(toml.load('pyproject.toml')['project']['version'])")
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "当前版本: $CURRENT_VERSION"
+      
+      # 版本号自增
+      - name: Bump version
+        id: bump_version
+        run: |
+          # 配置 git
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          # 使用 bump-my-version 自增版本号
+          pip install bump-my-version
+          
+          # 根据输入选择版本类型
+          VERSION_TYPE="${{ github.event.inputs.version_type || 'patch' }}"
+          echo "版本类型: $VERSION_TYPE"
+          
+          # 自增版本号
+          bump-my-version bump $VERSION_TYPE
+          
+          # 获取新版本
+          NEW_VERSION=$(python -c "import toml; print(toml.load('pyproject.toml')['project']['version'])")
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "新版本: $NEW_VERSION"
+      
+      # 提交版本号更改
+      - name: Commit version bump
+        run: |
+          git add pyproject.toml
+          git commit -m "chore(release): bump version to ${{ steps.bump_version.outputs.new_version }} [skip ci]"
+          git push
+      
+      # 创建 Git tag
+      - name: Create Git Tag
+        run: |
+          NEW_VERSION="${{ steps.bump_version.outputs.new_version }}"
+          git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
+          git push origin "v$NEW_VERSION"
+          echo "✅ Tag v$NEW_VERSION 已创建"
+      
+      # 构建包
       - name: Build package
-        run: python setup.py sdist build
-      - name: Publish package
-        uses: pypa/gh-action-pypi-publish@v1
+        run: python -m build
+      
+      # 发布到 PyPI（使用 API Token）
+      - name: Publish to PyPI
+        if: success()
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
-      - name: Install bumpversion
-        run: pip install bumpversion
-      - name: Update version number
+          # 如果使用 PyPI 可信发布（不需要 token），注释掉上面一行，使用下面：
+          # attestations: true
+      
+      # 生成 Changelog
+      - name: Generate Changelog
+        id: changelog
         run: |
-          # Bump version (patch level)
-          bumpversion patch VERSION --allow-dirty
-          # Update .env file
-          echo "VERSION=$(cat VERSION)" > .env
-          # Commit .env file
-          git config --global user.name 'GitHub Actions'
-          git config --global user.email 'github-actions@github.com'
-          git add .env
-          git commit -m "Update version number"
-          git push
+          # 获取上一个 tag
+          LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+          
+          if [ -z "$LAST_TAG" ]; then
+            # 第一个 release
+            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
+          else
+            # 获取两个 tag 之间的提交
+            CHANGELOG=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s (%h)" --no-merges)
+          fi
+          
+          # 保存到文件
+          echo "$CHANGELOG" > CHANGELOG_TEMP.md
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$CHANGELOG" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      # 创建 GitHub Release
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.bump_version.outputs.new_version }}
+          name: Release v${{ steps.bump_version.outputs.new_version }}
+          body: |
+            ## 🎉 What's New in v${{ steps.bump_version.outputs.new_version }}
+            
+            ${{ github.event.inputs.release_notes || '查看提交历史获取详细信息' }}
+            
+            ### 📋 Commits
+            ${{ steps.changelog.outputs.changelog }}
+            
+            ### 📦 安装
+            ```bash
+            pip install zoo-framework==${{ steps.bump_version.outputs.new_version }}
+            ```
+            
+            ### 📚 文档
+            - [开发文档](https://github.com/${{ github.repository }}/blob/main/docs/README.md)
+            - [API 参考](https://github.com/${{ github.repository }}/blob/main/docs/API_REFERENCE.md)
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      # 发送通知（可选）
+      - name: Notify Success
+        if: success()
+        run: |
+          echo "🎉 发布成功！"
+          echo "版本: v${{ steps.bump_version.outputs.new_version }}"
+          echo "PyPI: https://pypi.org/project/zoo-framework/${{ steps.bump_version.outputs.new_version }}/"
+          echo "Release: https://github.com/${{ github.repository }}/releases/tag/v${{ steps.bump_version.outputs.new_version }}"
