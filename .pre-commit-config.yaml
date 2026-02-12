@@ -1,13 +1,52 @@
 # See https://pre-commit.com for more information
 # See https://pre-commit.com/hooks.html for more hooks
 
+# P0: 代码质量工具 - Ruff + MyPy
+
 repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v3.2.0
+  # 基础检查
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
     hooks:
-    -   id: check-yaml
-    -   id: check-added-large-files
-    -   id: check-case-conflict
-    -   id: check-merge-conflict
-    -   id: trailing-whitespace
-    -   id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-json
+      - id: check-docstring-first
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      - id: detect-private-key
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: debug-statements
+
+  # Ruff - Python 代码格式化和 linting (P0)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.14
+    hooks:
+      # 运行 linter
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      # 运行 formatter
+      - id: ruff-format
+
+  # MyPy - 类型检查 (P0)
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.7.1
+    hooks:
+      - id: mypy
+        additional_dependencies: [types-all]
+        args: [--ignore-missing-imports, --show-error-codes]
+        exclude: ^(tests/|test/|example/)
+
+  # 安全扫描
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.6
+    hooks:
+      - id: bandit
+        args: ["-c", "pyproject.toml"]
+        additional_dependencies: ["bandit[toml]"]

@@ -1,0 +1,16 @@
+# Bandit 安全扫描配置
+# 排除测试文件中的 assert 使用
+skips: ['B101']
+
+# 扫描目标
+exclude_dirs:
+  - tests
+  - test
+  - example
+  - ".venv"
+  - venv
+  - __pycache__
+  - .git
+  - .pytest_cache
+  - build
+  - dist

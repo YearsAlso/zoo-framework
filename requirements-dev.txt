@@ -1,0 +1,29 @@
+# Zoo Framework 依赖文件
+# P0: 现代打包工具 - 开发依赖
+
+# 构建工具
+build>=1.0.0
+twine>=4.0.0
+hatchling>=1.18.0
+
+# 代码质量工具 (P0)
+ruff>=0.1.0
+mypy>=1.7.0
+pre-commit>=3.5.0
+bandit[toml]>=1.7.6
+
+# 测试 (P1)
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.21.0
+pytest-benchmark>=4.0.0
+
+# 类型存根
+types-PyYAML>=6.0.0
+
+# P2: 可观测性
+structlog>=23.2.0
+
+# 文档
+mkdocs>=1.5.0
+mkdocs-material>=9.4.0
