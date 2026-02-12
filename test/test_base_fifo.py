@@ -5,6 +5,10 @@ from zoo_framework.fifo import BaseFIFO
 
 class BaseFIFOTester(unittest.TestCase):
 
+    def setUp(self):
+        """每个测试前清理 FIFO"""
+        BaseFIFO._fifo = []
+
     def test_put(self):
         """
         测试入队
