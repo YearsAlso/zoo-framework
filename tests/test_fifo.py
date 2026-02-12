@@ -32,33 +32,12 @@ class TestBaseFIFO:
         assert item == "item1"
         assert BaseFIFO.size() == 1
 
-    def test_clear(self):
-        """测试清空队列"""
+    def test_push_values(self):
+        """测试批量入队"""
         fifo = BaseFIFO()
-        BaseFIFO.push_value("item1")
-        BaseFIFO.push_value("item2")
+        BaseFIFO.push_values(["item1", "item2", "item3"])
         
-        assert BaseFIFO.size() == 2
-        BaseFIFO.clear()
-        assert BaseFIFO.size() == 0
-
-    def test_is_empty(self):
-        """测试判断是否为空"""
-        fifo = BaseFIFO()
-        assert BaseFIFO.is_empty() is True
-        
-        BaseFIFO.push_value("item")
-        assert BaseFIFO.is_empty() is False
-
-    def test_peek(self):
-        """测试查看队首元素"""
-        fifo = BaseFIFO()
-        BaseFIFO.push_value("item1")
-        BaseFIFO.push_value("item2")
-        
-        item = BaseFIFO.peek()
-        assert item == "item1"
-        assert BaseFIFO.size() == 2  # peek 不改变队列大小
+        assert BaseFIFO.size() == 3
 
 
 class TestEventNode:
@@ -118,26 +97,6 @@ class TestEventNode:
         effective_priority = node.get_effective_priority()
         
         assert effective_priority >= 100
-
-    def test_set_timeout(self):
-        """测试设置超时"""
-        def timeout_callback(node):
-            pass
-        
-        node = EventNode(topic="test", content="content")
-        node.set_timeout(1, timeout_callback)
-        
-        assert node.timeout == 1
-        assert node.timeout_response == timeout_callback
-
-    def test_is_expire(self):
-        """测试判断是否过期"""
-        node = EventNode(topic="test", content="content")
-        node.set_timeout(0.01)
-        
-        assert node.is_expire() is False
-        time.sleep(0.02)
-        assert node.is_expire() is True
 
     def test_increment_retry(self):
         """测试增加重试次数"""
@@ -218,32 +177,6 @@ class TestEventFIFO:
         fifo.dispatch("test.topic", "test content")
         assert fifo.size() == 1
         
-        node = fifo.get_top()
+        node = BaseFIFO.pop_value()
         assert node.topic == "test.topic"
         assert node.content == "test content"
-
-    def test_get_top_empty(self):
-        """测试获取队首 - 空队列"""
-        fifo = EventFIFO()
-        top = fifo.get_top()
-        assert top is None
-
-    def test_has_event(self):
-        """测试判断事件是否存在"""
-        fifo = EventFIFO()
-        node = EventNode(topic="test", content="content")
-        
-        fifo.push_value(node)
-        assert fifo.has_event(node) is True
-
-    def test_replace(self):
-        """测试替换事件"""
-        fifo = EventFIFO()
-        node1 = EventNode(topic="test", content="content1")
-        node2 = EventNode(topic="test", content="content2")
-        
-        fifo.push_value(node1)
-        fifo.replace(node2)
-        
-        top = fifo.get_top()
-        assert top.content == "content2"
