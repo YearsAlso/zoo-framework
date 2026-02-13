@@ -7,7 +7,7 @@ class CmdUtils:
         """执行cmd命令."""
         with os.popen(cmd) as p:
             response = p.read()
-        return str(response).strip()
+        return response.strip()
 
     @classmethod
     def cmd_write(cls, cmd):

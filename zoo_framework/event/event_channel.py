@@ -50,7 +50,7 @@ class EventChannel:
     def push_event(self, event: EventNode):
         """将事件推入事件队列."""
         try:
-            _event_fifo = self._event_fifo.push_value(event)
+            self._event_fifo.push_value(event)
         except Exception as e:
             LogUtils.error(str(e), EventFIFO.__name__)
 

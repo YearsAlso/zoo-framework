@@ -62,7 +62,7 @@ def create_func(object_name):
 def worker_func(worker_name):
     # 创建文件夹
     src_dir = "./workers"
-    if str(sys.argv[0]).endswith("/src"):
+    if sys.argv[0].endswith("/src"):
         src_dir = "./src/workers"
     file_path = src_dir + "/" + worker_name + "_worker.py"
     workers_init_file = src_dir + "/__init__.py"
@@ -92,7 +92,7 @@ def zfc(create, worker, config):
         create_func(create)
 
     if worker is not None:
-        worker_func(str(worker).lower())
+        worker_func(worker.lower())
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 import copy
-from typing import Any, Optional
+from typing import Any
 
 from zoo_framework.statemachine.state_index_factory import StateIndex, StateIndexFactory
 from zoo_framework.statemachine.state_node import StateNode
@@ -30,7 +30,7 @@ class StateScope:
         # P2 优化：使用工厂模式创建索引
         self._state_index: StateIndex = StateIndexFactory.create_index(index_type)
 
-    def observe_state_node(self, key: str, effect: Any):
+    def observe_state_node(self, key: str, effect: Any) -> None:
         """观察状态节点.
 
         Args:
@@ -42,7 +42,7 @@ class StateScope:
             return
         node.add_effect(effect)
 
-    def unobserve_state_node(self, key: str, effect: Any):
+    def unobserve_state_node(self, key: str, effect: Any) -> None:
         """移除状态节点观察者 - 修复内存泄漏.
 
         Args:
@@ -57,7 +57,7 @@ class StateScope:
             raise KeyError(f"State node '{key}' not found")
         node.remove_effect(effect)
 
-    def register_top_node(self, key: str, value: Any, effect: Optional[list] = None):
+    def register_top_node(self, key: str, value: Any, effect: list | None = None) -> None:
         """注册根节点.
 
         Args:
@@ -69,7 +69,7 @@ class StateScope:
         self._state_index.set(node.get_key(), node)
         node.to_be_top()
 
-    def register_node(self, key: str, value: Any, effect: Optional[list] = None):
+    def register_node(self, key: str, value: Any, effect: list | None = None) -> None:
         """注册状态节点.
 
         Args:
@@ -84,7 +84,7 @@ class StateScope:
         node = StateNode(key, value, effect)
         self._state_index.set(node.get_key(), node)
 
-    def set_state_node(self, key: str, value: Any, effect: Optional[list] = None):
+    def set_state_node(self, key: str, value: Any, effect: list | None = None) -> None:
         """设置状态节点的值.
 
         Args:
@@ -114,7 +114,7 @@ class StateScope:
         else:
             node.set_value(value)
 
-    def update_state_node(self, key: str, node: StateNode):
+    def update_state_node(self, key: str, node: StateNode) -> None:
         """更新状态节点.
 
         Args:
@@ -123,11 +123,11 @@ class StateScope:
         """
         self._state_index.set(key, node)
 
-    def _check_children(self, key: str):
+    def _check_children(self, key: str) -> None:
         """检查子节点."""
         pass
 
-    def _check_and_build_tree(self, key_queue):
+    def _check_and_build_tree(self, key_queue: list[str]) -> None:
         """检查并构建树型结构.
 
         Args:
@@ -150,7 +150,7 @@ class StateScope:
             # 一种key不能重复添加
             node.add_child(children_node)
 
-    def get_state_node(self, key: str) -> Optional[StateNode]:
+    def get_state_node(self, key: str) -> StateNode | None:
         """获取状态节点.
 
         Args:
@@ -189,7 +189,7 @@ class StateScope:
             return None
         return node.get_children_value()
 
-    def move_state_node(self, key: str, target_key: str):
+    def move_state_node(self, key: str, target_key: str) -> None:
         """移动状态节点.
 
         Args:
@@ -206,7 +206,7 @@ class StateScope:
         # 删除子节点
         self.remove_state_node(key)
 
-    def remove_state_node(self, key: str):
+    def remove_state_node(self, key: str) -> None:
         """删除状态节点.
 
         Args:
@@ -224,7 +224,7 @@ class StateScope:
 
         self.set_state_node(key, None)
 
-    def copy_state_node(self, key: str, target_key: Any):
+    def copy_state_node(self, key: str, target_key: Any) -> None:
         """复制状态节点的值.
 
         Args:
@@ -238,7 +238,7 @@ class StateScope:
         new_node.set_key(target_key)
         self.set_state_node(target_key, new_node)
 
-    def get_all_nodes(self):
+    def get_all_nodes(self) -> dict:
         """获取所有状态节点.
 
         P2 优化：支持获取所有节点
@@ -248,7 +248,7 @@ class StateScope:
         """
         return self._state_index.get_all()
 
-    def find_nodes_by_prefix(self, prefix: str):
+    def find_nodes_by_prefix(self, prefix: str) -> list:
         """根据前缀查找节点.
 
         P2 优化：支持前缀查找
@@ -261,19 +261,11 @@ class StateScope:
         """
         return self._state_index.find_by_prefix(prefix)
 
-    def has_state_node(self, key: str) -> bool:
-        """检查是否存在状态节点.
-
-        P2 优化：添加存在性检查
-
-        Args:
-            key: 节点键名
-
-        Returns:
-            是否存在
-        """
-        return self._state_index.has(key)
-
 
 # 导出公共 API
 __all__ = ["StateScope"]
+
+
+def get_state_scope(index_type: str = "dict") -> StateScope:
+    """获取全局状态域."""
+    return StateScope(index_type)

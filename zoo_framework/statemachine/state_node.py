@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import time
 import types
 from typing import TYPE_CHECKING, Any
@@ -14,11 +16,11 @@ if TYPE_CHECKING:
 class StateNode:
     """状态节点."""
 
-    def __init__(self, key, value, effect_list=None):
+    def __init__(self, key: str, value: Any, effect_list: list[StateEffect] | None = None):
         self._effect_list: list[StateEffect] = []
         self._version = int(time.time())
         self._is_top = False
-        self._parent: Any = None
+        self._parent: Any | None = None
         self._children: list[Any] = []
         self._type = StateNodeType.string
 
@@ -28,23 +30,23 @@ class StateNode:
         self._effect_list = effect_list
         self.key = key
 
-    def set_top(self, is_top: bool):
+    def set_top(self, is_top: bool) -> None:
         """设置是否是根节点."""
         self._is_top = is_top
 
-    def is_top(self):
+    def is_top(self) -> bool:
         """是否是根节点."""
         return self._is_top
 
-    def to_be_top(self):
+    def to_be_top(self) -> None:
         """设置为根节点."""
         self._is_top = True
 
-    def get_key(self):
+    def get_key(self) -> str:
         """获取状态节点的key."""
         return self.key
 
-    def add_child(self, child: Any):
+    def add_child(self, child: Any) -> None:
         """添加子节点."""
         if child in self._children or child == self:
             return
@@ -60,9 +62,9 @@ class StateNode:
             return self._value
         return self.get_children_value()
 
-    def get_children_value(self):
+    def get_children_value(self) -> dict:
         """获取子节点的值."""
-        _result = {}
+        _result: dict = {}
         i = 0
         for child in self._children:
             LogUtils.debug(f"${child.get_key}:{child.get_value()}")
@@ -76,18 +78,18 @@ class StateNode:
                 _result[child.get_key()] = child.get_value()
         return _result
 
-    def set_key(self, key):
+    def set_key(self, key: str) -> None:
         """设置状态节点的key."""
         self.key = key
         if self._type is StateNodeType.branch:
             self._update_children_key()
 
-    def _update_children_key(self):
+    def _update_children_key(self) -> None:
         """更新子节点的 key."""
-        for i, child in self._children:
+        for i, child in enumerate(self._children):
             child.set_key(f"{self.key}.{i}")
 
-    def set_value(self, value):
+    def set_value(self, value: Any) -> None:
         """设置状态节点的值."""
         version = int(time.time())
         self._type = StateNodeType.get_type_by_value(value)
@@ -95,7 +97,7 @@ class StateNode:
         self._update_version()
         self._perform_effect(value, version)
 
-    def _perform_effect(self, value, version):
+    def _perform_effect(self, value: Any, version: int) -> None:
         """执行状态节点的副作用."""
         if len(self._effect_list) == 0:
             return
@@ -107,22 +109,22 @@ class StateNode:
 
         gevent.joinall(g_effect_queue, timeout=5)
 
-    def _update_version(self):
+    def _update_version(self) -> None:
         """更新状态节点的版本号."""
         self.version = int(time.time())
 
-    def get_state(self):
+    def get_state(self) -> Any:
         """获取状态节点的值."""
         return self._value
 
-    def add_effect(self, effect: types.FunctionType):
+    def add_effect(self, effect: types.FunctionType) -> None:
         """添加状态节点的副作用."""
         if effect is None:
             return
         if isinstance(effect, types.FunctionType) and effect not in self._effect_list:
             self._effect_list.append(effect)
 
-    def remove_effect(self, effect: types.FunctionType):
+    def remove_effect(self, effect: types.FunctionType) -> None:
         """移除状态节点的副作用 - 修复内存泄漏.
 
         Args:

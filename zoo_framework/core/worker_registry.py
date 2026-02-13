@@ -4,7 +4,8 @@ P2 优化：重构 Worker 注册，支持更灵活的注册方式
 """
 
 from abc import ABC, abstractmethod
-from typing import Callable, Dict, List, Optional, Type
+from collections.abc import Callable
+from typing import Any
 
 from zoo_framework.utils import LogUtils
 from zoo_framework.workers import BaseWorker
@@ -17,17 +18,17 @@ class WorkerRegistration(ABC):
     """
 
     @abstractmethod
-    def register(self, name: str, worker_class: Type[BaseWorker]) -> None:
+    def register(self, name: str, worker_class: type[BaseWorker]) -> None:
         """注册 Worker."""
         pass
 
     @abstractmethod
-    def get_worker(self, name: str) -> Optional[BaseWorker]:
+    def get_worker(self, name: str) -> Any | None:
         """获取 Worker 实例."""
         pass
 
     @abstractmethod
-    def get_all_workers(self) -> Dict[str, BaseWorker]:
+    def get_all_workers(self) -> dict[str, BaseWorker]:
         """获取所有 Worker."""
         pass
 
@@ -43,13 +44,13 @@ class WorkerRegistry:
     """
 
     def __init__(self):
-        self._worker_classes: Dict[str, Type[BaseWorker]] = {}
-        self._worker_instances: Dict[str, BaseWorker] = {}
-        self._worker_factories: Dict[str, Callable[[], BaseWorker]] = {}
-        self._worker_metadata: Dict[str, Dict] = {}
+        self._worker_classes: dict[str, type[BaseWorker]] = {}
+        self._worker_instances: dict[str, BaseWorker] = {}
+        self._worker_factories: dict[str, Callable[[], BaseWorker]] = {}
+        self._worker_metadata: dict[str, dict] = {}
 
     def register_class(
-        self, name: str, worker_class: Type[BaseWorker], metadata: Optional[Dict] = None
+        self, name: str, worker_class: type[BaseWorker], metadata: dict | None = None
     ) -> None:
         """注册 Worker 类（延迟实例化）.
 
@@ -68,7 +69,7 @@ class WorkerRegistry:
         LogUtils.info(f"📦 Worker class '{name}' registered")
 
     def register_instance(
-        self, name: str, worker_instance: BaseWorker, metadata: Optional[Dict] = None
+        self, name: str, worker_instance: BaseWorker, metadata: dict | None = None
     ) -> None:
         """注册 Worker 实例.
 
@@ -85,7 +86,7 @@ class WorkerRegistry:
         LogUtils.info(f"✅ Worker instance '{name}' registered")
 
     def register_factory(
-        self, name: str, factory: Callable[[], BaseWorker], metadata: Optional[Dict] = None
+        self, name: str, factory: Callable[[], BaseWorker], metadata: dict | None = None
     ) -> None:
         """注册 Worker 工厂函数.
 
@@ -100,7 +101,7 @@ class WorkerRegistry:
         self._worker_metadata[name] = metadata or {}
         LogUtils.info(f"🏭 Worker factory '{name}' registered")
 
-    def get_worker(self, name: str) -> Optional[BaseWorker]:
+    def get_worker(self, name: str) -> Any | None:
         """获取 Worker 实例.
 
         按优先级查找：实例 -> 工厂 -> 类
@@ -129,7 +130,7 @@ class WorkerRegistry:
 
         return None
 
-    def get_all_workers(self) -> Dict[str, BaseWorker]:
+    def get_all_workers(self) -> dict[str, BaseWorker]:
         """获取所有 Worker 实例.
 
         自动实例化所有已注册但未实例化的 Worker
@@ -166,7 +167,7 @@ class WorkerRegistry:
         self._worker_metadata.pop(name, None)
         LogUtils.info(f"🗑️ Worker '{name}' unregistered")
 
-    def get_metadata(self, name: str) -> Optional[Dict]:
+    def get_metadata(self, name: str) -> dict | None:
         """获取 Worker 元数据.
 
         Args:
@@ -177,7 +178,7 @@ class WorkerRegistry:
         """
         return self._worker_metadata.get(name)
 
-    def get_workers_by_tag(self, tag: str) -> List[str]:
+    def get_workers_by_tag(self, tag: str) -> list[str]:
         """根据标签获取 Worker 名称列表.
 
         P2 优化：支持按标签筛选 Worker
@@ -195,7 +196,7 @@ class WorkerRegistry:
                 result.append(name)
         return result
 
-    def get_workers_by_priority(self, min_priority: int) -> List[str]:
+    def get_workers_by_priority(self, min_priority: int) -> list[str]:
         """根据优先级获取 Worker 名称列表.
 
         Args:
@@ -213,7 +214,7 @@ class WorkerRegistry:
 
 
 # 装饰器注册方式
-def register_worker(name: Optional[str] = None, metadata: Optional[Dict] = None):
+def register_worker(name: str | None = None, metadata: dict | None = None):
     """Worker 注册装饰器.
 
     P2 优化：支持装饰器方式注册 Worker
@@ -250,7 +251,7 @@ def register_worker(name: Optional[str] = None, metadata: Optional[Dict] = None)
 
 
 # 全局注册表
-_global_registry: Optional[WorkerRegistry] = None
+_global_registry: WorkerRegistry | None = None
 
 
 def get_worker_registry() -> WorkerRegistry:

@@ -27,7 +27,7 @@ Zoo Framework 插件系统允许开发者通过插件扩展框架功能。
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Type
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -49,12 +49,12 @@ class Plugin(ABC):
     version: str = "0.1.0"
     description: str = ""
     author: str = ""
-    dependencies: List[str] = []
+    dependencies: list[str] = []
 
     def __init__(self):
         """初始化插件."""
         self._initialized = False
-        self._context: Optional[Any] = None
+        self._context: Any | None = None
 
     @abstractmethod
     def initialize(self, context: Any) -> None:
@@ -116,9 +116,9 @@ class WorkerDelayManager:
         self.default_delay = default_delay
         self.max_delay = max_delay
         self.min_delay = min_delay
-        self._delays: Dict[str, float] = {}
-        self._last_execute_time: Dict[str, float] = {}
-        self._execute_count: Dict[str, int] = {}
+        self._delays: dict[str, float] = {}
+        self._last_execute_time: dict[str, float] = {}
+        self._execute_count: dict[str, int] = {}
 
     def get_delay(self, worker_name: str) -> float:
         """获取 Worker 的延迟时间.
@@ -217,15 +217,20 @@ class PluginManager:
 
     管理插件的注册、加载、卸载生命周期。
 
-    Attributes:
-        plugins: 已注册的插件字典
-        loaded_plugins: 已加载的插件字典
+    提供方法：
+    - register: 注册插件类
+    - load / load_all: 加载插件
+    - unload / unload_all: 卸载插件
+
+    内部维护：
+    - _plugins: 已注册的插件映射
+    - _loaded_plugins: 当前已加载的插件实例映射
     """
 
     def __init__(self):
-        self._plugins: Dict[str, Type[Plugin]] = {}
-        self._loaded_plugins: Dict[str, Plugin] = {}
-        self._context: Dict[str, Any] = {}
+        self._plugins: dict[str, type[Plugin]] = {}
+        self._loaded_plugins: dict[str, Plugin] = {}
+        self._context: dict[str, Any] = {}
         self._delay_manager = WorkerDelayManager()
 
     @property
@@ -233,7 +238,7 @@ class PluginManager:
         """获取延迟时间管理器."""
         return self._delay_manager
 
-    def register(self, plugin_class: Type[Plugin]) -> None:
+    def register(self, plugin_class: type[Plugin]) -> None:
         """注册插件.
 
         Args:
@@ -266,7 +271,7 @@ class PluginManager:
         self._plugins.pop(plugin_name, None)
         logger.info(f"🗑️ Plugin '{plugin_name}' unregistered")
 
-    def load(self, plugin_name: str, context: Optional[Any] = None) -> None:
+    def load(self, plugin_name: str, context: Any | None = None) -> None:
         """加载单个插件.
 
         Args:
@@ -299,7 +304,7 @@ class PluginManager:
         self._loaded_plugins[plugin_name] = plugin
         logger.info(f"✅ Plugin '{plugin_name}' loaded")
 
-    def load_all(self, context: Optional[Any] = None) -> None:
+    def load_all(self, context: Any | None = None) -> None:
         """加载所有已注册的插件.
 
         会自动处理插件依赖关系。
@@ -351,7 +356,7 @@ class PluginManager:
         for name in list(self._loaded_plugins.keys()):
             self.unload(name)
 
-    def get_plugin(self, plugin_name: str) -> Optional[Plugin]:
+    def get_plugin(self, plugin_name: str) -> Plugin | None:
         """获取已加载的插件实例.
 
         Args:
@@ -362,11 +367,11 @@ class PluginManager:
         """
         return self._loaded_plugins.get(plugin_name)
 
-    def get_registered_plugins(self) -> List[str]:
+    def get_registered_plugins(self) -> list[str]:
         """获取所有已注册的插件名称."""
         return list(self._plugins.keys())
 
-    def get_loaded_plugins(self) -> List[str]:
+    def get_loaded_plugins(self) -> list[str]:
         """获取所有已加载的插件名称."""
         return list(self._loaded_plugins.keys())
 
@@ -380,7 +385,7 @@ class PluginManager:
 
 
 # 全局插件管理器实例
-_plugin_manager: Optional[PluginManager] = None
+_plugin_manager: PluginManager | None = None
 
 
 def get_plugin_manager() -> PluginManager:
@@ -391,12 +396,12 @@ def get_plugin_manager() -> PluginManager:
     return _plugin_manager
 
 
-def register_plugin(plugin_class: Type[Plugin]) -> None:
+def register_plugin(plugin_class: type[Plugin]) -> None:
     """便捷函数：注册插件到全局管理器."""
     get_plugin_manager().register(plugin_class)
 
 
-def load_plugins(context: Optional[Any] = None) -> None:
+def load_plugins(context: Any | None = None) -> None:
     """便捷函数：加载所有已注册的插件."""
     get_plugin_manager().load_all(context)
 
