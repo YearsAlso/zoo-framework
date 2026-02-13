@@ -9,7 +9,7 @@ P2 优化：
 
 import asyncio
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from zoo_framework.utils import LogUtils
 from zoo_framework.workers import EventWorker, StateMachineWorker
@@ -23,12 +23,12 @@ class SVMWorker:
     """SVM (State Vector Machine) Worker - 状态向量机工作器."""
 
     def __init__(self):
-        self._workers: Dict[str, Any] = {}
-        self._metrics: Dict[str, Dict] = {}
-        self._policies: List[str] = []
+        self._workers: dict[str, Any] = {}
+        self._metrics: dict[str, dict] = {}
+        self._policies: list[str] = []
         self._lock = threading.RLock()
         self._running = False
-        self._monitor_thread: Optional[threading.Thread] = None
+        self._monitor_thread: threading.Thread | None = None
 
     def register_worker(self, name: str, worker: Any) -> None:
         """注册 Worker 到 SVM 管理."""
@@ -64,7 +64,7 @@ class SVMWorker:
             if not success:
                 metrics["error_count"] += 1
 
-    def get_worker_health(self, name: str) -> Dict:
+    def get_worker_health(self, name: str) -> dict:
         """获取 Worker 健康状态."""
         with self._lock:
             if name not in self._metrics:
@@ -92,7 +92,7 @@ class SVMWorker:
                 "last_execute_time": metrics["last_execute_time"],
             }
 
-    def get_all_workers_health(self) -> Dict[str, Dict]:
+    def get_all_workers_health(self) -> dict[str, dict]:
         """获取所有 Worker 健康状态."""
         with self._lock:
             return {name: self.get_worker_health(name) for name in self._workers}
@@ -184,7 +184,7 @@ class Master:
         waiter: Waiter 调度器
     """
 
-    def __init__(self, config: Optional[MasterConfig] = None):
+    def __init__(self, config: MasterConfig | None = None):
         """初始化 Master.
 
         P2 优化：简化参数，使用配置对象
@@ -253,7 +253,7 @@ class Master:
             raise Exception("Master hasn't available waiter, the application can't start.")
 
         # 将 Worker 传递给 Waiter
-        self.waiter.call_workers(self.worker_registry.get_all_workers())
+        self.waiter.call_workers(list(self.worker_registry.get_all_workers().values()))
 
     def change_waiter(self, waiter) -> None:
         """切换 Waiter.
@@ -266,7 +266,7 @@ class Master:
         self.waiter = waiter
 
     def register_worker(
-        self, name: str, worker_class: type, metadata: Optional[Dict] = None
+        self, name: str, worker_class: type, metadata: dict | None = None
     ) -> None:
         """注册 Worker.
 
@@ -314,7 +314,7 @@ class Master:
 
         LogUtils.info("👋 Master stopped")
 
-    def get_health_report(self) -> Dict[str, Dict]:
+    def get_health_report(self) -> dict[str, dict]:
         """获取健康报告.
 
         Returns:
@@ -324,7 +324,7 @@ class Master:
             return self.svm_worker.get_all_workers_health()
         return {}
 
-    def get_worker_stats(self, worker_name: str) -> Optional[Dict]:
+    def get_worker_stats(self, worker_name: str) -> dict | None:
         """获取 Worker 统计信息.
 
         Args:

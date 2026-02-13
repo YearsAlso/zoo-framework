@@ -1,5 +1,5 @@
 import uuid
-from typing import Any, List, Optional
+from typing import Any
 
 from zoo_framework.core.aop import cage
 from zoo_framework.utils import LogUtils
@@ -57,7 +57,7 @@ class EventReactorManager:
 
     @classmethod
     def get_reactor(
-        cls, topic, reactor_names: Optional[list[str]] = None, channel: Optional[str] = None
+        cls, topic, reactor_names: list[str] | None = None, channel: str | None = None
     ) -> list[Any]:
         """获取事件处理器.
 
@@ -109,7 +109,7 @@ class EventReactorManager:
         return channel_manager.can_handle_event(reactor_name, event_req)
 
     @classmethod
-    def register_reactor_channels(cls, reactor_name: str, channels: List[str]) -> None:
+    def register_reactor_channels(cls, reactor_name: str, channels: list[str]) -> None:
         """注册响应器监听的通道.
 
         P1 任务：支持通道隔离配置

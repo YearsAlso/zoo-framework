@@ -1,7 +1,7 @@
 import time
 import uuid
 from enum import Enum
-from typing import Dict, List, Optional, Set
+from typing import Any
 
 
 class ChannelType(Enum):
@@ -24,7 +24,7 @@ class EventReactorReq:
     """
 
     topic: str
-    content: any
+    content: Any
     channel: str
     reactor_name: str
     request_id: str
@@ -35,7 +35,7 @@ class EventReactorReq:
     def __init__(
         self,
         topic: str,
-        content: any,
+        content: Any,
         reactor_name: str,
         channel: str = ChannelType.DEFAULT.value,
         priority: int = 0,
@@ -75,7 +75,7 @@ class EventReactorReq:
         except ValueError:
             return ChannelType.DEFAULT
 
-    def match_channel(self, allowed_channels: List[str]) -> bool:
+    def match_channel(self, allowed_channels: list[str]) -> bool:
         """检查事件是否匹配允许的通道
 
         P1 任务：通道隔离验证
@@ -104,10 +104,10 @@ class ChannelManager:
     """
 
     def __init__(self):
-        self._channels: Dict[str, Set[str]] = {}  # 通道 -> 主题集合
-        self._reactor_channels: Dict[str, List[str]] = {}  # 响应器 -> 通道列表
+        self._channels: dict[str, set[str]] = {}  # 通道 -> 主题集合
+        self._reactor_channels: dict[str, list[str]] = {}  # 响应器 -> 通道列表
 
-    def register_channel(self, channel: str, topics: Optional[List[str]] = None) -> None:
+    def register_channel(self, channel: str, topics: list[str] | None = None) -> None:
         """注册通道
 
         Args:
@@ -120,7 +120,7 @@ class ChannelManager:
         if topics:
             self._channels[channel].update(topics)
 
-    def register_reactor_channels(self, reactor_name: str, channels: List[str]) -> None:
+    def register_reactor_channels(self, reactor_name: str, channels: list[str]) -> None:
         """注册响应器监听的通道
 
         Args:
@@ -158,7 +158,7 @@ class ChannelManager:
         # 检查事件通道是否在允许列表中
         return event.match_channel(allowed_channels)
 
-    def get_channel_topics(self, channel: str) -> Set[str]:
+    def get_channel_topics(self, channel: str) -> set[str]:
         """获取通道支持的主题
 
         Args:

@@ -5,16 +5,17 @@ P2: 可观测性提升 - 使用 structlog 实现结构化日志
 
 import logging
 import sys
-from typing import Any, Dict, Optional
+from typing import Any
 
 # 尝试导入 structlog，如果不可用则回退到标准库
 # 运行时安装: pip install structlog
 try:
-    import structlog
-
-    STRUCTLOG_AVAILABLE = True
-except ImportError:
+    import structlog  # type: ignore
+except Exception:
+    structlog = None
     STRUCTLOG_AVAILABLE = False
+else:
+    STRUCTLOG_AVAILABLE = True
 
 
 class StructuredLogUtils:
@@ -29,7 +30,7 @@ class StructuredLogUtils:
     - 支持日志级别动态调整
     """
 
-    _instance: Optional["StructuredLogUtils"] = None
+    _instance: 'StructuredLogUtils | None' = None
     _initialized = False
 
     def __new__(cls):
@@ -43,7 +44,7 @@ class StructuredLogUtils:
 
         self._initialized = True
         self._logger = None
-        self._context: Dict[str, Any] = {}
+        self._context: dict[str, Any] = {}
         self._setup_logging()
 
     def _setup_logging(self) -> None:
@@ -180,7 +181,7 @@ class StructuredLogUtils:
         )
 
 
-def get_logger(name: Optional[str] = None) -> StructuredLogUtils:
+def get_logger(name: str | None = None) -> StructuredLogUtils:
     """获取结构化日志器.
 
     Args:

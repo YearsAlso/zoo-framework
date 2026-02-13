@@ -6,8 +6,9 @@ P2: 异步 IO 优化 - 支持异步 Worker 实现
 import asyncio
 import time
 from abc import abstractmethod
+from collections.abc import Awaitable, Callable
 from enum import Enum
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any
 
 from zoo_framework.utils import LogUtils
 from zoo_framework.workers import BaseWorker
@@ -33,12 +34,12 @@ class AsyncWorker(BaseWorker):
     - 性能大幅提升
     """
 
-    def __init__(self, name: Optional[str] = None):
+    def __init__(self, name: str | None = None):
         super().__init__(name)
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._loop: asyncio.AbstractEventLoop | None = None
         self._async_type = AsyncWorkerType.COROUTINE
         self._max_concurrent = 10  # 最大并发数
-        self._semaphore: Optional[asyncio.Semaphore] = None
+        self._semaphore: asyncio.Semaphore | None = None
 
     async def async_init(self) -> None:
         """异步初始化.
@@ -48,7 +49,7 @@ class AsyncWorker(BaseWorker):
         self._semaphore = asyncio.Semaphore(self._max_concurrent)
         LogUtils.info(f"✅ AsyncWorker '{self._worker_name}' initialized")
 
-    async def async_destroy(self, timeout: Optional[float] = None) -> None:
+    async def async_destroy(self, timeout: float | None = None) -> None:
         """异步销毁.
 
         子类可重写此方法进行异步资源清理
@@ -116,7 +117,7 @@ class AsyncWorker(BaseWorker):
             )
             raise
 
-    def run_in_background(self, *args, **kwargs) -> asyncio.Task:
+    def run_in_background(self, *args, **kwargs) -> Any:
         """在后台运行.
 
         将任务提交到事件循环后台执行
@@ -126,7 +127,7 @@ class AsyncWorker(BaseWorker):
             **kwargs: 关键字参数
 
         Returns:
-            异步任务
+            异步任务或模拟任务对象
         """
         try:
             loop = asyncio.get_running_loop()
@@ -173,9 +174,9 @@ class AsyncEventWorker(AsyncWorker):
 
     def __init__(self, name: str = "AsyncEventWorker"):
         super().__init__(name)
-        self._handlers: dict[str, Callable[..., Awaitable]] = {}
+        self._handlers: dict[str, Callable[..., Awaitable[Any]]] = {}
 
-    def register_handler(self, event_type: str, handler: Callable[..., Awaitable]) -> None:
+    def register_handler(self, event_type: str, handler: Callable[..., Awaitable[Any]]) -> None:
         """注册异步事件处理器.
 
         Args:
@@ -211,10 +212,10 @@ class AsyncStateMachineWorker(AsyncWorker):
 
     def __init__(self, name: str = "AsyncStateMachineWorker"):
         super().__init__(name)
-        self._state_transitions: dict[str, Callable[..., Awaitable]] = {}
+        self._state_transitions: dict[str, Callable[..., Awaitable[Any]]] = {}
         self._current_state = "idle"
 
-    def register_transition(self, state: str, handler: Callable[..., Awaitable]) -> None:
+    def register_transition(self, state: str, handler: Callable[..., Awaitable[Any]]) -> None:
         """注册状态转换处理器.
 
         Args:

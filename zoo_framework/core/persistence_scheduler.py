@@ -9,7 +9,7 @@ import shutil
 import threading
 from abc import ABC, abstractmethod
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from zoo_framework.utils import FileUtils, LogUtils
 
@@ -26,7 +26,7 @@ class PersistenceStrategy(ABC):
         pass
 
     @abstractmethod
-    def load(self, filepath: str) -> Optional[Any]:
+    def load(self, filepath: str) -> Any | None:
         """加载数据."""
         pass
 
@@ -58,7 +58,7 @@ class PicklePersistenceStrategy(PersistenceStrategy):
             LogUtils.error(f"❌ Pickle save failed: {e}")
             return False
 
-    def load(self, filepath: str) -> Optional[Any]:
+    def load(self, filepath: str) -> Any | None:
         """使用 Pickle 加载数据."""
         try:
             with open(filepath, "rb") as f:
@@ -132,7 +132,7 @@ class FileChecksumValidator:
             f.write(checksum)
 
     @staticmethod
-    def load_checksum(filepath: str) -> Optional[str]:
+    def load_checksum(filepath: str) -> Any | None:
         """从文件加载校验和.
 
         Args:
@@ -159,7 +159,7 @@ class BackupManager:
         self.backup_dir = backup_dir
         self.max_backups = max_backups
 
-    def create_backup(self, filepath: str) -> Optional[str]:
+    def create_backup(self, filepath: str) -> str | None:
         """创建文件备份.
 
         Args:
@@ -290,7 +290,7 @@ class PersistenceScheduler:
     def __init__(
         self,
         filepath: str,
-        strategy: Optional[PersistenceStrategy] = None,
+        strategy: PersistenceStrategy | None = None,
         auto_save_interval: int = 60,  # 自动保存间隔（秒）
         enable_backup: bool = True,
         max_backups: int = 5,
@@ -302,11 +302,11 @@ class PersistenceScheduler:
 
         self._backup_manager = BackupManager(max_backups=max_backups) if enable_backup else None
         self._file_lock = threading.RLock()
-        self._data: Optional[Any] = None
+        self._data: Any | None = None
         self._dirty = False  # 数据是否被修改
         self._last_save_time = 0
         self._running = False
-        self._scheduler_thread: Optional[threading.Thread] = None
+        self._scheduler_thread: threading.Thread | None = None
 
     def start(self) -> None:
         """启动持久化调度器."""
@@ -346,7 +346,7 @@ class PersistenceScheduler:
             except Exception as e:
                 LogUtils.error(f"❌ Scheduler error: {e}")
 
-    def load(self) -> Optional[Any]:
+    def load(self) -> Any | None:
         """加载数据.
 
         Returns:
@@ -430,7 +430,7 @@ class PersistenceScheduler:
         if auto_save:
             self.save()
 
-    def get_data(self) -> Optional[Any]:
+    def get_data(self) -> Any | None:
         """获取当前数据."""
         return self._data
 

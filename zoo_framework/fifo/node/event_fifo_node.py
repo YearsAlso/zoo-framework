@@ -1,6 +1,7 @@
 import time
+from collections.abc import Callable
 from enum import Enum
-from typing import Optional
+from typing import Any
 
 
 class PriorityLevel(Enum):
@@ -94,7 +95,7 @@ class EventNode:
     # 响应机制，1.先抢到的先响应; 2.者优先级高的先响应; 3.全部响应; 4.指定响应者响应
     response_mechanism: int = 3
     # 制定响应者名称
-    reactor_name: str = None
+    reactor_name: str | None = None
     # 是否响应完成
     is_response: bool = False
     # 执行优先级
@@ -104,11 +105,11 @@ class EventNode:
     # 超时时间
     timeout: int = 0
     # 超时响应
-    timeout_response: callable = None
+    timeout_response: Callable[..., Any] | None = None
     # 创建时间
     create_time: float
     # 失败响应
-    fail_response: callable = None
+    fail_response: Callable[..., Any] | None = None
 
     def __init__(
         self,
@@ -116,7 +117,7 @@ class EventNode:
         content: str,
         channel_name: str = "default",
         priority: int = 0,
-        priority_level: Optional[PriorityLevel] = None,
+        priority_level: PriorityLevel | None = None,
     ):
         """初始化事件节点.
 
@@ -202,7 +203,7 @@ class EventNode:
         """
         return EventPriorityCalculator.get_urgency_level(self.priority)
 
-    def set_fail_response(self, fail_response: callable):
+    def set_fail_response(self, fail_response: Callable[..., Any]):
         """设置失败响应."""
         self.fail_response = fail_response
 
@@ -210,7 +211,7 @@ class EventNode:
         """设置响应者名称."""
         self.reactor_name = reactor_name
 
-    def set_response_mechanism(self, response_mechanism: int, reactor_name: Optional[str] = None):
+    def set_response_mechanism(self, response_mechanism: int, reactor_name: str | None = None):
         """设置响应机制."""
         self.response_mechanism = response_mechanism
         if response_mechanism == 4:
@@ -226,7 +227,7 @@ class EventNode:
         """获取事件参数."""
         return self.content
 
-    def set_timeout(self, timeout: int, timeout_response: Optional[callable] = None):
+    def set_timeout(self, timeout: int, timeout_response: Callable[..., Any] | None = None):
         """设置超时时间."""
         self.timeout = timeout
         self.timeout_response = timeout_response
