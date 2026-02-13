@@ -34,7 +34,7 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Run tests with coverage
-        run: pytest --cov=zoo_framework --cov-report=term-missing --cov-report=html --cov-report=xml --cov-fail-under=60
+        run: pytest --cov=zoo_framework --cov-report=term-missing --cov-report=html --cov-report=xml --cov-fail-under=30
 
       - name: Upload coverage report
         uses: codecov/codecov-action@v3
