@@ -1,3 +1,13 @@
+"""
+state_machine_work - zoo_framework/workers/state_machine_work.py
+
+模块功能描述：
+TODO: 添加模块功能描述
+
+作者: XiangMeng
+版本: 0.5.1-beta
+"""
+
 import copy
 import pickle
 import threading

@@ -1,3 +1,13 @@
+"""
+thread_safe_dict - zoo_framework/utils/thread_safe_dict.py
+
+模块功能描述：
+TODO: 添加模块功能描述
+
+作者: XiangMeng
+版本: 0.5.1-beta
+"""
+
 from multiprocessing import Lock
 
 _lock = Lock()
