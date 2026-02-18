@@ -1,7 +1,7 @@
 """
 waiter_result_reactor - zoo_framework/reactor/waiter_result_reactor.py
 
-模块功能描述。
+模块功能描述.
 
 作者: XiangMeng
 版本: 0.5.2-beta

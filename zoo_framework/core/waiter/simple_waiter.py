@@ -1,10 +1,11 @@
 """
-simple_waiter - 模块功能描述。
+simple_waiter - zoo_framework/core/waiter/simple_waiter.py
+
+模块功能描述.
 
 作者: XiangMeng
 版本: 0.5.2-beta
 """
-
 
 simple_waiter - zoo_framework/core/waiter/simple_waiter.py
 

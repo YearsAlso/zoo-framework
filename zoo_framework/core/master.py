@@ -1,10 +1,25 @@
-"""
-master - 模块功能描述。
+"""Master - 优化版本.
 
-作者: XiangMeng
-版本: 0.5.2-beta
-"""
+P2 优化:
+1. 移除冗余参数 loop_interval
+2. 使用新的 WorkerRegistry
+3. 简化配置加载
+4. 优化 SVM 集成
 
+import asyncio
+import threading
+from typing import Any
+
+from zoo_framework.utils import LogUtils
+from zoo_framework.workers import EventWorker, StateMachineWorker
+
+from .aop import config_funcs
+from .params_factory import ParamsFactory
+from .worker_registry import get_worker_registry
+
+
+class SVMWorker:
+    """SVM (State Vector Machine) Worker - 状态向量机工作器."""
 
     def __init__(self):
         self._workers: dict[str, Any] = {}
@@ -171,10 +186,10 @@ class Master:
     def __init__(self, config: MasterConfig | None = None):
         """初始化 Master.
 
-        P2 优化:简化参数，使用配置对象
+        P2 优化:简化参数,使用配置对象
 
         Args:
-            config: Master 配置，使用默认配置如果为 None
+            config: Master 配置,使用默认配置如果为 None
         """
         # P2 优化:使用配置对象
         self.config = config or MasterConfig()
@@ -263,7 +278,7 @@ class Master:
         """
         self.worker_registry.register_class(name, worker_class, metadata)
 
-        # 如果 SVM 已启用，注册到 SVM
+        # 如果 SVM 已启用,注册到 SVM
         if self.svm_worker:
             worker = self.worker_registry.get_worker(name)
             if worker:

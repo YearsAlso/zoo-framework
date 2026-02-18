@@ -21,7 +21,7 @@ class EventProvider:
         if channel:
             channel.push_event(event)
         else:
-            # 事件通道不存在，说明没有响应器
+            # 事件通道不存在,说明没有响应器
             raise Exception("channel not found")
 
     def refresh(self, event: EventNode):
@@ -31,6 +31,6 @@ class EventProvider:
             # 通道中是否存在该事件
             channel.refresh_event(event)
         else:
-            # 事件通道不存在，说明没有响应器
+            # 事件通道不存在,说明没有响应器
             raise Exception("channel not found")
 """

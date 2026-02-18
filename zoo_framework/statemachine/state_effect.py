@@ -16,7 +16,7 @@ class StateEffect:
         self.execute_count = 0
         self.always_execute = False
 
-        # 响应优先级,添加优先级过滤器，根据执行策略，通过优先级过滤器，测算优先级，并将优先级最高的副作用放入优先级队列
+        # 响应优先级,添加优先级过滤器,根据执行策略,通过优先级过滤器,测算优先级,并将优先级最高的副作用放入优先级队列
         self.priority = 0
 
         # 响应次数
@@ -43,7 +43,7 @@ class StateEffect:
     def execute(self, *args, **kwargs):
         self.execute_count += 1
         self.effect(*args, **kwargs)
-        # 记录执行时的系统时间和负载情况，向调度器报告
+        # 记录执行时的系统时间和负载情况,向调度器报告
 
     def __repr__(self) -> str:
         """:return: str"""

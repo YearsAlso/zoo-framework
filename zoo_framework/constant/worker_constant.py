@@ -1,6 +1,6 @@
 """worker_constant - zoo_framework/constant/worker_constant.py
 
-工作器常量模块，定义工作器相关的常量。
+工作器常量模块,定义工作器相关的常量.
 
 功能:
 - 定义工作器运行模式和策略
@@ -15,7 +15,7 @@
 class WorkerConstant:
     """工作器常量类
 
-    定义工作器运行模式、策略和其他相关常量。
+    定义工作器运行模式、策略和其他相关常量.
     """
 
     # worker 运行模式

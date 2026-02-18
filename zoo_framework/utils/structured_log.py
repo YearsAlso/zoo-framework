@@ -6,7 +6,7 @@ import logging
 import sys
 from typing import Any
 
-# 尝试导入 structlog，如果不可用则回退到标准库
+# 尝试导入 structlog,如果不可用则回退到标准库
 # 运行时安装: pip install structlog
 try:
     import structlog  # type: ignore
@@ -20,7 +20,7 @@ else:
 class StructuredLogUtils:
     """结构化日志工具.
 
-    P2 优化:提供 JSON 格式的结构化日志，便于日志收集和分析
+    P2 优化:提供 JSON 格式的结构化日志,便于日志收集和分析
 
     特性:
     - 结构化 JSON 日志输出
@@ -96,7 +96,7 @@ class StructuredLogUtils:
             **context: 上下文键值对
 
         Returns:
-            返回自身，支持链式调用
+            返回自身,支持链式调用
         """
         self._context.update(context)
         if STRUCTLOG_AVAILABLE and hasattr(self._logger, "bind"):

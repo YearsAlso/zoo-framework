@@ -1,11 +1,9 @@
-"""__init__ - zoo_framework/params/__init__.py
-
-模块功能描述:
-TODO: 添加模块功能描述
+"""__init__ - 参数配置模块
 
 作者: XiangMeng
-版本: 0.5.1-beta
+版本: 0.5.2-beta
 """
+
 
 from .event_params import EventParams
 from .log_params import LogParams

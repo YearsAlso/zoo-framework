@@ -107,7 +107,7 @@ class StateScope:
         if len(key_queue) > 1:
             self._check_and_build_tree(key_queue)
         else:
-            # 如果是根节点，直接注册
+            # 如果是根节点,直接注册
             node = self.get_state_node(key)
             if node is None:
                 self.register_node(key, value)
@@ -227,7 +227,7 @@ class StateScope:
             return
 
         if node.get_type() == StateNodeType.branch:
-            # 如果是分支节点，删除所有子节点
+            # 如果是分支节点,删除所有子节点
             for child in node.get_children():
                 self.remove_state_node(child.get_key())
 

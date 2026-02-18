@@ -1,6 +1,6 @@
 """waiter_constant - zoo_framework/constant/waiter_constant.py
 
-等待器常量模块，定义等待器相关的常量。
+等待器常量模块,定义等待器相关的常量.
 
 功能:
 - 定义工作器运行模式常量
@@ -15,7 +15,7 @@
 class WaiterConstant:
     """等待器常量类
 
-    定义等待器和工作器相关的运行模式常量。
+    定义等待器和工作器相关的运行模式常量.
     """
 
     # 工作器运行模式

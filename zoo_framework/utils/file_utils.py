@@ -1,6 +1,6 @@
 """file_utils - zoo_framework/utils/file_utils.py
 
-文件工具模块，提供常用的文件操作功能。
+文件工具模块,提供常用的文件操作功能.
 
 功能:
 - 文件读写操作
@@ -18,7 +18,7 @@ import shutil
 class FileUtils:
     """文件工具类
 
-    提供各种文件操作相关的实用方法。
+    提供各种文件操作相关的实用方法.
     """
 
     @classmethod

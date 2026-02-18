@@ -1,7 +1,7 @@
 """
 event_reactor_manager - zoo_framework/reactor/event_reactor_manager.py
 
-模块功能描述。
+模块功能描述.
 
 作者: XiangMeng
 版本: 0.5.2-beta
@@ -150,13 +150,13 @@ class EventReactorManager:
     @classmethod
     def bind_topic_reactor(cls, topic: str, reactor: EventReactor) -> bool:
         """注册事件处理器
-        这个方法可以被重写，以实现不同的事件注册方式，比如设置重试机制等.
+        这个方法可以被重写,以实现不同的事件注册方式,比如设置重试机制等.
         """
-        # 如果自动重命名，则自动重命名
+        # 如果自动重命名,则自动重命名
         if cls.reactor_map.get(topic) is None:
             cls.reactor_map[topic] = []
 
-        # 如果名称已经存在，则不注册
+        # 如果名称已经存在,则不注册
 
         # 寻找是否已经存在
         if reactor in cls.reactor_map[topic]:

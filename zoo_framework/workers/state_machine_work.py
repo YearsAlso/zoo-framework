@@ -24,10 +24,10 @@ class StateMachineWorker(BaseWorker):
     - 支持文件校验和备份
     """
 
-    # 类级锁，保护文件访问
+    # 类级锁,保护文件访问
     _file_lock = threading.RLock()
 
-    # 实例锁，保护状态机操作
+    # 实例锁,保护状态机操作
     _instance_lock = threading.Lock()
 
     def __init__(self):
@@ -100,7 +100,7 @@ class StateMachineWorker(BaseWorker):
         """保存状态机（线程安全）.
 
         Args:
-            state_machine_manager: 状态机管理器实例，为 None 时自动获取
+            state_machine_manager: 状态机管理器实例,为 None 时自动获取
         """
         from zoo_framework.params import StateMachineParams
 
@@ -246,7 +246,7 @@ class StateMachineWorker(BaseWorker):
         if len(backup_files) <= keep:
             return
 
-        # 按时间排序，删除旧的
+        # 按时间排序,删除旧的
         backup_files.sort(reverse=True)
         for old_file in backup_files[keep:]:
             try:

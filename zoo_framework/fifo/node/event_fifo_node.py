@@ -27,7 +27,7 @@ class PriorityLevel(Enum):
 class EventPriorityCalculator:
     """事件优先级计算器.
 
-    P2 优化:实现加权优先级算法，防止优先级反转
+    P2 优化:实现加权优先级算法,防止优先级反转
     """
 
     @staticmethod
@@ -41,7 +41,7 @@ class EventPriorityCalculator:
 
         算法:综合优先级 = 基础优先级 + 等待时间加成
 
-        等待时间加成会随时间增加而提高，防止低优先级任务饿死
+        等待时间加成会随时间增加而提高,防止低优先级任务饿死
 
         Args:
             priority: 基础优先级
@@ -55,7 +55,7 @@ class EventPriorityCalculator:
         current_time = time.time()
         wait_time = max(0, current_time - create_time)
 
-        # 计算等待时间加成（指数增长，但不超过 max_wait_time）
+        # 计算等待时间加成（指数增长,但不超过 max_wait_time）
         # 使用指数函数让等待时间的影响逐渐增大
         effective_wait = min(wait_time, max_wait_time)
         wait_bonus = effective_wait * (1 + effective_wait / max_wait_time) * wait_time_weight
@@ -99,7 +99,7 @@ class EventNode:
     content: str
     # 响应次数
     retry_times: int
-    # 响应机制，1.先抢到的先响应; 2.者优先级高的先响应; 3.全部响应; 4.指定响应者响应
+    # 响应机制,1.先抢到的先响应; 2.者优先级高的先响应; 3.全部响应; 4.指定响应者响应
     response_mechanism: int = 3
     # 制定响应者名称
     reactor_name: str | None = None
@@ -135,7 +135,7 @@ class EventNode:
             content: 事件内容
             channel_name: 通道名称
             priority: 优先级数值
-            priority_level: 优先级等级（可选，优先级高于 priority 参数）
+            priority_level: 优先级等级（可选,优先级高于 priority 参数）
         """
         self.topic = topic
         self.content = content
@@ -168,7 +168,7 @@ class EventNode:
     def __lt__(self, other) -> bool:
         """小于比较 - 用于排序.
 
-        P2 优化:支持直接比较，用于优先队列
+        P2 优化:支持直接比较,用于优先队列
         """
         if not isinstance(other, EventNode):
             return NotImplemented
@@ -223,7 +223,7 @@ class EventNode:
         self.response_mechanism = response_mechanism
         if response_mechanism == 4:
             if reactor_name is None:
-                raise ValueError("响应机制为4时，响应者名称不能为空")
+                raise ValueError("响应机制为4时,响应者名称不能为空")
             self.reactor_name = reactor_name
 
     def get_topic(self) -> str:

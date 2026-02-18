@@ -1,6 +1,6 @@
 """log_utils - zoo_framework/utils/log_utils.py
 
-日志工具模块，提供日志记录功能。
+日志工具模块,提供日志记录功能.
 
 功能:
 - 日志配置管理
@@ -18,7 +18,7 @@ import sys
 class LogUtils:
     """日志工具类
 
-    提供日志记录相关的实用方法。
+    提供日志记录相关的实用方法.
     """
 
     @classmethod

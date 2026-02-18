@@ -1,7 +1,7 @@
 """
 event_reactor - zoo_framework/reactor/event_reactor.py
 
-模块功能描述。
+模块功能描述.
 
 作者: XiangMeng
 版本: 0.5.2-beta
@@ -34,7 +34,7 @@ class EventReactor:
         self.sys_priority: EventPriorities = EventPriorities.NORMAL.value
         # 设置用户优先级
         self.user_priority: EventPriorities = EventPriorities.NORMAL.value
-        # 事件处理策略, 默认为失败后重试一次, 失败重试，直到成功；失败后，不再重试；失败后，重试一定次数；
+        # 事件处理策略, 默认为失败后重试一次, 失败重试,直到成功;失败后,不再重试;失败后,重试一定次数;
         self.retry_strategy: EventRetryStrategy = EventRetryStrategy.RetryOnce
         # 事件处理成功后的回调
         self.success_callback = None
@@ -85,10 +85,10 @@ class EventReactor:
     def _serialize_content(content):
         return content
 
-    # 根据重试策略，执行事件
+    # 根据重试策略,执行事件
     def _execute(self, topic, content):
         req = EventReactorReq(topic, content, self.reactor_name)
-        # 如果是失败后不再重试，直接执行
+        # 如果是失败后不再重试,直接执行
         if self.retry_strategy == EventRetryStrategy.RetryOnce:
             # 重试一次
             self.retry_times = 1
