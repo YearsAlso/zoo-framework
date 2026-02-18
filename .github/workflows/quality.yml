@@ -1,5 +1,5 @@
 # P1: CI/CD 增强 - 代码质量检查
-# 整合 Ruff + MyPy
+# 整合 Ruff + MyPy + Pylint
 
 name: Quality Check
 
@@ -26,13 +26,25 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
+          pip install pylint==2.17.4
 
-      # Ruff 代码检查和格式化
+      # Ruff 代码检查和格式化（快速）
       - name: Run Ruff linter
         run: ruff check zoo_framework --output-format=github
 
       - name: Run Ruff formatter check
         run: ruff format --check zoo_framework
+
+      # Pylint 详细检查（使用项目配置）
+      - name: Run Pylint
+        run: |
+          if [ -f "pylint.conf" ]; then
+            echo "使用 pylint.conf 配置"
+            python -m pylint zoo_framework --rcfile=pylint.conf --exit-zero
+          else
+            echo "使用默认配置"
+            python -m pylint zoo_framework --exit-zero
+          fi
 
       # MyPy 类型检查
       - name: Run MyPy type check
