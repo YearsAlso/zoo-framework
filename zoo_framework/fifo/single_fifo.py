@@ -1,12 +1,9 @@
-"""
-single_fifo - zoo_framework/fifo/single_fifo.py
+"""single_fifo - zoo_framework/fifo/single_fifo.py
 
-模块功能描述：
-TODO: 添加模块功能描述
+模块功能描述:
 
 作者: XiangMeng
 版本: 0.5.1-beta
-"""
 
 from .base_fifo import BaseFIFO
 
@@ -40,3 +37,4 @@ class SingleFIFO(BaseFIFO):
 
     def get_index(self, value):
         return self.index_list.get(value)
+"""

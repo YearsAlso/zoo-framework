@@ -1,12 +1,18 @@
 """
 event_worker - zoo_framework/workers/event_worker.py
 
-模块功能描述：
-TODO: 添加模块功能描述
+模块功能描述。
+
+作者: XiangMeng
+版本: 0.5.2-beta
+"""
+
+event_worker - zoo_framework/workers/event_worker.py
+
+模块功能描述:
 
 作者: XiangMeng
 版本: 0.5.1-beta
-"""
 
 from typing import TYPE_CHECKING
 
@@ -27,6 +33,7 @@ if TYPE_CHECKING:
 
 @cage
 class EventWorker(BaseWorker):
+    """EventWorker - 类功能描述"""
     def __init__(self):
         BaseWorker.__init__(self, {"is_loop": True, "delay_time": 5, "name": "EventWorker"})
         self.is_loop = True
@@ -39,7 +46,7 @@ class EventWorker(BaseWorker):
 
         channel_names = self.eventChannelManager.get_all_channel_name()
         g_queue = []
-        # TODO：获得除去失败事件通道的所有事件通道
+        # TODO:获得除去失败事件通道的所有事件通道
         for channel_name in channel_names:
             channel: EventChannel = self.eventChannelManager.get_channel(channel_name)
             if channel is None:

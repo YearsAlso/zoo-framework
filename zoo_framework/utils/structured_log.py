@@ -1,7 +1,6 @@
 """结构化日志配置.
 
 P2: 可观测性提升 - 使用 structlog 实现结构化日志
-"""
 
 import logging
 import sys
@@ -21,9 +20,9 @@ else:
 class StructuredLogUtils:
     """结构化日志工具.
 
-    P2 优化：提供 JSON 格式的结构化日志，便于日志收集和分析
+    P2 优化:提供 JSON 格式的结构化日志，便于日志收集和分析
 
-    特性：
+    特性:
     - 结构化 JSON 日志输出
     - 自动上下文绑定
     - 性能指标自动收集
@@ -88,7 +87,7 @@ class StructuredLogUtils:
     def bind(self, **context) -> "StructuredLogUtils":
         """绑定上下文变量.
 
-        使用示例：
+        使用示例:
             log = StructuredLogUtils().bind(worker="StateMachineWorker", task_id="123")
             log.info("Task started")
             # 输出: {"event": "Task started", "worker": "StateMachineWorker", "task_id": "123"}
@@ -196,7 +195,7 @@ def get_logger(name: str | None = None) -> StructuredLogUtils:
     return logger
 
 
-# 兼容性：保留旧的 LogUtils 接口
+# 兼容性:保留旧的 LogUtils 接口
 class LogUtilsCompatibility:
     """兼容旧版 LogUtils 接口."""
 
@@ -233,3 +232,4 @@ __all__ = [
     "StructuredLogUtils",
     "get_logger",
 ]
+"""

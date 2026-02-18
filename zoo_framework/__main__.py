@@ -1,7 +1,6 @@
-"""
-__main__ - zoo_framework/__main__.py
+"""__main__ - zoo_framework/__main__.py
 
-模块功能描述：
+模块功能描述:
 TODO: 添加模块功能描述
 
 作者: XiangMeng

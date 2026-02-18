@@ -1,7 +1,6 @@
 """异步 Worker 支持.
 
 P2: 异步 IO 优化 - 支持异步 Worker 实现
-"""
 
 import asyncio
 import time
@@ -25,9 +24,9 @@ class AsyncWorkerType(Enum):
 class AsyncWorker(BaseWorker):
     """异步 Worker 基类.
 
-    P2 优化：支持异步执行的 Worker
+    P2 优化:支持异步执行的 Worker
 
-    特性：
+    特性:
     - 原生协程支持
     - 自动事件循环管理
     - 支持同步和异步两种执行模式
@@ -297,3 +296,4 @@ __all__ = [
     "AsyncWorkerPool",
     "AsyncWorkerType",
 ]
+"""

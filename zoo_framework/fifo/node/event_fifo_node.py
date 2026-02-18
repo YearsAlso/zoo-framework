@@ -1,12 +1,9 @@
-"""
-event_fifo_node - zoo_framework/fifo/node/event_fifo_node.py
+"""event_fifo_node - zoo_framework/fifo/node/event_fifo_node.py
 
-模块功能描述：
-TODO: 添加模块功能描述
+模块功能描述:
 
 作者: XiangMeng
 版本: 0.5.1-beta
-"""
 
 import time
 from collections.abc import Callable
@@ -17,7 +14,7 @@ from typing import Any
 class PriorityLevel(Enum):
     """优先级等级.
 
-    P2 优化：定义标准优先级等级
+    P2 优化:定义标准优先级等级
     """
 
     CRITICAL = 1000  # 关键/紧急
@@ -30,7 +27,7 @@ class PriorityLevel(Enum):
 class EventPriorityCalculator:
     """事件优先级计算器.
 
-    P2 优化：实现加权优先级算法，防止优先级反转
+    P2 优化:实现加权优先级算法，防止优先级反转
     """
 
     @staticmethod
@@ -42,7 +39,7 @@ class EventPriorityCalculator:
     ) -> float:
         """计算综合优先级分数.
 
-        算法：综合优先级 = 基础优先级 + 等待时间加成
+        算法:综合优先级 = 基础优先级 + 等待时间加成
 
         等待时间加成会随时间增加而提高，防止低优先级任务饿死
 
@@ -90,7 +87,7 @@ class EventPriorityCalculator:
 class EventNode:
     """事件节点 - P2 优化版本.
 
-    优化内容：
+    优化内容:
     1. 改进优先级计算算法
     2. 添加防止优先级反转机制
     3. 添加优先级等级枚举
@@ -131,7 +128,7 @@ class EventNode:
     ):
         """初始化事件节点.
 
-        P2 优化：支持使用 PriorityLevel 设置优先级
+        P2 优化:支持使用 PriorityLevel 设置优先级
 
         Args:
             topic: 事件主题
@@ -144,7 +141,7 @@ class EventNode:
         self.content = content
         self.retry_times = 0
 
-        # P2 优化：支持使用 PriorityLevel
+        # P2 优化:支持使用 PriorityLevel
         if priority_level is not None:
             self.priority = priority_level.value
         else:
@@ -171,7 +168,7 @@ class EventNode:
     def __lt__(self, other) -> bool:
         """小于比较 - 用于排序.
 
-        P2 优化：支持直接比较，用于优先队列
+        P2 优化:支持直接比较，用于优先队列
         """
         if not isinstance(other, EventNode):
             return NotImplemented
@@ -186,14 +183,14 @@ class EventNode:
     def __index__(self) -> int:
         """返回优先级索引.
 
-        P2 优化：使用加权优先级算法
+        P2 优化:使用加权优先级算法
         """
         return int(self.get_effective_priority())
 
     def get_effective_priority(self) -> float:
         """获取有效优先级.
 
-        P2 优化：使用 PriorityCalculator 计算
+        P2 优化:使用 PriorityCalculator 计算
 
         Returns:
             有效优先级分数
@@ -261,7 +258,7 @@ class EventNode:
     def increment_retry(self) -> None:
         """增加重试次数.
 
-        P2 新增：自动增加重试次数
+        P2 新增:自动增加重试次数
         """
         self.retry_times += 1
 
@@ -272,3 +269,4 @@ __all__ = [
     "EventPriorityCalculator",
     "PriorityLevel",
 ]
+"""

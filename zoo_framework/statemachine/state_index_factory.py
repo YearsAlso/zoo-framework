@@ -1,6 +1,6 @@
 """状态节点索引工厂.
 
-P2 优化：将索引创建优化为工厂模式
+P2 优化:将索引创建优化为工厂模式
 索引设置为对象，支持多种实现方式
 """
 
@@ -14,7 +14,7 @@ from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 class StateIndex(ABC):
     """状态索引抽象基类.
 
-    P2 优化：定义状态索引的接口
+    P2 优化:定义状态索引的接口
     """
 
     @abstractmethod
@@ -193,7 +193,7 @@ class HierarchicalIndex(StateIndex):
 class StateIndexFactory:
     """状态索引工厂.
 
-    P2 优化：工厂模式创建索引
+    P2 优化:工厂模式创建索引
     """
 
     _index_types: dict[str, type] = {

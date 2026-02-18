@@ -217,12 +217,12 @@ class PluginManager:
 
     管理插件的注册、加载、卸载生命周期。
 
-    提供方法：
+    提供方法:
     - register: 注册插件类
     - load / load_all: 加载插件
     - unload / unload_all: 卸载插件
 
-    内部维护：
+    内部维护:
     - _plugins: 已注册的插件映射
     - _loaded_plugins: 当前已加载的插件实例映射
     """
@@ -397,12 +397,12 @@ def get_plugin_manager() -> PluginManager:
 
 
 def register_plugin(plugin_class: type[Plugin]) -> None:
-    """便捷函数：注册插件到全局管理器."""
+    """便捷函数:注册插件到全局管理器."""
     get_plugin_manager().register(plugin_class)
 
 
 def load_plugins(context: Any | None = None) -> None:
-    """便捷函数：加载所有已注册的插件."""
+    """便捷函数:加载所有已注册的插件."""
     get_plugin_manager().load_all(context)
 
 

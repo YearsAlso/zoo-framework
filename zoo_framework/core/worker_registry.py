@@ -1,7 +1,6 @@
 """Worker 注册器 - 重构 Worker 注册机制.
 
-P2 优化：重构 Worker 注册，支持更灵活的注册方式
-"""
+P2 优化:重构 Worker 注册，支持更灵活的注册方式
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -14,7 +13,7 @@ from zoo_framework.workers import BaseWorker
 class WorkerRegistration(ABC):
     """Worker 注册抽象基类.
 
-    P2 优化：定义 Worker 注册的接口
+    P2 优化:定义 Worker 注册的接口
     """
 
     @abstractmethod
@@ -36,7 +35,7 @@ class WorkerRegistration(ABC):
 class WorkerRegistry:
     """Worker 注册表.
 
-    P2 优化：重构 Worker 注册机制，支持：
+    P2 优化:重构 Worker 注册机制，支持:
     - 类注册和实例注册
     - 装饰器注册
     - 延迟实例化
@@ -54,7 +53,7 @@ class WorkerRegistry:
     ) -> None:
         """注册 Worker 类（延迟实例化）.
 
-        P2 优化：支持延迟实例化，节省资源
+        P2 优化:支持延迟实例化，节省资源
 
         Args:
             name: Worker 名称
@@ -90,7 +89,7 @@ class WorkerRegistry:
     ) -> None:
         """注册 Worker 工厂函数.
 
-        P2 优化：支持工厂模式创建 Worker
+        P2 优化:支持工厂模式创建 Worker
 
         Args:
             name: Worker 名称
@@ -104,7 +103,7 @@ class WorkerRegistry:
     def get_worker(self, name: str) -> Any | None:
         """获取 Worker 实例.
 
-        按优先级查找：实例 -> 工厂 -> 类
+        按优先级查找:实例 -> 工厂 -> 类
 
         Args:
             name: Worker 名称
@@ -181,7 +180,7 @@ class WorkerRegistry:
     def get_workers_by_tag(self, tag: str) -> list[str]:
         """根据标签获取 Worker 名称列表.
 
-        P2 优化：支持按标签筛选 Worker
+        P2 优化:支持按标签筛选 Worker
 
         Args:
             tag: 标签
@@ -217,7 +216,7 @@ class WorkerRegistry:
 def register_worker(name: str | None = None, metadata: dict | None = None):
     """Worker 注册装饰器.
 
-    P2 优化：支持装饰器方式注册 Worker
+    P2 优化:支持装饰器方式注册 Worker
 
     使用示例:
         @register_worker("my_worker", {"priority": 100})
@@ -269,3 +268,4 @@ __all__ = [
     "get_worker_registry",
     "register_worker",
 ]
+"""

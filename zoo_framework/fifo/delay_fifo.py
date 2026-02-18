@@ -1,12 +1,9 @@
-"""
-delay_fifo - zoo_framework/fifo/delay_fifo.py
+"""delay_fifo - zoo_framework/fifo/delay_fifo.py
 
-模块功能描述：
-TODO: 添加模块功能描述
+模块功能描述:
 
 作者: XiangMeng
 版本: 0.5.1-beta
-"""
 
 from .base_fifo import BaseFIFO
 from .node import DelayFIFONode
@@ -44,3 +41,4 @@ class DelayFIFO(BaseFIFO):
             if node.is_expire(current_time):
                 values.append(node)
         return values
+"""

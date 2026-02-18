@@ -1,24 +1,10 @@
-"""持久化调度器 - 解耦持久化逻辑.
+"""
+persistence_scheduler - 模块功能描述。
 
-P1 任务：将 StateMachineWorker 中的持久化逻辑移到独立的调度器中
+作者: XiangMeng
+版本: 0.5.2-beta
 """
 
-import os
-import pickle
-import shutil
-import threading
-from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import Any
-
-from zoo_framework.utils import FileUtils, LogUtils
-
-
-class PersistenceStrategy(ABC):
-    """持久化策略基类.
-
-    定义持久化的接口，支持不同的持久化实现。
-    """
 
     @abstractmethod
     def save(self, data: Any, filepath: str) -> bool:
@@ -84,7 +70,7 @@ class PicklePersistenceStrategy(PersistenceStrategy):
 class FileChecksumValidator:
     """文件校验和验证器.
 
-    P1 任务：实现文件校验功能
+    P1 任务:实现文件校验功能
     """
 
     @staticmethod
@@ -152,7 +138,7 @@ class FileChecksumValidator:
 class BackupManager:
     """备份管理器.
 
-    P1 任务：实现文件备份和切片功能
+    P1 任务:实现文件备份和切片功能
     """
 
     def __init__(self, backup_dir: str = "backups", max_backups: int = 5):
@@ -278,9 +264,9 @@ class BackupManager:
 class PersistenceScheduler:
     """持久化调度器.
 
-    P1 任务：解耦持久化逻辑，由调度器决定何时持久化
+    P1 任务:解耦持久化逻辑，由调度器决定何时持久化
 
-    职责：
+    职责:
     - 管理持久化时机
     - 执行数据保存和加载
     - 处理备份和恢复
@@ -447,3 +433,4 @@ __all__ = [
     "PersistenceStrategy",
     "PicklePersistenceStrategy",
 ]
+"""

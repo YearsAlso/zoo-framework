@@ -1,7 +1,6 @@
-"""
-state_scope - zoo_framework/statemachine/state_scope.py
+"""state_scope - zoo_framework/statemachine/state_scope.py
 
-模块功能描述：
+模块功能描述:
 TODO: 添加模块功能描述
 
 作者: XiangMeng
@@ -20,7 +19,7 @@ from zoo_framework.utils import LogUtils
 class StateScope:
     """状态域 - P2 优化版本.
 
-    P2 优化：
+    P2 优化:
     1. 使用工厂模式创建索引
     2. 支持多种索引实现
     3. 支持动态切换索引类型
@@ -32,12 +31,12 @@ class StateScope:
     def __init__(self, index_type: str = "dict"):
         """初始化状态域.
 
-        P2 优化：使用工厂模式创建索引
+        P2 优化:使用工厂模式创建索引
 
         Args:
             index_type: 索引类型（"dict" 或 "hierarchical"）
         """
-        # P2 优化：使用工厂模式创建索引
+        # P2 优化:使用工厂模式创建索引
         self._state_index: StateIndex = StateIndexFactory.create_index(index_type)
 
     def observe_state_node(self, key: str, effect: Any) -> None:
@@ -251,7 +250,7 @@ class StateScope:
     def get_all_nodes(self) -> dict:
         """获取所有状态节点.
 
-        P2 优化：支持获取所有节点
+        P2 优化:支持获取所有节点
 
         Returns:
             节点字典
@@ -261,7 +260,7 @@ class StateScope:
     def find_nodes_by_prefix(self, prefix: str) -> list:
         """根据前缀查找节点.
 
-        P2 优化：支持前缀查找
+        P2 优化:支持前缀查找
 
         Args:
             prefix: 键前缀

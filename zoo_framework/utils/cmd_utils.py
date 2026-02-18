@@ -1,17 +1,15 @@
-"""
-cmd_utils - zoo_framework/utils/cmd_utils.py
+"""cmd_utils - zoo_framework/utils/cmd_utils.py
 
-模块功能描述：
-TODO: 添加模块功能描述
+模块功能描述:
 
 作者: XiangMeng
 版本: 0.5.1-beta
-"""
 
 import os
 
 
 class CmdUtils:
+    """CmdUtils - 类功能描述"""
     @classmethod
     def cmd_read(cls, cmd):
         """执行cmd命令."""
@@ -28,3 +26,4 @@ class CmdUtils:
     def cmd_write_with_result(cls, cmd):
         """执行cmd命令."""
         return os.system(cmd)
+"""

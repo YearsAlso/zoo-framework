@@ -1,12 +1,9 @@
-"""
-zoo_thread - zoo_framework/core/zoo_thread.py
+"""zoo_thread - zoo_framework/core/zoo_thread.py
 
-模块功能描述：
-TODO: 添加模块功能描述
+模块功能描述:
 
 作者: XiangMeng
 版本: 0.5.1-beta
-"""
 
 import ctypes
 import threading
@@ -15,6 +12,7 @@ from zoo_framework.utils import LogUtils
 
 
 class ZooThread(threading.Thread):
+    """ZooThread - 类功能描述"""
     def __init__(self, name):
         threading.Thread.__init__(self)
         self.name = name
@@ -44,3 +42,4 @@ class ZooThread(threading.Thread):
         if res > 1:
             ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
             print("Exception raise failure")
+"""

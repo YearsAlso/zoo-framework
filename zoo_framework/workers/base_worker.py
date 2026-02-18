@@ -1,12 +1,9 @@
-"""
-base_worker - zoo_framework/workers/base_worker.py
+"""base_worker - zoo_framework/workers/base_worker.py
 
-模块功能描述：
-TODO: 添加模块功能描述
+模块功能描述:
 
 作者: XiangMeng
 版本: 0.5.1-beta
-"""
 
 import time
 
@@ -16,6 +13,7 @@ from .worker_result import WorkerResult
 
 
 class BaseWorker:
+    """BaseWorker - 类功能描述"""
     def __init__(self, props: dict):
         self._props = props
         self.state = {}
@@ -76,3 +74,4 @@ class BaseWorker:
 
     def _on_done(self):
         pass
+"""

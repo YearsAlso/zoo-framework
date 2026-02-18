@@ -1,7 +1,7 @@
 """
 state_machine_params - zoo_framework/params/state_machine_params.py
 
-模块功能描述：
+模块功能描述:
 TODO: 添加模块功能描述
 
 
