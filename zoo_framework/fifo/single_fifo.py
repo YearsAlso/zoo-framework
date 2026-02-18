@@ -1,30 +1,42 @@
+"""
+single_fifo - zoo_framework/fifo/single_fifo.py
+
+模块功能描述：
+TODO: 添加模块功能描述
+
+作者: XiangMeng
+版本: 0.5.1-beta
+"""
+
 from .base_fifo import BaseFIFO
 
 
 class SingleFIFO(BaseFIFO):
+    """单一值队列."""
+
     index_list = {}
-    
+
     def __init__(self):
         BaseFIFO.__init__(self)
         self.pop_pointer = 0
-    
+
     def push_value(self, value):
-        index = self.fifo.index(value)
+        index = self._fifo.index(value)
         if index == -1:
-            self.fifo.push(value)
-            index = self.fifo.index(value)
+            self._fifo.push(value)
+            index = self._fifo.index(value)
             self.index_list[value] = index
         return index
-    
+
     def pop_value(self):
-        if len(self.fifo) <= self.pop_pointer:
+        if len(self._fifo) <= self.pop_pointer:
             raise Exception("no value to pop")
-        value = self.fifo[self.pop_pointer]
+        value = self._fifo[self.pop_pointer]
         self.pop_pointer += 1
         return value
-    
+
     def get_value_by_index(self, index):
-        return self.fifo[index]
-    
+        return self._fifo[index]
+
     def get_index(self, value):
         return self.index_list.get(value)

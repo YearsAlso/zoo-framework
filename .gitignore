@@ -1,0 +1,38 @@
+/example/logs/
+/dist/
+/build/
+/zoo_framework.egg-info/
+
+# 敏感配置文件
+.pypirc
+.pypirc*
+*.pypirc
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# 测试和覆盖率
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
