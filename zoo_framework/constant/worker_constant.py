@@ -1,3 +1,17 @@
+"""
+    """WorkerConstant - 类功能描述
+
+    TODO: 添加类功能详细描述
+    """
+worker_constant - zoo_framework/constant/worker_constant.py
+
+模块功能描述：
+TODO: 添加模块功能描述
+
+作者: XiangMeng
+版本: 0.5.1-beta
+"""
+
 class WorkerConstant:
     # worker 运行模式
     RUN_MODE_THREAD = "thread"

@@ -1,3 +1,13 @@
+"""
+event_channel - zoo_framework/event/event_channel.py
+
+模块功能描述：
+TODO: 添加模块功能描述
+
+作者: XiangMeng
+版本: 0.5.1-beta
+"""
+
 from zoo_framework.fifo import EventFIFO
 from zoo_framework.fifo.node import EventNode
 from zoo_framework.reactor import EventReactor, EventReactorManager

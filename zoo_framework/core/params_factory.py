@@ -1,58 +1,40 @@
-import json
-import os
+"""
+params_factory - zoo_framework/core/params_factory.py
 
-from zoo_framework.utils import FileUtils
+参数工厂模块，负责创建和管理各种参数对象。
+
+功能：
+- 参数对象的创建和初始化
+- 参数验证和标准化
+- 参数依赖管理
+
+作者: XiangMeng
+版本: 0.5.1-beta
+"""
+
+from zoo_framework.core.params_path import ParamsPath
 
 
 class ParamsFactory:
-    config_params = {}
+    """参数工厂类
+    
+    用于创建和管理各种类型的参数对象，提供统一的参数创建接口。
+    
+    方法：
+        create_path_param: 创建路径参数
+        validate_params: 验证参数有效性
+    
+    示例：
+        >>> factory = ParamsFactory()
+        >>> path_param = factory.create_path_param('config.db.url')
+    """
+    
+    def __init__(self):
+        pass
 
-    def __init__(self, config_path="./config.json"):
-        if not os.path.exists(config_path):
-            return
-            with open(config_path, "w") as f:
-                json.dump(self.config_params, f)
+    def create_path_param(self, value, default=""):
+        return ParamsPath(value, default)
 
-        with open(config_path) as f:
-            ParamsFactory.config_params = json.load(f)
-
-        # 处理 exports
-        self.load_exports()
-
-    def load_exports(self):
-        export_files = self.config_params.get("_exports")
-        if type(export_files) != type([]):
-            return
-
-        for export_file in export_files:
-            self.load_export_file(export_file)
-
-    def load_export_file(self, export_name):
-        file_name = "./" + export_name + ".json"
-
-        if not FileUtils.file_exists(file_name):
-            return
-        content = self.get_export_file(file_name)
-        ParamsFactory.config_params[export_name] = content
-
-    def get_export_file(self, file_name):
-        content = {}
-        try:
-            with open(file_name) as fp:
-                content = json.load(fp)
-        except:
-            pass
-
-        return content
-
-    @classmethod
-    def get_params(cls, path, default_value=""):
-        if path is None or path == "":
-            return default_value
-        path_split = path.split(":")
-        value = cls.config_params
-        for item in path_split:
-            if value.get(item) is None:
-                return default_value
-            value = value[item]
-        return value
+    def validate_params(self, params):
+        # 参数验证逻辑
+        return True

@@ -1,3 +1,13 @@
+"""
+event_channel_manager - zoo_framework/event/event_channel_manager.py
+
+模块功能描述：
+TODO: 添加模块功能描述
+
+作者: XiangMeng
+版本: 0.5.1-beta
+"""
+
 from zoo_framework.core.aop import cage
 from zoo_framework.reactor import EventReactor
 

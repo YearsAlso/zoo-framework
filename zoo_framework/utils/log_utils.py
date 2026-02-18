@@ -1,3 +1,17 @@
+"""
+log_utils - zoo_framework/utils/log_utils.py
+
+模块功能描述：
+    """LogUtils - 类功能描述
+
+    TODO: 添加类功能详细描述
+    """
+TODO: 添加模块功能描述
+
+作者: XiangMeng
+版本: 0.5.1-beta
+"""
+
 import logging
 
 

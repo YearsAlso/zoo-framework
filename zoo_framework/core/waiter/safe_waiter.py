@@ -1,3 +1,18 @@
+"""
+safe_waiter - zoo_framework/core/waiter/safe_waiter.py
+
+模块功能描述：
+TODO: 添加模块功能描述
+
+
+    """SafeWaiter - 类功能描述
+
+    TODO: 添加类功能详细描述
+    """
+作者: XiangMeng
+版本: 0.5.1-beta
+"""
+
 from zoo_framework.reactor.event_reactor_manager import EventReactorManager
 
 from .base_waiter import BaseWaiter
