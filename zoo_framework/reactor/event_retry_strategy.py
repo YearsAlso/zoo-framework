@@ -6,7 +6,6 @@ TODO: 添加模块功能描述
 
 作者: XiangMeng
 版本: 0.5.1-beta
-"""
 
 from enum import Enum
 
@@ -23,3 +22,5 @@ class EventRetryStrategy(Enum):
     RetryForever = 3
 
     RetryTimes = 4
+
+"""
