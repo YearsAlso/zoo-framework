@@ -1,0 +1,202 @@
+# 🚀 快速发布工作流
+#
+# 专门用于直接推送到 dev 分支的快速发布
+# 当需要快速发布测试版本时使用
+#
+# 触发条件：
+# - 直接 push 到 dev 分支
+# - 手动触发 (workflow_dispatch)
+#
+# 注意：这个工作流会跳过PR审查，直接发布测试版本
+# 建议用于紧急修复或小范围测试
+
+name: 🚀 Quick Release
+
+on:
+  # 直接 push 到 dev 分支
+  push:
+    branches: [dev]
+    paths:
+      - 'zoo_framework/**'
+      - 'pyproject.toml'
+      - 'setup.py'
+      - '.env'
+      - '.github/workflows/quick-release.yml'
+  
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      release_notes:
+        description: '发布说明'
+        required: false
+        default: '快速发布 - 紧急修复或测试'
+        type: string
+
+jobs:
+  quick-release:
+    name: 🚀 快速发布
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+      id-token: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install build toml
+      
+      # 运行快速测试
+      - name: Run quick tests
+        run: |
+          echo "🧪 运行快速测试..."
+          pytest tests/ -v --tb=short -k "not slow" || echo "⚠️ 测试失败，但继续发布流程"
+      
+      # 获取当前版本
+      - name: Get current version
+        id: current_version
+        run: |
+          # 从 .env 文件获取版本
+          if [ -f ".env" ]; then
+            CURRENT_VERSION=$(grep "^VERSION=" .env | cut -d'=' -f2)
+          else
+            echo "❌ 无法找到 .env 文件"
+            exit 1
+          fi
+          
+          echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          echo "当前版本: $CURRENT_VERSION"
+      
+      # 计算新版本（总是增加patch并添加-beta）
+      - name: Calculate new version
+        id: calc_version
+        run: |
+          CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
+          
+          # 解析版本号
+          MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
+          MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
+          PATCH=$(echo $CURRENT_VERSION | cut -d. -f3 | cut -d- -f1)  # 去掉 -beta 后缀
+          
+          # 总是增加patch并添加-beta
+          PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH-beta"
+          
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "新版本: $NEW_VERSION"
+          echo "发布类型: 快速测试版本 (beta)"
+      
+      # 更新版本号
+      - name: Update version
+        run: |
+          NEW_VERSION="${{ steps.calc_version.outputs.new_version }}"
+          
+          # 配置 git
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          
+          # 更新 .env 文件
+          sed -i "s/^VERSION=.*/VERSION=$NEW_VERSION/" .env
+          
+          # 更新其他版本文件
+          if [ -f "pyproject.toml" ]; then
+            sed -i "s/version = \".*\"/version = \"$NEW_VERSION\"/" pyproject.toml
+          fi
+          
+          if [ -f "setup.py" ]; then
+            sed -i "s/version='.*'/version='$NEW_VERSION'/" setup.py
+          fi
+          
+          if [ -f "zoo_framework/__init__.py" ]; then
+            sed -i "s/__version__ = \".*\"/__version__ = \"$NEW_VERSION\"/" zoo_framework/__init__.py
+          fi
+          
+          # 提交更改
+          git add .
+          git commit -m "chore(release): quick release $NEW_VERSION [skip ci]"
+          git push
+          
+          echo "✅ 版本更新已推送到 dev 分支"
+      
+      # 创建 Git tag
+      - name: Create Git Tag
+        run: |
+          NEW_VERSION="${{ steps.calc_version.outputs.new_version }}"
+          
+          # 创建 tag
+          git tag -a "v$NEW_VERSION" -m "Quick Release v$NEW_VERSION"
+          git push origin "v$NEW_VERSION"
+          echo "✅ Tag v$NEW_VERSION 已创建"
+      
+      # 构建包
+      - name: Build package
+        run: python -m build
+      
+      # 发布到 TestPyPI
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          password: ${{ secrets.TEST_PYPI_API_TOKEN || secrets.PYPI_API_TOKEN }}
+        continue-on-error: true
+      
+      # 创建 GitHub Release
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.calc_version.outputs.new_version }}
+          name: Quick Release v${{ steps.calc_version.outputs.new_version }}
+          body: |
+            ## 🚀 快速发布 v${{ steps.calc_version.outputs.new_version }}
+            
+            **类型:** 🧪 快速测试版本
+            **分支:** dev
+            **触发方式:** 直接推送
+            **说明:** ${{ github.event.inputs.release_notes || '快速发布 - 紧急修复或测试' }}
+            
+            ### ⚠️ 注意
+            这是一个快速发布版本，跳过了完整的PR审查流程。
+            建议用于：
+            - 紧急bug修复
+            - 小范围功能测试
+            - 开发环境验证
+            
+            ### 📦 安装
+            ```bash
+            # 从 TestPyPI 安装测试版本
+            pip install --index-url https://test.pypi.org/simple/ zoo-framework==${{ steps.calc_version.outputs.new_version }}
+            ```
+            
+            ### 🔄 后续步骤
+            1. 验证修复或功能
+            2. 创建正式的PR进行代码审查
+            3. 通过标准流程发布稳定版本
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          draft: false
+          prerelease: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      
+      # 发送通知
+      - name: Notify Quick Release
+        run: |
+          echo "🎉 快速发布完成！"
+          echo "版本: v${{ steps.calc_version.outputs.new_version }}"
+          echo "类型: 快速测试版本 (beta)"
+          echo "TestPyPI: https://test.pypi.org/project/zoo-framework/${{ steps.calc_version.outputs.new_version }}/"
+          echo "GitHub Release: https://github.com/${{ github.repository }}/releases/tag/v${{ steps.calc_version.outputs.new_version }}"
