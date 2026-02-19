@@ -211,6 +211,8 @@ jobs:
       
       # 更新版本号
       - name: Update version
+        id: update_version
+        continue-on-error: true
         run: |
           NEW_VERSION="${{ steps.calc_version.outputs.new_version }}"
           
@@ -248,22 +250,34 @@ jobs:
           # 如果是push触发，直接推送
           if [[ "${{ needs.determine-release.outputs.trigger_type }}" == "push" ]]; then
             echo "📤 直接推送版本更新到 dev 分支"
-            git push
+            # 尝试推送，如果失败（因为分支保护）则打印警告但不让整个流程失败
+            if git push; then
+              echo "✅ 版本号已回写到仓库"
+            else
+              echo "⚠️ 无法推送到受保护的分支。请手动更新仓库中的版本号到 $NEW_VERSION。"
+              echo "这不会影响本次 PyPI 发布，但在下一次发布前请确保代码库版本一致。"
+              # 我们不退出，允许后续发布步骤继续进行
+            fi
           else
             echo "⏳ PR合并触发，等待后续步骤"
           fi
       
       # 创建 Git tag
       - name: Create Git Tag
+        continue-on-error: true
         run: |
           NEW_VERSION="${{ steps.calc_version.outputs.new_version }}"
           BRANCH="${{ needs.determine-release.outputs.branch }}"
           
           # 创建 tag
           git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
-          git push origin "v$NEW_VERSION"
-          echo "✅ Tag v$NEW_VERSION 已创建"
-      
+          # 尝试推送 Tag，同样如果失败允许继续
+          if git push origin "v$NEW_VERSION"; then
+             echo "✅ Tag v$NEW_VERSION 已创建"
+          else
+             echo "⚠️ 无法推送 Tag。可能是权限不足。"
+          fi
+
       # 构建包
       - name: Build package
         run: python -m build
