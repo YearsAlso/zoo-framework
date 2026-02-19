@@ -127,11 +127,10 @@ jobs:
     if: needs.determine-release.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     
-    # 添加 environment 配置，这有助于在 PyPI 上进行更精确的 Trusted Publisher 配置
-    # 建议在 GitHub 仓库 Settings -> Environments 中创建 'pypi' 和 'testpypi' 环境
+    # 修改为始终使用 pypi 环境，统一发布到正式 PyPI
     environment:
-      name: ${{ needs.determine-release.outputs.release_type == 'stable' && 'pypi' || 'testpypi' }}
-      url: ${{ needs.determine-release.outputs.release_type == 'stable' && 'https://pypi.org/project/zoo-framework/' || 'https://test.pypi.org/project/zoo-framework/' }}
+      name: pypi
+      url: https://pypi.org/project/zoo-framework/
 
     permissions:
       contents: write
@@ -282,21 +281,13 @@ jobs:
       - name: Build package
         run: python -m build
       
-      # 发布到 PyPI（正式版本）
-      - name: Publish to PyPI (Stable)
-        if: needs.determine-release.outputs.release_type == 'stable'
+      # 发不到 PyPI
+      # 无论 release_type 是 stable 还是 beta，都发布到正式 PyPI
+      # Beta 版本会自动被标记为预发布版本（因为版本号带 -beta 后缀）
+      - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
-      
-      # 发布到 TestPyPI（测试版本）
-      - name: Publish to TestPyPI (Beta)
-        if: needs.determine-release.outputs.release_type == 'beta'
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-          password: ${{ secrets.TEST_PYPI_API_TOKEN || secrets.PYPI_API_TOKEN }}
-        continue-on-error: true
       
       # 生成 Changelog
       - name: Generate Changelog
@@ -334,13 +325,8 @@ jobs:
             
             ### 📦 安装
             
-            ${{ needs.determine-release.outputs.release_type == 'beta' && '
             ```bash
-            # 测试版本（从 TestPyPI 安装）
-            pip install --index-url https://test.pypi.org/simple/ zoo-framework==' || '
-            ```bash
-            # 正式版本
-            pip install zoo-framework==' }}${{ steps.calc_version.outputs.new_version }}
+            pip install zoo-framework==${{ steps.calc_version.outputs.new_version }}
             ```
             
             ### 📚 文档
