@@ -5,8 +5,7 @@ config_funcs = ThreadSafeDict()
 
 
 def configure(topic: str):
-    """
-    装饰器工厂函数，用于将函数注册到指定的主题下。
+    """装饰器工厂函数，用于将函数注册到指定的主题下。
 
     参数:
         topic (str): 主题名称，用于标识配置函数的分类或用途。

@@ -5,8 +5,7 @@ worker_register: WorkerRegister = WorkerRegister()
 
 
 def worker(count: int = 1):
-    """
-    装饰器函数，用于注册指定数量的 worker 实例。
+    """装饰器函数，用于注册指定数量的 worker 实例。
 
     参数:
         count (int): 需要注册的 worker 实例数量，默认为 1。
@@ -15,8 +14,7 @@ def worker(count: int = 1):
         function: 返回一个内部装饰器函数，用于处理被装饰的类。
     """
     def inner(cls):
-        """
-        内部装饰器函数，负责实际的 worker 注册逻辑。
+        """内部装饰器函数，负责实际的 worker 注册逻辑。
 
         参数:
             cls (class): 被装饰的类，表示 worker 的类型。

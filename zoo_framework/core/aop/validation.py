@@ -3,8 +3,7 @@ params_validate_map = {}
 
 
 def validation(params_key="") -> object:
-    """
-    返回一个装饰器函数，用于将参数插入到指定键的验证列表中。
+    """返回一个装饰器函数，用于将参数插入到指定键的验证列表中。
 
     参数:
         params_key (str): 用于标识参数验证规则的键，默认为空字符串。
@@ -25,8 +24,7 @@ def validation(params_key="") -> object:
 
 
 def validation_params(params_key, value):
-    """
-    验证给定值是否存在于指定键的验证列表中。
+    """验证给定值是否存在于指定键的验证列表中。
 
     参数:
         params_key (str): 用于查找验证列表的键。
