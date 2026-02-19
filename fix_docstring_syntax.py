@@ -109,7 +109,7 @@ datetime_utils - zoo_framework/utils/datetime_utils.py
 - 日期解析和验证
 
 作者: XiangMeng
-版本: 0.5.3-beta
+版本: 0.6.1-beta
 """
 
 from datetime import datetime, timedelta

@@ -122,7 +122,7 @@ def create_simple_docstring(filepath):
 模块功能描述。
 
 作者: XiangMeng
-版本: 0.5.3-beta
+版本: 0.6.1-beta
 """
 
 '''
