@@ -22,7 +22,7 @@ class EventFIFO(BaseFIFO):
             elif isinstance(value, EventNode):
                 node = value
             else:
-                # 对于非 dict 和非 EventNode 的值,创建一个默认事件节点
+                # 对于非 dict 和非 EventNode 的值，创建一个默认事件节点
                 node = EventNode(topic="default", content=str(value))
             super().push_value(node)
         except Exception as e:

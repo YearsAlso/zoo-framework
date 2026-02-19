@@ -3,11 +3,11 @@
 🎪 动物园框架 - 基于动物园隐喻的 Python 多线程框架
 
 核心概念:
-- 🦁 Worker: 动物,执行任务的基本单元
-- 🏠 Cage: 笼子,提供线程安全和生命周期管理
-- 👨‍🌾 Master: 园长,管理整个动物园
-- 🍎 Event: 食物,Worker 间通信的载体
-- 🥘 FIFO: 饲养员队列,管理事件的有序处理
+- 🦁 Worker: 动物，执行任务的基本单元
+- 🏠 Cage: 笼子，提供线程安全和生命周期管理
+- 👨‍🌾 Master: 园长，管理整个动物园
+- 🍎 Event: 食物，Worker 间通信的载体
+- 🥘 FIFO: 饲养员队列，管理事件的有序处理
 
 示例:
     >>> from zoo_framework.core import Master
@@ -59,7 +59,7 @@ __all__ = [
 
 
 def load_env() -> None:
-    """显式加载工程根目录下的 .env 文件（不在包导入时自动运行）.
+    """显式加载工程根目录下的 .env 文件（不在包导入时自动运行）。
 
     调用示例:
         from zoo_framework import load_env
@@ -67,5 +67,5 @@ def load_env() -> None:
     """
     load_dotenv(find_dotenv())
 
-# NOTE: 原先代码在模块导入时会立即运行 `load_dotenv(find_dotenv())`,
-# 为了降低导入时的副作用（并减少 linter 噪声）,已改为显式函数调用.
+# NOTE: 原先代码在模块导入时会立即运行 `load_dotenv(find_dotenv())`，
+# 为了降低导入时的副作用（并减少 linter 噪声），已改为显式函数调用。

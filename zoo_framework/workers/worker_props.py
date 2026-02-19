@@ -1,7 +1,7 @@
 """
 worker_props - zoo_framework/workers/worker_props.py
 
-模块功能描述.
+模块功能描述。
 
 作者: XiangMeng
 版本: 0.5.2-beta

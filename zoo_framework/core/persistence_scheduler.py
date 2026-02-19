@@ -1,23 +1,10 @@
-"""持久化调度器 - 解耦持久化逻辑.
+"""
+persistence_scheduler - 模块功能描述。
 
-P1 任务:将 StateMachineWorker 中的持久化逻辑移到独立的调度器中
+作者: XiangMeng
+版本: 0.5.2-beta
+"""
 
-import os
-import pickle
-import shutil
-import threading
-from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import Any
-
-from zoo_framework.utils import FileUtils, LogUtils
-
-
-class PersistenceStrategy(ABC):
-    """持久化策略基类.
-
-    定义持久化的接口,支持不同的持久化实现.
-    """
 
     @abstractmethod
     def save(self, data: Any, filepath: str) -> bool:
@@ -138,7 +125,7 @@ class FileChecksumValidator:
             filepath: 原文件路径
 
         Returns:
-            校验和值,如果不存在返回 None
+            校验和值，如果不存在返回 None
         """
         checksum_path = filepath + ".checksum"
         if not os.path.exists(checksum_path):
@@ -165,7 +152,7 @@ class BackupManager:
             filepath: 原文件路径
 
         Returns:
-            备份文件路径,失败返回 None
+            备份文件路径，失败返回 None
         """
         if not os.path.exists(filepath):
             return None
@@ -225,7 +212,7 @@ class BackupManager:
             LogUtils.warning("⚠️ No backup files found")
             return False
 
-        # 按时间排序,选择最新的
+        # 按时间排序，选择最新的
         backup_files.sort(reverse=True)
         latest_backup = backup_files[0]
 
@@ -277,7 +264,7 @@ class BackupManager:
 class PersistenceScheduler:
     """持久化调度器.
 
-    P1 任务:解耦持久化逻辑,由调度器决定何时持久化
+    P1 任务:解耦持久化逻辑，由调度器决定何时持久化
 
     职责:
     - 管理持久化时机
@@ -349,7 +336,7 @@ class PersistenceScheduler:
         """加载数据.
 
         Returns:
-            加载的数据,如果文件不存在或损坏返回 None
+            加载的数据，如果文件不存在或损坏返回 None
         """
         with self._file_lock:
             if not FileUtils.file_exists(self.filepath):

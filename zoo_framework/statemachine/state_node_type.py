@@ -19,7 +19,7 @@ class StateNodeType(Enum):
     boolean = "boolean"
     array = "array"
 
-    # 节点分支,也就是字典类型
+    # 节点分支，也就是字典类型
     branch = "branch"
 
     @staticmethod

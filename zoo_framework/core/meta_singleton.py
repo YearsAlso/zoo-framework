@@ -1,11 +1,10 @@
 """
-meta_singleton - zoo_framework/core/meta_singleton.py
-
-模块功能描述.
+meta_singleton - 模块功能描述。
 
 作者: XiangMeng
 版本: 0.5.2-beta
 """
+
 
 
 meta_singleton - zoo_framework/core/meta_singleton.py

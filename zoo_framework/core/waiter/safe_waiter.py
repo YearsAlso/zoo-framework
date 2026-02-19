@@ -1,16 +1,14 @@
 """
-safe_waiter - zoo_framework/core/waiter/safe_waiter.py
-
-模块功能描述.
+safe_waiter - 模块功能描述。
 
 作者: XiangMeng
 版本: 0.5.2-beta
 """
 
+
 safe_waiter - zoo_framework/core/waiter/safe_waiter.py
 
 模块功能描述:
-
 
 
 作者: XiangMeng

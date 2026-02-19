@@ -1,21 +1,10 @@
-"""base_waiter - zoo_framework/core/waiter/base_waiter.py
-
-模块功能描述:
+"""
+base_waiter - 模块功能描述。
 
 作者: XiangMeng
-版本: 0.5.1-beta
+版本: 0.5.2-beta
+"""
 
-import time
-from concurrent.futures import ThreadPoolExecutor
-
-from zoo_framework.constant import WaiterConstant
-from zoo_framework.reactor.event_reactor_manager import EventReactorManager
-from zoo_framework.reactor.waiter_result_reactor import WaiterResultReactor
-from zoo_framework.workers import BaseWorker
-
-
-class BaseWaiter:
-    """基础的 waiter."""
 
     _lock = None
 
@@ -29,7 +18,7 @@ class BaseWaiter:
         # 资源池初始化
         self.resource_pool = None
 
-        # TODO:将 worker 使用register的方式注册,并且属性和方法都可以通过register的方式注册
+        # TODO:将 worker 使用register的方式注册，并且属性和方法都可以通过register的方式注册
         self.workers = []
         self.worker_props = {}
         self.register_handler()
@@ -42,7 +31,7 @@ class BaseWaiter:
 
     def register_handler(self):
         """注册handler."""
-        # TODO: 不在使用主动注入,而是在创建注册器时,自动注册
+        # TODO: 不在使用主动注入，而是在创建注册器时，自动注册
         from zoo_framework.reactor.event_reactor_manager import EventReactorManager
 
         EventReactorManager().bind_topic_reactor("waiter", WaiterResultReactor())
@@ -55,7 +44,7 @@ class BaseWaiter:
         """集结worker们."""
         self.workers = worker_list
 
-        # 生成池或者列表,这里使用线程池,如果使用进程池,需要考虑进程间通信,暂时不考虑
+        # 生成池或者列表，这里使用线程池，如果使用进程池，需要考虑进程间通信，暂时不考虑
         if self.worker_mode == WaiterConstant.WORKER_MODE_THREAD_POOL:
             self.resource_pool = ThreadPoolExecutor(max_workers=self.pool_size)
 

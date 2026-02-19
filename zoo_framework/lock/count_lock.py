@@ -11,7 +11,7 @@ from .base_lock import BaseLock
 
 
 class CountLock(BaseLock):
-    """次数锁,可以指定次数,每次acquire后次数减1,次数为0时无法acquire."""
+    """次数锁，可以指定次数，每次acquire后次数减1，次数为0时无法acquire."""
 
     def __init__(self, count=1):
         super().__init__()

@@ -1,6 +1,6 @@
 """ws_utils - zoo_framework/utils/ws_utils.py
 
-WebSocket工具模块,提供WebSocket相关功能.
+WebSocket工具模块，提供WebSocket相关功能。
 
 功能:
 - WebSocket连接管理
@@ -19,7 +19,7 @@ from typing import Any
 class WsUtils:
     """WebSocket工具类
 
-    提供WebSocket操作相关的实用方法.
+    提供WebSocket操作相关的实用方法。
     """
 
     @classmethod

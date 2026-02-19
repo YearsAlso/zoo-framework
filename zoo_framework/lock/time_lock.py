@@ -11,7 +11,7 @@ from .base_lock import BaseLock
 
 
 class TimeLock(BaseLock):
-    """超时锁,可以指定事件超时时间,当超时后触发回调,并且释放锁."""
+    """超时锁，可以指定事件超时时间，当超时后触发回调，并且释放锁."""
 
     def __init__(self, timeout=1, callback=None):
         super().__init__()

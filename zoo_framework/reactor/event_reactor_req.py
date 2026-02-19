@@ -1,7 +1,7 @@
 """
 event_reactor_req - zoo_framework/reactor/event_reactor_req.py
 
-模块功能描述.
+模块功能描述。
 
 作者: XiangMeng
 版本: 0.5.2-beta
@@ -35,7 +35,7 @@ class ChannelType(Enum):
 class EventReactorReq:
     """事件响应器请求
 
-    P1 任务实现:事件监听指定通道,防止不同通道的事件被误处理
+    P1 任务实现:事件监听指定通道，防止不同通道的事件被误处理
     """
 
     topic: str
@@ -67,7 +67,7 @@ class EventReactorReq:
         self.topic = topic
         self.content = content
 
-        # P1 任务:事件监听指定通道,防止不同通道的事件被误处理
+        # P1 任务:事件监听指定通道，防止不同通道的事件被误处理
         self.channel = channel
         self.channel_type = self._get_channel_type(channel)
 
@@ -115,7 +115,7 @@ class EventReactorReq:
 class ChannelManager:
     """通道管理器
 
-    P1 任务:管理事件通道,实现通道隔离
+    P1 任务:管理事件通道，实现通道隔离
     """
 
     def __init__(self):

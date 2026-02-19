@@ -1,6 +1,6 @@
 """Worker 注册器 - 重构 Worker 注册机制.
 
-P2 优化:重构 Worker 注册,支持更灵活的注册方式
+P2 优化:重构 Worker 注册，支持更灵活的注册方式
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -35,7 +35,7 @@ class WorkerRegistration(ABC):
 class WorkerRegistry:
     """Worker 注册表.
 
-    P2 优化:重构 Worker 注册机制,支持:
+    P2 优化:重构 Worker 注册机制，支持:
     - 类注册和实例注册
     - 装饰器注册
     - 延迟实例化
@@ -53,7 +53,7 @@ class WorkerRegistry:
     ) -> None:
         """注册 Worker 类（延迟实例化）.
 
-        P2 优化:支持延迟实例化,节省资源
+        P2 优化:支持延迟实例化，节省资源
 
         Args:
             name: Worker 名称
@@ -154,7 +154,7 @@ class WorkerRegistry:
         Args:
             name: Worker 名称
         """
-        # 如果存在实例,先销毁
+        # 如果存在实例，先销毁
         if name in self._worker_instances:
             worker = self._worker_instances[name]
             if hasattr(worker, "_destroy"):
@@ -224,7 +224,7 @@ def register_worker(name: str | None = None, metadata: dict | None = None):
             pass
 
     Args:
-        name: Worker 名称,默认为类名
+        name: Worker 名称，默认为类名
         metadata: 元数据
     """
 

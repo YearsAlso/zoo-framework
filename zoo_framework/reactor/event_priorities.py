@@ -1,7 +1,7 @@
 """
 event_priorities - zoo_framework/reactor/event_priorities.py
 
-模块功能描述.
+模块功能描述。
 
 作者: XiangMeng
 版本: 0.5.2-beta

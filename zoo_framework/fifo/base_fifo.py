@@ -1,6 +1,6 @@
 """base_fifo - zoo_framework/fifo/base_fifo.py
 
-基础FIFO（先进先出）队列模块.
+基础FIFO（先进先出）队列模块。
 
 功能:
 - 基本的队列操作（入队、出队）
@@ -17,7 +17,7 @@ from zoo_framework.fifo.node import EventNode
 class BaseFIFO:
     """基础FIFO队列类
 
-    提供基本的先进先出队列功能.
+    提供基本的先进先出队列功能。
     """
 
     _fifo = []

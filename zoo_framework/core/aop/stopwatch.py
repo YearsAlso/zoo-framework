@@ -1,16 +1,19 @@
 """
-stopwatch.py - AOP模块
-
-提供面向切面编程功能。
+stopwatch - 模块功能描述。
 
 作者: XiangMeng
 版本: 0.5.2-beta
 """
 
-# 占位符实现 - 实际功能需要根据原始代码恢复
+    from functools import wraps
+    from time import time
 
-def stopwatch(func):
-    """装饰器函数"""
+    @wraps(func)
     def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
+        start = time()
+        result = func(*args, **kwargs)
+        print(f"Function {func.__name__} took {time() - start} seconds")
+        return result
+
     return wrapper
+"""

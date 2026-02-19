@@ -86,10 +86,10 @@ class AsyncWorker(BaseWorker):
         # 检查是否在事件循环中
         try:
             loop = asyncio.get_running_loop()
-            # 已在事件循环中,创建任务
+            # 已在事件循环中，创建任务
             return loop.create_task(self._execute_async(*args, **kwargs))
         except RuntimeError:
-            # 不在事件循环中,运行新循环
+            # 不在事件循环中，运行新循环
             return asyncio.run(self._execute_async(*args, **kwargs))
 
     async def _execute_async(self, *args, **kwargs) -> Any:
@@ -132,7 +132,7 @@ class AsyncWorker(BaseWorker):
             loop = asyncio.get_running_loop()
             return loop.create_task(self._execute_async(*args, **kwargs))
         except RuntimeError:
-            # 没有运行的事件循环,创建新线程运行
+            # 没有运行的事件循环，创建新线程运行
             import threading
 
             result_container = {}

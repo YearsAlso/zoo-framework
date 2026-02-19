@@ -1,16 +1,19 @@
 """
-worker.py - AOP模块
-
-提供面向切面编程功能。
+worker - 模块功能描述。
 
 作者: XiangMeng
 版本: 0.5.2-beta
 """
 
-# 占位符实现 - 实际功能需要根据原始代码恢复
+        if count == 1:
+            worker_register.register(cls.__name__, cls())
+            return cls
 
-def worker(func):
-    """装饰器函数"""
-    def wrapper(*args, **kwargs):
-        return func(*args, **kwargs)
-    return wrapper
+        for i in range(1, count + 1):
+            instance = cls()
+            instance.num = i
+            worker_register.register(f"{cls.__name__}_{i}", instance)
+        return cls
+
+    return inner
+"""

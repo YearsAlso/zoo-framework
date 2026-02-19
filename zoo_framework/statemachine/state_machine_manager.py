@@ -89,7 +89,7 @@ class StateMachineManager:
         value = node.get_value()
         state_register.remove_state_node(key)
 
-        # 如果是头部节点,移除作用域
+        # 如果是头部节点，移除作用域
         if node.is_top():
             self._state_scope_map.pop(scope)
 

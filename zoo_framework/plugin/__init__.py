@@ -1,7 +1,7 @@
 """Plugin 系统 - 可扩展的插件架构.
 
-Zoo Framework 插件系统允许开发者通过插件扩展框架功能.
-每个插件都是一个独立的模块,可以在运行时动态加载.
+Zoo Framework 插件系统允许开发者通过插件扩展框架功能。
+每个插件都是一个独立的模块，可以在运行时动态加载。
 
 使用示例:
     # 定义插件
@@ -35,11 +35,11 @@ logger = logging.getLogger(__name__)
 class Plugin(ABC):
     """插件基类.
 
-    所有插件必须继承此类并实现抽象方法.
+    所有插件必须继承此类并实现抽象方法。
 
     Attributes:
-        name: 插件名称,必须唯一
-        version: 插件版本,遵循语义化版本规范
+        name: 插件名称，必须唯一
+        version: 插件版本，遵循语义化版本规范
         description: 插件描述
         author: 插件作者
         dependencies: 插件依赖的其他插件列表
@@ -60,10 +60,10 @@ class Plugin(ABC):
     def initialize(self, context: Any) -> None:
         """初始化插件.
 
-        插件被加载时会调用此方法.
+        插件被加载时会调用此方法。
 
         Args:
-            context: 应用上下文,包含共享资源和配置
+            context: 应用上下文，包含共享资源和配置
         """
         pass
 
@@ -71,8 +71,8 @@ class Plugin(ABC):
     def destroy(self) -> None:
         """销毁插件.
 
-        插件被卸载或应用关闭时调用.
-        应在此方法中释放资源.
+        插件被卸载或应用关闭时调用。
+        应在此方法中释放资源。
         """
         pass
 
@@ -101,8 +101,8 @@ class Plugin(ABC):
 class WorkerDelayManager:
     """Worker 延迟时间管理器.
 
-    使用时间管理对象控制 Worker 的延迟执行.
-    支持固定延迟、指数退避、自适应延迟等策略.
+    使用时间管理对象控制 Worker 的延迟执行。
+    支持固定延迟、指数退避、自适应延迟等策略。
 
     Attributes:
         default_delay: 默认延迟时间（秒）
@@ -156,7 +156,7 @@ class WorkerDelayManager:
     ) -> float:
         """指数退避延迟.
 
-        当 Worker 执行失败时,使用指数退避策略增加延迟.
+        当 Worker 执行失败时，使用指数退避策略增加延迟。
 
         Args:
             worker_name: Worker 名称
@@ -178,7 +178,7 @@ class WorkerDelayManager:
     ) -> float:
         """自适应延迟.
 
-        根据 Worker 执行时间动态调整延迟,以达到目标 CPU 利用率.
+        根据 Worker 执行时间动态调整延迟，以达到目标 CPU 利用率。
 
         Args:
             worker_name: Worker 名称
@@ -215,7 +215,7 @@ class WorkerDelayManager:
 class PluginManager:
     """插件管理器.
 
-    管理插件的注册、加载、卸载生命周期.
+    管理插件的注册、加载、卸载生命周期。
 
     提供方法:
     - register: 注册插件类
@@ -242,7 +242,7 @@ class PluginManager:
         """注册插件.
 
         Args:
-            plugin_class: 插件类,必须继承自 Plugin
+            plugin_class: 插件类，必须继承自 Plugin
 
         Raises:
             ValueError: 插件类无效或名称已存在
@@ -307,7 +307,7 @@ class PluginManager:
     def load_all(self, context: Any | None = None) -> None:
         """加载所有已注册的插件.
 
-        会自动处理插件依赖关系.
+        会自动处理插件依赖关系。
 
         Args:
             context: 应用上下文
@@ -363,7 +363,7 @@ class PluginManager:
             plugin_name: 插件名称
 
         Returns:
-            插件实例,如果未加载则返回 None
+            插件实例，如果未加载则返回 None
         """
         return self._loaded_plugins.get(plugin_name)
 

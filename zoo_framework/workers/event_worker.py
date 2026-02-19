@@ -1,7 +1,7 @@
 """
 event_worker - zoo_framework/workers/event_worker.py
 
-模块功能描述.
+模块功能描述。
 
 作者: XiangMeng
 版本: 0.5.2-beta
@@ -60,7 +60,7 @@ class EventWorker(BaseWorker):
                     continue
                 # 获得事件反应器
                 reactors = self.eventChannelManager.get_channel_reactors(event_node)
-                # 如果这里为空,需要查看node 是否有重试次数,如果有重试次数,需要重新放入队列
+                # 如果这里为空，需要查看node 是否有重试次数，如果有重试次数，需要重新放入队列
                 if len(reactors) == 0:
                     if event_node.get_retry_times() > 0:
                         event_node.retry_times = event_node.get_retry_times() - 1

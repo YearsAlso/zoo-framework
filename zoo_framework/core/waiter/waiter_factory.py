@@ -1,7 +1,7 @@
 """
 waiter_factory - zoo_framework/core/waiter/waiter_factory.py
 
-模块功能描述.
+模块功能描述。
 
 作者: XiangMeng
 版本: 0.5.2-beta

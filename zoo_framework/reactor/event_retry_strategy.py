@@ -1,7 +1,7 @@
 """
 event_retry_strategy - zoo_framework/reactor/event_retry_strategy.py
 
-模块功能描述.
+模块功能描述。
 
 作者: XiangMeng
 版本: 0.5.2-beta

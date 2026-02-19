@@ -1,7 +1,7 @@
 """状态节点索引工厂.
 
 P2 优化:将索引创建优化为工厂模式
-索引设置为对象,支持多种实现方式
+索引设置为对象，支持多种实现方式
 """
 
 from abc import ABC, abstractmethod
@@ -88,7 +88,7 @@ class ThreadSafeDictIndex(StateIndex):
 class HierarchicalIndex(StateIndex):
     """分层索引.
 
-    按层级组织索引,支持更快的树形查找
+    按层级组织索引，支持更快的树形查找
     """
 
     def __init__(self):
