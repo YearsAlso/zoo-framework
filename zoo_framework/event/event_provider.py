@@ -1,9 +1,12 @@
-"""event_provider - zoo_framework/event/event_provider.py
+"""
+event_provider - zoo_framework/event/event_provider.py
 
-模块功能描述:
+模块功能描述：
+TODO: 添加模块功能描述
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 from zoo_framework.core.aop import cage
 from zoo_framework.event import EventChannel, EventChannelRegister
@@ -33,4 +36,3 @@ class EventProvider:
         else:
             # 事件通道不存在，说明没有响应器
             raise Exception("channel not found")
-"""

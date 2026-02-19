@@ -1,7 +1,7 @@
 """
 event_params - zoo_framework/params/event_params.py
 
-模块功能描述:
+模块功能描述：
 TODO: 添加模块功能描述
 
 

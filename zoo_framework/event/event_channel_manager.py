@@ -1,9 +1,12 @@
-"""event_channel_manager - zoo_framework/event/event_channel_manager.py
+"""
+event_channel_manager - zoo_framework/event/event_channel_manager.py
 
-模块功能描述:
+模块功能描述：
+TODO: 添加模块功能描述
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 from zoo_framework.core.aop import cage
 from zoo_framework.reactor import EventReactor
@@ -117,4 +120,3 @@ class EventChannelManager:
                     if reactor.reactor_name == event.reactor_name:
                         return [reactor]
         return []
-"""

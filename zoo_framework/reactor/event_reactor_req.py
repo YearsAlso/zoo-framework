@@ -1,15 +1,8 @@
 """
 event_reactor_req - zoo_framework/reactor/event_reactor_req.py
 
-模块功能描述。
-
-作者: XiangMeng
-版本: 0.5.2-beta
-"""
-
-event_reactor_req - zoo_framework/reactor/event_reactor_req.py
-
-模块功能描述:
+模块功能描述：
+TODO: 添加模块功能描述
 
 作者: XiangMeng
 版本: 0.5.1-beta
@@ -23,7 +16,8 @@ from typing import Any
 class ChannelType(Enum):
     """通道类型
 
-    P1 任务:事件通道隔离
+    P1 任务：事件通道隔离
+    """
 
     DEFAULT = "default"  # 默认通道
     SYSTEM = "system"  # 系统通道
@@ -35,7 +29,7 @@ class ChannelType(Enum):
 class EventReactorReq:
     """事件响应器请求
 
-    P1 任务实现:事件监听指定通道，防止不同通道的事件被误处理
+    P1 任务实现：事件监听指定通道，防止不同通道的事件被误处理
     """
 
     topic: str
@@ -61,13 +55,13 @@ class EventReactorReq:
             topic: 事件主题
             content: 事件内容
             reactor_name: 响应器名称
-            channel: 通道名称（P1 任务:支持通道隔离）
+            channel: 通道名称（P1 任务：支持通道隔离）
             priority: 优先级
         """
         self.topic = topic
         self.content = content
 
-        # P1 任务:事件监听指定通道，防止不同通道的事件被误处理
+        # P1 任务：事件监听指定通道，防止不同通道的事件被误处理
         self.channel = channel
         self.channel_type = self._get_channel_type(channel)
 
@@ -93,7 +87,7 @@ class EventReactorReq:
     def match_channel(self, allowed_channels: list[str]) -> bool:
         """检查事件是否匹配允许的通道
 
-        P1 任务:通道隔离验证
+        P1 任务：通道隔离验证
 
         Args:
             allowed_channels: 允许的通道列表
@@ -115,7 +109,7 @@ class EventReactorReq:
 class ChannelManager:
     """通道管理器
 
-    P1 任务:管理事件通道，实现通道隔离
+    P1 任务：管理事件通道，实现通道隔离
     """
 
     def __init__(self):
@@ -158,7 +152,7 @@ class ChannelManager:
     def can_handle_event(self, reactor_name: str, event: EventReactorReq) -> bool:
         """检查响应器是否可以处理事件
 
-        P1 任务:通道隔离验证
+        P1 任务：通道隔离验证
 
         Args:
             reactor_name: 响应器名称

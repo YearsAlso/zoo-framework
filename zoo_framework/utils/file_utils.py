@@ -1,8 +1,9 @@
-"""file_utils - zoo_framework/utils/file_utils.py
+"""
+file_utils - zoo_framework/utils/file_utils.py
 
 文件工具模块，提供常用的文件操作功能。
 
-功能:
+功能：
 - 文件读写操作
 - 目录管理
 - 路径处理
@@ -10,6 +11,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 import os
 import shutil
@@ -17,14 +19,14 @@ import shutil
 
 class FileUtils:
     """文件工具类
-
+    
     提供各种文件操作相关的实用方法。
     """
-
+    
     @classmethod
     def read_file(cls, file_path):
         """读取文件内容"""
-        with open(file_path, encoding='utf-8') as f:
+        with open(file_path, 'r', encoding='utf-8') as f:
             return f.read()
 
     @classmethod
@@ -95,4 +97,3 @@ class FileUtils:
     def move_file(cls, src_path, dst_path):
         """移动文件"""
         shutil.move(src_path, dst_path)
-"""

@@ -1,10 +1,26 @@
-"""
-master - 模块功能描述。
+"""Master - 优化版本.
 
-作者: XiangMeng
-版本: 0.5.2-beta
+P2 优化：
+1. 移除冗余参数 loop_interval
+2. 使用新的 WorkerRegistry
+3. 简化配置加载
+4. 优化 SVM 集成
 """
 
+import asyncio
+import threading
+from typing import Any
+
+from zoo_framework.utils import LogUtils
+from zoo_framework.workers import EventWorker, StateMachineWorker
+
+from .aop import config_funcs
+from .params_factory import ParamsFactory
+from .worker_registry import get_worker_registry
+
+
+class SVMWorker:
+    """SVM (State Vector Machine) Worker - 状态向量机工作器."""
 
     def __init__(self):
         self._workers: dict[str, Any] = {}
@@ -136,7 +152,7 @@ master - 模块功能描述。
 class MasterConfig:
     """Master 配置类.
 
-    P2 优化:将配置集中管理
+    P2 优化：将配置集中管理
     """
 
     def __init__(
@@ -155,7 +171,7 @@ class MasterConfig:
 class Master:
     """Master - 动物园园长.
 
-    P2 优化版本:
+    P2 优化版本：
     - 移除冗余的 loop_interval 参数
     - 使用 WorkerRegistry 管理 Worker
     - 简化配置
@@ -171,22 +187,22 @@ class Master:
     def __init__(self, config: MasterConfig | None = None):
         """初始化 Master.
 
-        P2 优化:简化参数，使用配置对象
+        P2 优化：简化参数，使用配置对象
 
         Args:
             config: Master 配置，使用默认配置如果为 None
         """
-        # P2 优化:使用配置对象
+        # P2 优化：使用配置对象
         self.config = config or MasterConfig()
 
-        # P2 优化:使用新的 WorkerRegistry
+        # P2 优化：使用新的 WorkerRegistry
         self.worker_registry = get_worker_registry()
 
         # 加载配置
         ParamsFactory(self.config.config_path)
         self._load_config()
 
-        # P2 优化:简化 Worker 注册
+        # P2 优化：简化 Worker 注册
         self._register_default_workers()
 
         # SVM Worker 集成
@@ -205,7 +221,7 @@ class Master:
     def _register_default_workers(self) -> None:
         """注册默认 Worker.
 
-        P2 优化:使用 WorkerRegistry 注册
+        P2 优化：使用 WorkerRegistry 注册
         """
         # 使用延迟实例化
         self.worker_registry.register_class(
@@ -254,7 +270,7 @@ class Master:
     ) -> None:
         """注册 Worker.
 
-        P2 优化:提供简洁的注册接口
+        P2 优化：提供简洁的注册接口
 
         Args:
             name: Worker 名称
@@ -273,7 +289,7 @@ class Master:
         """执行任务主循环."""
         while True:
             self.waiter.execute_service()
-            # P2 优化:使用配置中的间隔
+            # P2 优化：使用配置中的间隔
             await asyncio.sleep(1)
 
     def run(self) -> None:
@@ -336,7 +352,7 @@ class Master:
 def create_master(config_path: str = "./config.json", enable_svm: bool = True) -> Master:
     """创建 Master 实例.
 
-    P2 优化:提供简洁的创建接口
+    P2 优化：提供简洁的创建接口
 
     Args:
         config_path: 配置文件路径
@@ -347,4 +363,3 @@ def create_master(config_path: str = "./config.json", enable_svm: bool = True) -
     """
     config = MasterConfig(config_path=config_path, enable_svm=enable_svm)
     return Master(config)
-"""

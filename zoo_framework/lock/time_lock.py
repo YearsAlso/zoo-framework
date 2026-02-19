@@ -1,6 +1,7 @@
-"""time_lock - zoo_framework/lock/time_lock.py
+"""
+time_lock - zoo_framework/lock/time_lock.py
 
-模块功能描述:
+模块功能描述：
 TODO: 添加模块功能描述
 
 作者: XiangMeng

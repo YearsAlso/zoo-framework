@@ -1,6 +1,7 @@
-"""log_config - zoo_framework/conf/log_config.py
+"""
+log_config - zoo_framework/conf/log_config.py
 
-模块功能描述:
+模块功能描述：
 TODO: 添加模块功能描述
 
 作者: XiangMeng

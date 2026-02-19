@@ -1,6 +1,7 @@
-"""state_effect_scheduler - zoo_framework/statemachine/state_effect_scheduler.py
+"""
+state_effect_scheduler - zoo_framework/statemachine/state_effect_scheduler.py
 
-模块功能描述:
+模块功能描述：
 TODO: 添加模块功能描述
 
 作者: XiangMeng

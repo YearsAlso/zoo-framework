@@ -1,9 +1,12 @@
-"""worker_register - zoo_framework/workers/worker_register.py
+"""
+worker_register - zoo_framework/workers/worker_register.py
 
-模块功能描述:
+模块功能描述：
+TODO: 添加模块功能描述
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 from typing import Any
 
@@ -31,4 +34,3 @@ class WorkerRegister:
     def unregister(self, key: str) -> None:
         """注销worker."""
         self._worker_register.pop(key)
-"""

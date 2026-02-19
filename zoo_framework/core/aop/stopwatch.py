@@ -1,10 +1,18 @@
 """
-stopwatch - 模块功能描述。
+stopwatch - zoo_framework/core/aop/stopwatch.py
+
+模块功能描述：
+TODO: 添加模块功能描述
 
 作者: XiangMeng
-版本: 0.5.2-beta
+版本: 0.5.1-beta
 """
 
+def stopwatch(func):
+    """Decorator for measuring time of function execution.
+    :param func: function to be measured
+    :return: function result.
+    """
     from functools import wraps
     from time import time
 
@@ -16,4 +24,3 @@ stopwatch - 模块功能描述。
         return result
 
     return wrapper
-"""

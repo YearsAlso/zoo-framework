@@ -1,9 +1,12 @@
-"""event_fifo - zoo_framework/fifo/event_fifo.py
+"""
+event_fifo - zoo_framework/fifo/event_fifo.py
 
-模块功能描述:
+模块功能描述：
+TODO: 添加模块功能描述
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 from zoo_framework.utils import LogUtils
 
@@ -48,4 +51,3 @@ class EventFIFO(BaseFIFO):
         index = self._fifo.index(event)
         if index != -1:
             self._fifo[index] = event
-"""

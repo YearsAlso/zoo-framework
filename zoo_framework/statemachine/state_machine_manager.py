@@ -1,6 +1,7 @@
-"""state_machine_manager - zoo_framework/statemachine/state_machine_manager.py
+"""
+state_machine_manager - zoo_framework/statemachine/state_machine_manager.py
 
-模块功能描述:
+模块功能描述：
 TODO: 添加模块功能描述
 
 作者: XiangMeng

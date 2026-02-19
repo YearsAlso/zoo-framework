@@ -1,9 +1,12 @@
-"""state_machine_work - zoo_framework/workers/state_machine_work.py
+"""
+state_machine_work - zoo_framework/workers/state_machine_work.py
 
-模块功能描述:
+模块功能描述：
+TODO: 添加模块功能描述
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 import copy
 import pickle
@@ -18,7 +21,7 @@ from .base_worker import BaseWorker
 class StateMachineWorker(BaseWorker):
     """状态机 Worker - 管理状态机持久化.
 
-    特性:
+    特性：
     - 自动加载和保存状态机
     - 线程安全的状态机访问
     - 支持文件校验和备份
@@ -254,4 +257,3 @@ class StateMachineWorker(BaseWorker):
                 LogUtils.debug(f"🗑️ Old backup removed: {old_file}")
             except Exception as e:
                 LogUtils.warning(f"⚠️ Failed to remove old backup: {e}")
-"""

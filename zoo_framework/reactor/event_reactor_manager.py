@@ -1,15 +1,8 @@
 """
 event_reactor_manager - zoo_framework/reactor/event_reactor_manager.py
 
-模块功能描述。
-
-作者: XiangMeng
-版本: 0.5.2-beta
-"""
-
-event_reactor_manager - zoo_framework/reactor/event_reactor_manager.py
-
-模块功能描述:
+模块功能描述：
+TODO: 添加模块功能描述
 
 作者: XiangMeng
 版本: 0.5.1-beta
@@ -29,7 +22,8 @@ from .event_reactor_req import ChannelType, EventReactorReq, get_channel_manager
 class EventReactorManager:
     """事件响应处理器.
 
-    P1 任务:支持事件通道隔离
+    P1 任务：支持事件通道隔离
+    """
 
     reactor_map = ThreadSafeDict()
 
@@ -48,7 +42,7 @@ class EventReactorManager:
     ):
         """分发事件.
 
-        P1 任务:支持指定通道分发事件
+        P1 任务：支持指定通道分发事件
 
         Args:
             topic: 事件主题
@@ -58,7 +52,7 @@ class EventReactorManager:
         """
         reactor = cls.get_reactor(reactor_name)
 
-        # P1:创建带通道信息的事件请求
+        # P1：创建带通道信息的事件请求
         event_req = EventReactorReq(
             topic=topic, content=content, reactor_name=reactor_name, channel=channel
         )
@@ -76,7 +70,7 @@ class EventReactorManager:
     ) -> list[Any]:
         """获取事件处理器.
 
-        P1 任务:支持按通道过滤事件处理器
+        P1 任务：支持按通道过滤事件处理器
 
         Args:
             topic: 事件主题
@@ -93,11 +87,11 @@ class EventReactorManager:
 
         filter_result = []
         for reactor in result:
-            # P1:按名称过滤
+            # P1：按名称过滤
             if reactor_names is not None and reactor.reactor_name not in reactor_names:
                 continue
 
-            # P1:按通道过滤
+            # P1：按通道过滤
             if channel is not None and not cls._validate_channel(
                 reactor.reactor_name, EventReactorReq(topic, None, reactor.reactor_name, channel)
             ):
@@ -111,7 +105,7 @@ class EventReactorManager:
     def _validate_channel(cls, reactor_name: str, event_req: EventReactorReq) -> bool:
         """验证响应器是否可以处理该通道的事件.
 
-        P1 任务:通道隔离验证
+        P1 任务：通道隔离验证
 
         Args:
             reactor_name: 响应器名称
@@ -127,7 +121,7 @@ class EventReactorManager:
     def register_reactor_channels(cls, reactor_name: str, channels: list[str]) -> None:
         """注册响应器监听的通道.
 
-        P1 任务:支持通道隔离配置
+        P1 任务：支持通道隔离配置
 
         Args:
             reactor_name: 响应器名称
@@ -176,7 +170,7 @@ class EventReactorManager:
     ) -> None:
         """按通道分发事件.
 
-        P1 任务:支持按通道广播事件
+        P1 任务：支持按通道广播事件
 
         Args:
             topic: 事件主题

@@ -1,8 +1,9 @@
-"""log_utils - zoo_framework/utils/log_utils.py
+"""
+log_utils - zoo_framework/utils/log_utils.py
 
 日志工具模块，提供日志记录功能。
 
-功能:
+功能：
 - 日志配置管理
 - 多级别日志记录
 - 结构化日志输出
@@ -10,23 +11,25 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 import logging
 import sys
+from typing import Optional
 
 
 class LogUtils:
     """日志工具类
-
+    
     提供日志记录相关的实用方法。
     """
-
+    
     @classmethod
     def get_logger(cls, name: str, level: int = logging.INFO) -> logging.Logger:
         """获取配置好的日志记录器"""
         logger = logging.getLogger(name)
         logger.setLevel(level)
-
+        
         if not logger.handlers:
             handler = logging.StreamHandler(sys.stdout)
             formatter = logging.Formatter(
@@ -34,14 +37,14 @@ class LogUtils:
             )
             handler.setFormatter(formatter)
             logger.addHandler(handler)
-
+        
         return logger
 
     @classmethod
     def setup_file_logging(
-        cls,
-        logger: logging.Logger,
-        filepath: str,
+        cls, 
+        logger: logging.Logger, 
+        filepath: str, 
         level: int = logging.INFO
     ) -> None:
         """设置文件日志记录"""
@@ -89,4 +92,3 @@ class LogUtils:
             'CRITICAL': logging.CRITICAL
         }
         logger.setLevel(level_map.get(level.upper(), logging.INFO))
-"""

@@ -1,8 +1,9 @@
-"""base_fifo - zoo_framework/fifo/base_fifo.py
+"""
+base_fifo - zoo_framework/fifo/base_fifo.py
 
 基础FIFO（先进先出）队列模块。
 
-功能:
+功能：
 - 基本的队列操作（入队、出队）
 - 队列状态监控
 - 容量管理
@@ -10,18 +11,19 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 from zoo_framework.fifo.node import EventNode
 
 
 class BaseFIFO:
     """基础FIFO队列类
-
+    
     提供基本的先进先出队列功能。
     """
-
+    
     _fifo = []
-
+    
     def __init__(self, max_size=1000):
         self._fifo = []
         self._max_size = max_size
@@ -60,4 +62,3 @@ class BaseFIFO:
         if self._fifo:
             return self._fifo[0]
         return None
-"""

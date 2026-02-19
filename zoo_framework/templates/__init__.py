@@ -1,6 +1,7 @@
-"""__init__ - zoo_framework/templates/__init__.py
+"""
+__init__ - zoo_framework/templates/__init__.py
 
-模块功能描述:
+模块功能描述：
 TODO: 添加模块功能描述
 
 作者: XiangMeng

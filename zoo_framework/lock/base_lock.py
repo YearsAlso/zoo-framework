@@ -1,7 +1,7 @@
 """
 base_lock - zoo_framework/lock/base_lock.py
 
-模块功能描述:
+模块功能描述：
     """BaseLock - 类功能描述
 
     TODO: 添加类功能详细描述
