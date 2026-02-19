@@ -1,53 +1,65 @@
-"""
-datetime_utils - zoo_framework/utils/datetime_utils.py
-
-日期时间工具模块，提供常用的日期时间处理功能。
-
-功能：
-- 日期时间格式化
-- 时间差计算
-- 时间戳转换
-- 日期解析和验证
-
-作者: XiangMeng
-版本: 0.5.1-beta
-"""
-
 from datetime import datetime, timedelta
 
 
 class DateTimeUtils:
-    """日期时间工具类
-    
-    提供各种日期时间相关的实用方法，包括格式化、计算和转换。
-    """
-    
     @classmethod
     def get_format_now(cls, format_mod="%Y-%m-%d %H:%M:%S.%f"):
-        """获取格式化后的当前时间"""
         return datetime.now().strftime(format_mod)
 
     @classmethod
-    def get_now_timestamp(cls):
-        """获取当前时间戳（秒级）"""
-        return int(datetime.now().timestamp())
+    def get_format_datetime(cls, target_time, format_mod="%Y-%m-%d %H:%M:%S.%f"):
+        return target_time.strftime(format_mod)
 
     @classmethod
-    def get_now_timestamp_ms(cls):
-        """获取当前时间戳（毫秒级）"""
-        return int(datetime.now().timestamp() * 1000)
+    def get_sub_datetime(cls, sub_days):
+        return datetime.now() + timedelta(days=sub_days)
 
     @classmethod
-    def format_datetime(cls, dt: datetime, format_str: str = "%Y-%m-%d %H:%M:%S"):
-        """格式化日期时间对象"""
-        return dt.strftime(format_str)
+    def get_format_sub_datetime(cls, sub_days, format_mod):
+        time = cls.get_sub_datetime(sub_days)
+        return cls.get_format_datetime(time, format_mod)
 
     @classmethod
-    def parse_datetime(cls, date_str: str, format_str: str = "%Y-%m-%d %H:%M:%S"):
-        """解析字符串为日期时间对象"""
-        return datetime.strptime(date_str, format_str)
+    def get_week_day(cls, date_str):
+        week_day_dict = {
+            0: "星期一",
+            1: "星期二",
+            2: "星期三",
+            3: "星期四",
+            4: "星期五",
+            5: "星期六",
+            6: "星期天",
+        }
+        date = datetime.strptime(date_str, "%Y-%m-%d")
+        day = date.weekday()
+        return week_day_dict[day]
 
     @classmethod
-    def get_time_delta(cls, days=0, hours=0, minutes=0, seconds=0):
-        """获取时间差对象"""
-        return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
+    def get_month_date(cls, year, moth):
+        now = datetime(year, moth, 1)
+        delta = timedelta(days=1)
+        date_list = []
+        while now.month == moth:
+            date_list.append(now.strftime("%Y-%m-%d"))
+            now = now + delta
+        return date_list
+
+    @classmethod
+    def get_next_month(cls):
+        now = datetime.now()
+        month = now.month + 1
+        year = now.year
+        if month > 12:
+            month = 1
+            year += 1
+        return datetime(year=year, month=month, day=1)
+
+    @classmethod
+    def get_before_month(cls):
+        now = datetime.now()
+        month = now.month - 1
+        year = now.year
+        if month < 1:
+            month = 12
+            year -= 1
+        return datetime(year=year, month=month, day=1)

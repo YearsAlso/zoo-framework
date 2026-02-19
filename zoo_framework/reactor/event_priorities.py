@@ -1,12 +1,3 @@
-"""
-event_priorities - zoo_framework/reactor/event_priorities.py
-
-模块功能描述：
-TODO: 添加模块功能描述
-
-作者: XiangMeng
-版本: 0.5.1-beta
-
 from enum import Enum
 
 
@@ -30,5 +21,3 @@ class EventPriorities(Enum):
 
     # Monitor priority, executed last.
     MONITOR = 5
-
-"""

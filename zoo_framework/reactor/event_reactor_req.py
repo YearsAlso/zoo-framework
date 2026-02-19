@@ -1,12 +1,3 @@
-"""
-event_reactor_req - zoo_framework/reactor/event_reactor_req.py
-
-模块功能描述：
-TODO: 添加模块功能描述
-
-作者: XiangMeng
-版本: 0.5.1-beta
-
 import time
 import uuid
 from enum import Enum
@@ -186,5 +177,3 @@ _channel_manager = ChannelManager()
 def get_channel_manager() -> ChannelManager:
     """获取全局通道管理器"""
     return _channel_manager
-
-"""

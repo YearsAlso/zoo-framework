@@ -1,12 +1,3 @@
-"""
-event_reactor - zoo_framework/reactor/event_reactor.py
-
-模块功能描述：
-TODO: 添加模块功能描述
-
-作者: XiangMeng
-版本: 0.5.1-beta
-
 from .event_priorities import EventPriorities
 from .event_reactor_req import EventReactorReq
 from .event_retry_strategy import EventRetryStrategy
@@ -133,5 +124,3 @@ class EventReactor:
         finally:
             # 执行完成后的回调
             self._on_done(topic, content)
-
-"""

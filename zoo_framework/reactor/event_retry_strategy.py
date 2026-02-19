@@ -1,12 +1,3 @@
-"""
-event_retry_strategy - zoo_framework/reactor/event_retry_strategy.py
-
-模块功能描述：
-TODO: 添加模块功能描述
-
-作者: XiangMeng
-版本: 0.5.1-beta
-
 from enum import Enum
 
 
@@ -22,5 +13,3 @@ class EventRetryStrategy(Enum):
     RetryForever = 3
 
     RetryTimes = 4
-
-"""
