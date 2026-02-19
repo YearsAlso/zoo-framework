@@ -30,7 +30,7 @@ class StructuredLogUtils:
     - 支持日志级别动态调整
     """
 
-    _instance: 'StructuredLogUtils | None' = None
+    _instance: "StructuredLogUtils | None" = None
     _initialized = False
 
     def __new__(cls):

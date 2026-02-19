@@ -40,6 +40,7 @@ def logger(cls):
         返回:
             function: 添加了日志功能的函数。
         """
+
         def wrapper(*args, **kwargs):
             # 记录方法调用前的日志
             cls._logger.debug(f"Calling {func.__name__}")

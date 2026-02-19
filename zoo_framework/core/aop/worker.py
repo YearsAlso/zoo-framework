@@ -13,6 +13,7 @@ def worker(count: int = 1):
     返回:
         function: 返回一个内部装饰器函数，用于处理被装饰的类。
     """
+
     def inner(cls):
         """内部装饰器函数，负责实际的 worker 注册逻辑。
 
