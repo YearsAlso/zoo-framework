@@ -1,13 +1,3 @@
-"""
-validation - zoo_framework/core/aop/validation.py
-
-模块功能描述：
-TODO: 添加模块功能描述
-
-作者: XiangMeng
-版本: 0.5.1-beta
-"""
-
 params_validate_map = {}
 
 

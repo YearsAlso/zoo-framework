@@ -1,13 +1,3 @@
-"""
-__init__ - zoo_framework/core/aop/__init__.py
-
-模块功能描述：
-TODO: 添加模块功能描述
-
-作者: XiangMeng
-版本: 0.5.1-beta
-"""
-
 from .cage import cage
 from .configure import config_funcs, configure
 from .event import event

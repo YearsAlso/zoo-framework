@@ -1,13 +1,3 @@
-"""
-__init__ - zoo_framework/workers/__init__.py
-
-模块功能描述：
-TODO: 添加模块功能描述
-
-作者: XiangMeng
-版本: 0.5.1-beta
-"""
-
 from .base_worker import BaseWorker
 from .event_worker import EventWorker
 from .state_machine_work import StateMachineWorker
