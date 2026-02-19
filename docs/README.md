@@ -247,7 +247,7 @@ pip install -e ".[dev]"
 ```toml
 [project]
 name = "zoo-framework"
-version = "0.5.1"
+version = "0.5.2"
 requires-python = ">=3.8"
 
 [project.optional-dependencies]

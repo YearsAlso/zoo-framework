@@ -13,6 +13,7 @@ def configure(topic: str):
     返回:
         function: 返回一个装饰器函数，该装饰器将传入的函数注册到 config_funcs 字典中。
     """
+
     def inner(func):
         # 将传入的函数以主题为键存储到线程安全字典中
         config_funcs[topic] = func

@@ -11,13 +11,14 @@ def validation(params_key="") -> object:
     返回:
         function: 内部函数，接受一个参数并将其插入到对应键的验证列表中。
     """
+
     def inner(params):
         # 如果指定键在验证映射中不存在，则初始化为空列表
         if params_validate_map.get(params_key) is None:
             params_validate_map[params_key] = []
 
         # 将参数插入到对应键的验证列表中
-        params_validate_map[params_key].insert(params)
+        params_validate_map[params_key].append(params)
         return params
 
     return inner
@@ -44,7 +45,7 @@ def validation_params(params_key, value):
         return False
 
     # 如果验证列表不是列表类型，返回False
-    if type(valid_values) != list:
+    if not isinstance(valid_values, list):
         return False
 
     # 检查值是否在验证列表中
