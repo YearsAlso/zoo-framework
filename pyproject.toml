@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zoo-framework"
-version = "0.5.3-beta"
+version = "0.5.4-beta"
 description = "🎪 Zoo Framework - A simple and quick multi-threaded Python framework with zoo metaphor"
 readme = "README.md"
 license = {text = "Apache-2.0"}
