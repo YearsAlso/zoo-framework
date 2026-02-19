@@ -265,9 +265,7 @@ class Master:
             raise Exception("Waiter already exists, cannot change")
         self.waiter = waiter
 
-    def register_worker(
-        self, name: str, worker_class: type, metadata: dict | None = None
-    ) -> None:
+    def register_worker(self, name: str, worker_class: type, metadata: dict | None = None) -> None:
         """注册 Worker.
 
         P2 优化：提供简洁的注册接口

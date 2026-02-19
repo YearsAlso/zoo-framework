@@ -1,13 +1,3 @@
-"""
-logger - zoo_framework/core/aop/logger.py
-
-模块功能描述：
-TODO: 添加模块功能描述
-
-作者: XiangMeng
-版本: 0.5.1-beta
-"""
-
 import logging
 
 from zoo_framework.utils import LogUtils
@@ -16,6 +6,16 @@ log_utils = LogUtils()
 
 
 def logger(cls):
+    """为类添加日志记录功能的装饰器。
+
+    该装饰器会为传入的类创建一个日志记录器，并将其赋值给类的 `_logger` 属性。
+
+    参数:
+        cls (class): 需要添加日志功能的类。
+
+    返回:
+        class: 添加了日志功能的类。
+    """
     from zoo_framework.conf.log_config import log_config_instance
 
     # 创建类的日志记录器
@@ -28,6 +28,17 @@ def logger(cls):
 
     # 定义装饰器函数，用于添加日志记录功能
     def decorator(func):
+        """为函数添加日志记录功能的装饰器。
+
+        在函数调用前后分别记录调试日志，包括函数名和返回值。
+
+        参数:
+            func (function): 需要添加日志功能的函数。
+
+        返回:
+            function: 添加了日志功能的函数。
+        """
+
         def wrapper(*args, **kwargs):
             # 记录方法调用前的日志
             cls._logger.debug(f"Calling {func.__name__}")

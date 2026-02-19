@@ -5,7 +5,8 @@
 # - main 分支: 正式版本，minor 自增 (0.1.x → 0.2.0)
 #
 # 触发条件：
-# - PR 合并到 dev 分支
+# - PR 合并到 dev 分支 (推荐工作流)
+# - 直接 push 到 dev 分支 (快速发布)
 # - PR 合并到 main 分支
 #
 # 🔑 需要配置的 Secrets：
@@ -15,28 +16,29 @@
 name: 🚀 Release
 
 on:
-  # PR 合并到 dev 分支触发测试版本
-  pull_request:
-    types: [closed]
-    branches: [dev]
-  
-  # PR 合并到 main 分支触发正式版本
-  # 注意：main 分支也使用 PR 合并触发
-  # 如果直接 push 到 main，可以取消下面的注释：
-  # push:
-  #   branches: [main]
+  # 触发条件简化：统一使用 push 事件
+  # 当 PR 合并到 dev/main 时，本质上也是一次 push 事件，所以这可以覆盖所有场景
+  # 且 push 事件的 OIDC 身份认证信息更稳定，容易在 PyPI 配置
+  push:
+    branches: [dev, main]
+    paths:
+      - 'zoo_framework/**'
+      - 'pyproject.toml'
+      - 'setup.py'
+      - '.env'
+      - '.github/workflows/release.yml'
 
 jobs:
   # 确定版本类型和是否应该发布
   determine-release:
     name: 🔍 确定发布类型
     runs-on: ubuntu-latest
-    if: github.event.pull_request.merged == true
     outputs:
       should_release: ${{ steps.check.outputs.should_release }}
       version_type: ${{ steps.check.outputs.version_type }}
       release_type: ${{ steps.check.outputs.release_type }}
       branch: ${{ steps.check.outputs.branch }}
+      trigger_type: ${{ steps.check.outputs.trigger_type }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -46,18 +48,22 @@ jobs:
       - name: 确定发布类型
         id: check
         run: |
-          # 获取目标分支
-          TARGET_BRANCH="${{ github.base_ref }}"
+          # 现在的触发类型统一为 push
+          TRIGGER_TYPE="push"
+          TARGET_BRANCH="${{ github.ref_name }}"
+          
+          echo "触发类型: $TRIGGER_TYPE"
           echo "目标分支: $TARGET_BRANCH"
+          echo "trigger_type=$TRIGGER_TYPE" >> $GITHUB_OUTPUT
           echo "branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
           
           if [ "$TARGET_BRANCH" == "dev" ]; then
-            echo "🧪 检测到 dev 分支合并"
+            echo "🧪 检测到 dev 分支更新"
             echo "should_release=true" >> $GITHUB_OUTPUT
             echo "version_type=patch" >> $GITHUB_OUTPUT
             echo "release_type=beta" >> $GITHUB_OUTPUT
           elif [ "$TARGET_BRANCH" == "main" ]; then
-            echo "🚀 检测到 main 分支合并"
+            echo "🚀 检测到 main 分支更新"
             echo "should_release=true" >> $GITHUB_OUTPUT
             echo "version_type=minor" >> $GITHUB_OUTPUT
             echo "release_type=stable" >> $GITHUB_OUTPUT
@@ -121,6 +127,11 @@ jobs:
     if: needs.determine-release.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     
+    # 修改为始终使用 pypi 环境，统一发布到正式 PyPI
+    environment:
+      name: pypi
+      url: https://pypi.org/project/zoo-framework/
+
     permissions:
       contents: write
       id-token: write
@@ -146,7 +157,18 @@ jobs:
       - name: Get current version
         id: current_version
         run: |
-          CURRENT_VERSION=$(python -c "import toml; print(toml.load('pyproject.toml')['project']['version'])")
+          # 尝试从多个位置获取版本
+          if [ -f "pyproject.toml" ]; then
+            CURRENT_VERSION=$(python -c "import toml; print(toml.load('pyproject.toml')['project']['version'])")
+          elif [ -f ".env" ]; then
+            CURRENT_VERSION=$(grep "^VERSION=" .env | cut -d'=' -f2)
+          elif [ -f "setup.py" ]; then
+            CURRENT_VERSION=$(grep "version=" setup.py | cut -d"'" -f2)
+          else
+            echo "❌ 无法找到版本信息"
+            exit 1
+          fi
+          
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           echo "当前版本: $CURRENT_VERSION"
       
@@ -157,6 +179,12 @@ jobs:
           CURRENT_VERSION="${{ steps.current_version.outputs.version }}"
           VERSION_TYPE="${{ needs.determine-release.outputs.version_type }}"
           RELEASE_TYPE="${{ needs.determine-release.outputs.release_type }}"
+          TRIGGER_TYPE="${{ needs.determine-release.outputs.trigger_type }}"
+          
+          echo "当前版本: $CURRENT_VERSION"
+          echo "版本类型: $VERSION_TYPE"
+          echo "发布类型: $RELEASE_TYPE"
+          echo "触发类型: $TRIGGER_TYPE"
           
           # 解析版本号
           MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
@@ -182,6 +210,8 @@ jobs:
       
       # 更新版本号
       - name: Update version
+        id: update_version
+        continue-on-error: true
         run: |
           NEW_VERSION="${{ steps.calc_version.outputs.new_version }}"
           
@@ -189,47 +219,75 @@ jobs:
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
           
+          # 更新 .env 文件
+          if [ -f ".env" ]; then
+            sed -i "s/^VERSION=.*/VERSION=$NEW_VERSION/" .env
+            git add .env
+          fi
+          
           # 更新 pyproject.toml
-          sed -i "s/version = \"${{ steps.current_version.outputs.version }}\"/version = \"$NEW_VERSION\"/" pyproject.toml
+          if [ -f "pyproject.toml" ]; then
+            sed -i "s/version = \"${{ steps.current_version.outputs.version }}\"/version = \"$NEW_VERSION\"/" pyproject.toml
+            git add pyproject.toml
+          fi
+          
+          # 更新 setup.py
+          if [ -f "setup.py" ]; then
+            sed -i "s/version='${{ steps.current_version.outputs.version }}'/version='$NEW_VERSION'/" setup.py
+            git add setup.py
+          fi
           
           # 更新 __init__.py
-          sed -i "s/__version__ = \"${{ steps.current_version.outputs.version }}\"/__version__ = \"$NEW_VERSION\"/" zoo_framework/__init__.py
+          if [ -f "zoo_framework/__init__.py" ]; then
+            sed -i "s/__version__ = \"${{ steps.current_version.outputs.version }}\"/__version__ = \"$NEW_VERSION\"/" zoo_framework/__init__.py
+            git add zoo_framework/__init__.py
+          fi
           
           # 提交更改
-          git add pyproject.toml zoo_framework/__init__.py
           git commit -m "chore(release): bump version to $NEW_VERSION [skip ci]"
-          git push
+          
+          # 如果是push触发，直接推送
+          if [[ "${{ needs.determine-release.outputs.trigger_type }}" == "push" ]]; then
+            echo "📤 直接推送版本更新到 dev 分支"
+            # 尝试推送，如果失败（因为分支保护）则打印警告但不让整个流程失败
+            if git push; then
+              echo "✅ 版本号已回写到仓库"
+            else
+              echo "⚠️ 无法推送到受保护的分支。请手动更新仓库中的版本号到 $NEW_VERSION。"
+              echo "这不会影响本次 PyPI 发布，但在下一次发布前请确保代码库版本一致。"
+              # 我们不退出，允许后续发布步骤继续进行
+            fi
+          else
+            echo "⏳ PR合并触发，等待后续步骤"
+          fi
       
       # 创建 Git tag
       - name: Create Git Tag
+        continue-on-error: true
         run: |
           NEW_VERSION="${{ steps.calc_version.outputs.new_version }}"
           BRANCH="${{ needs.determine-release.outputs.branch }}"
           
           # 创建 tag
           git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
-          git push origin "v$NEW_VERSION"
-          echo "✅ Tag v$NEW_VERSION 已创建"
-      
+          # 尝试推送 Tag，同样如果失败允许继续
+          if git push origin "v$NEW_VERSION"; then
+             echo "✅ Tag v$NEW_VERSION 已创建"
+          else
+             echo "⚠️ 无法推送 Tag。可能是权限不足。"
+          fi
+
       # 构建包
       - name: Build package
         run: python -m build
       
-      # 发布到 PyPI（正式版本）
-      - name: Publish to PyPI (Stable)
-        if: needs.determine-release.outputs.release_type == 'stable'
+      # 发不到 PyPI
+      # 无论 release_type 是 stable 还是 beta，都发布到正式 PyPI
+      # Beta 版本会自动被标记为预发布版本（因为版本号带 -beta 后缀）
+      - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
-      
-      # 发布到 TestPyPI（测试版本）
-      - name: Publish to TestPyPI (Beta)
-        if: needs.determine-release.outputs.release_type == 'beta'
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-          password: ${{ secrets.TEST_PYPI_API_TOKEN || secrets.PYPI_API_TOKEN }}
-        continue-on-error: true
       
       # 生成 Changelog
       - name: Generate Changelog
@@ -259,6 +317,7 @@ jobs:
             
             **类型:** ${{ needs.determine-release.outputs.release_type == 'beta' && '🧪 测试版本' || '🚀 正式版本' }}
             **分支:** ${{ needs.determine-release.outputs.branch }}
+            **触发方式:** ${{ needs.determine-release.outputs.trigger_type == 'push' && '直接推送' || 'PR合并' }}
             **版本自增:** ${{ needs.determine-release.outputs.version_type }}
             
             ### 📋 变更记录
@@ -266,13 +325,8 @@ jobs:
             
             ### 📦 安装
             
-            ${{ needs.determine-release.outputs.release_type == 'beta' && '
             ```bash
-            # 测试版本（从 TestPyPI 安装）
-            pip install --index-url https://test.pypi.org/simple/ zoo-framework==' || '
-            ```bash
-            # 正式版本
-            pip install zoo-framework==' }}${{ steps.calc_version.outputs.new_version }}
+            pip install zoo-framework==${{ steps.calc_version.outputs.new_version }}
             ```
             
             ### 📚 文档
@@ -292,4 +346,6 @@ jobs:
           echo "🎉 发布成功！"
           echo "版本: v${{ steps.calc_version.outputs.new_version }}"
           echo "类型: ${{ needs.determine-release.outputs.release_type }}"
+          echo "触发: ${{ needs.determine-release.outputs.trigger_type }}"
           echo "PyPI: https://pypi.org/project/zoo-framework/${{ steps.calc_version.outputs.new_version }}/"
+

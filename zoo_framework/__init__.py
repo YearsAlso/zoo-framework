@@ -67,5 +67,6 @@ def load_env() -> None:
     """
     load_dotenv(find_dotenv())
 
+
 # NOTE: 原先代码在模块导入时会立即运行 `load_dotenv(find_dotenv())`，
 # 为了降低导入时的副作用（并减少 linter 噪声），已改为显式函数调用。

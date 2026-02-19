@@ -1,13 +1,3 @@
-"""
-__main__ - zoo_framework/__main__.py
-
-模块功能描述：
-TODO: 添加模块功能描述
-
-作者: XiangMeng
-版本: 0.5.1-beta
-"""
-
 import json
 import os
 import sys
