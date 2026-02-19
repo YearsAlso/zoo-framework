@@ -16,26 +16,17 @@
 name: 🚀 Release
 
 on:
-  # 1. PR 合并到 dev 分支触发测试版本（推荐工作流）
-  pull_request:
-    types: [closed]
-    branches: [dev]
-  
-  # 2. 直接 push 到 dev 分支也触发测试版本（快速发布）
+  # 触发条件简化：统一使用 push 事件
+  # 当 PR 合并到 dev/main 时，本质上也是一次 push 事件，所以这可以覆盖所有场景
+  # 且 push 事件的 OIDC 身份认证信息更稳定，容易在 PyPI 配置
   push:
-    branches: [dev]
+    branches: [dev, main]
     paths:
       - 'zoo_framework/**'
       - 'pyproject.toml'
       - 'setup.py'
       - '.env'
       - '.github/workflows/release.yml'
-  
-  # 3. PR 合并到 main 分支触发正式版本
-  # 注意：main 分支也使用 PR 合并触发
-  # 如果直接 push 到 main，可以取消下面的注释：
-  # push:
-  #   branches: [main]
 
 jobs:
   # 确定版本类型和是否应该发布
@@ -57,14 +48,9 @@ jobs:
       - name: 确定发布类型
         id: check
         run: |
-          # 判断触发类型
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            TRIGGER_TYPE="pull_request"
-            TARGET_BRANCH="${{ github.base_ref }}"
-          else
-            TRIGGER_TYPE="push"
-            TARGET_BRANCH="${{ github.ref_name }}"
-          fi
+          # 现在的触发类型统一为 push
+          TRIGGER_TYPE="push"
+          TARGET_BRANCH="${{ github.ref_name }}"
           
           echo "触发类型: $TRIGGER_TYPE"
           echo "目标分支: $TARGET_BRANCH"
@@ -141,6 +127,12 @@ jobs:
     if: needs.determine-release.outputs.should_release == 'true'
     runs-on: ubuntu-latest
     
+    # 添加 environment 配置，这有助于在 PyPI 上进行更精确的 Trusted Publisher 配置
+    # 建议在 GitHub 仓库 Settings -> Environments 中创建 'pypi' 和 'testpypi' 环境
+    environment:
+      name: ${{ needs.determine-release.outputs.release_type == 'stable' && 'pypi' || 'testpypi' }}
+      url: ${{ needs.determine-release.outputs.release_type == 'stable' && 'https://pypi.org/project/zoo-framework/' || 'https://test.pypi.org/project/zoo-framework/' }}
+
     permissions:
       contents: write
       id-token: write
@@ -356,3 +348,4 @@ jobs:
           echo "类型: ${{ needs.determine-release.outputs.release_type }}"
           echo "触发: ${{ needs.determine-release.outputs.trigger_type }}"
           echo "PyPI: https://pypi.org/project/zoo-framework/${{ steps.calc_version.outputs.new_version }}/"
+
