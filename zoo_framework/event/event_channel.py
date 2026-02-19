@@ -4,6 +4,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 from zoo_framework.fifo import EventFIFO
 from zoo_framework.fifo.node import EventNode
@@ -75,4 +76,3 @@ class EventChannel:
         if self._event_fifo.has_event(event):  # 如果存在
             # 替换事件
             self._event_fifo.replace(event)
-"""

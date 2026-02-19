@@ -10,6 +10,7 @@ WebSocket工具模块,提供WebSocket相关功能.
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 import asyncio
 import json
@@ -63,4 +64,3 @@ class WsUtils:
         """验证消息格式"""
         required_keys = ['type', 'data', 'timestamp']
         return all(key in message for key in required_keys)
-"""

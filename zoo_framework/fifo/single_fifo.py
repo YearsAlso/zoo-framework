@@ -4,6 +4,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 from .base_fifo import BaseFIFO
 
@@ -37,4 +38,3 @@ class SingleFIFO(BaseFIFO):
 
     def get_index(self, value):
         return self.index_list.get(value)
-"""

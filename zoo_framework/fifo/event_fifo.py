@@ -4,6 +4,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 from zoo_framework.utils import LogUtils
 
@@ -48,4 +49,3 @@ class EventFIFO(BaseFIFO):
         index = self._fifo.index(event)
         if index != -1:
             self._fifo[index] = event
-"""

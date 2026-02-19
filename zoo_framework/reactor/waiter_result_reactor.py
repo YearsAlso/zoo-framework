@@ -7,9 +7,6 @@ waiter_result_reactor - zoo_framework/reactor/waiter_result_reactor.py
 版本: 0.5.2-beta
 """
 
-
-版本: 0.5.1-beta
-
 from zoo_framework.core.aop import cage
 
 from .event_reactor import EventReactor

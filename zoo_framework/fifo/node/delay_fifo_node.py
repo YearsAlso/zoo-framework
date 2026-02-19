@@ -4,6 +4,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 import time
 
@@ -21,4 +22,3 @@ class DelayFIFONode:
         if self.expired_time <= time.time():
             return True
         return None
-"""

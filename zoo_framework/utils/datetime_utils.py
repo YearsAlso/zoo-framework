@@ -10,6 +10,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 from datetime import datetime, timedelta
 
@@ -17,7 +18,7 @@ from datetime import datetime, timedelta
 class DateTimeUtils:
     """日期时间工具类
 
-    提供各种日期时间相关的实用方法,包括格式化、计算和转换.
+    提供各种日期时间相关的实用方法，包括格式化、计算和转换。
     """
 
     @classmethod
@@ -49,4 +50,3 @@ class DateTimeUtils:
     def get_time_delta(cls, days=0, hours=0, minutes=0, seconds=0):
         """获取时间差对象"""
         return timedelta(days=days, hours=hours, minutes=minutes, seconds=seconds)
-"""

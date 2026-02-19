@@ -7,13 +7,6 @@ event_reactor_req - zoo_framework/reactor/event_reactor_req.py
 版本: 0.5.2-beta
 """
 
-event_reactor_req - zoo_framework/reactor/event_reactor_req.py
-
-模块功能描述:
-
-作者: XiangMeng
-版本: 0.5.1-beta
-
 import time
 import uuid
 from enum import Enum
@@ -24,6 +17,7 @@ class ChannelType(Enum):
     """通道类型
 
     P1 任务:事件通道隔离
+    """
 
     DEFAULT = "default"  # 默认通道
     SYSTEM = "system"  # 系统通道
@@ -193,4 +187,3 @@ def get_channel_manager() -> ChannelManager:
     """获取全局通道管理器"""
     return _channel_manager
 
-"""

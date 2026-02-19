@@ -4,7 +4,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
-
+"""
 import copy
 import pickle
 import threading
@@ -254,4 +254,4 @@ class StateMachineWorker(BaseWorker):
                 LogUtils.debug(f"🗑️ Old backup removed: {old_file}")
             except Exception as e:
                 LogUtils.warning(f"⚠️ Failed to remove old backup: {e}")
-"""
+

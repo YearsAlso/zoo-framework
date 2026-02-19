@@ -5,7 +5,7 @@ P2 优化:
 2. 使用新的 WorkerRegistry
 3. 简化配置加载
 4. 优化 SVM 集成
-
+"""
 import asyncio
 import threading
 from typing import Any
@@ -155,11 +155,11 @@ class MasterConfig:
     """
 
     def __init__(
-        self,
-        config_path: str = "./config.json",
-        enable_svm: bool = True,
-        svm_check_interval: int = 10,
-        auto_save_interval: int = 60,
+            self,
+            config_path: str = "./config.json",
+            enable_svm: bool = True,
+            svm_check_interval: int = 10,
+            auto_save_interval: int = 60,
     ):
         self.config_path = config_path
         self.enable_svm = enable_svm
@@ -265,7 +265,7 @@ class Master:
         self.waiter = waiter
 
     def register_worker(
-        self, name: str, worker_class: type, metadata: dict | None = None
+            self, name: str, worker_class: type, metadata: dict | None = None
     ) -> None:
         """注册 Worker.
 
@@ -362,4 +362,3 @@ def create_master(config_path: str = "./config.json", enable_svm: bool = True) -
     """
     config = MasterConfig(config_path=config_path, enable_svm=enable_svm)
     return Master(config)
-"""

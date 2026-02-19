@@ -4,7 +4,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
-
+"""
 import time
 from collections.abc import Callable
 from enum import Enum
@@ -32,10 +32,10 @@ class EventPriorityCalculator:
 
     @staticmethod
     def calculate(
-        priority: int,
-        create_time: float,
-        wait_time_weight: float = 0.3,
-        max_wait_time: float = 300.0,  # 5分钟
+            priority: int,
+            create_time: float,
+            wait_time_weight: float = 0.3,
+            max_wait_time: float = 300.0,  # 5分钟
     ) -> float:
         """计算综合优先级分数.
 
@@ -119,12 +119,12 @@ class EventNode:
     fail_response: Callable[..., Any] | None = None
 
     def __init__(
-        self,
-        topic: str,
-        content: str,
-        channel_name: str = "default",
-        priority: int = 0,
-        priority_level: PriorityLevel | None = None,
+            self,
+            topic: str,
+            content: str,
+            channel_name: str = "default",
+            priority: int = 0,
+            priority_level: PriorityLevel | None = None,
     ):
         """初始化事件节点.
 
@@ -269,4 +269,3 @@ __all__ = [
     "EventPriorityCalculator",
     "PriorityLevel",
 ]
-"""

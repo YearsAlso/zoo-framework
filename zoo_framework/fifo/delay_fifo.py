@@ -4,6 +4,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 from .base_fifo import BaseFIFO
 from .node import DelayFIFONode
@@ -41,4 +42,3 @@ class DelayFIFO(BaseFIFO):
             if node.is_expire(current_time):
                 values.append(node)
         return values
-"""

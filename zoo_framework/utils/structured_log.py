@@ -1,7 +1,7 @@
 """结构化日志配置.
 
 P2: 可观测性提升 - 使用 structlog 实现结构化日志
-
+"""
 import logging
 import sys
 from typing import Any
@@ -232,4 +232,3 @@ __all__ = [
     "StructuredLogUtils",
     "get_logger",
 ]
-"""

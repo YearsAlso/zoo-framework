@@ -1,7 +1,7 @@
 """异步 Worker 支持.
 
 P2: 异步 IO 优化 - 支持异步 Worker 实现
-
+"""
 import asyncio
 import time
 from abc import abstractmethod
@@ -296,4 +296,3 @@ __all__ = [
     "AsyncWorkerPool",
     "AsyncWorkerType",
 ]
-"""

@@ -1,6 +1,7 @@
 """持久化调度器 - 解耦持久化逻辑.
 
 P1 任务:将 StateMachineWorker 中的持久化逻辑移到独立的调度器中
+"""
 
 import os
 import pickle
@@ -262,7 +263,7 @@ class BackupManager:
         backup_files.sort(key=lambda x: x[1], reverse=True)
 
         # 删除旧备份
-        for old_file, _ in backup_files[self.max_backups :]:
+        for old_file, _ in backup_files[self.max_backups:]:
             try:
                 os.remove(old_file)
                 # 同时删除校验和文件
@@ -287,12 +288,12 @@ class PersistenceScheduler:
     """
 
     def __init__(
-        self,
-        filepath: str,
-        strategy: PersistenceStrategy | None = None,
-        auto_save_interval: int = 60,  # 自动保存间隔（秒）
-        enable_backup: bool = True,
-        max_backups: int = 5,
+            self,
+            filepath: str,
+            strategy: PersistenceStrategy | None = None,
+            auto_save_interval: int = 60,  # 自动保存间隔（秒）
+            enable_backup: bool = True,
+            max_backups: int = 5,
     ):
         self.filepath = filepath
         self.strategy = strategy or PicklePersistenceStrategy()
@@ -446,4 +447,3 @@ __all__ = [
     "PersistenceStrategy",
     "PicklePersistenceStrategy",
 ]
-"""

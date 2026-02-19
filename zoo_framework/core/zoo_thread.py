@@ -4,6 +4,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 import ctypes
 import threading
@@ -42,4 +43,4 @@ class ZooThread(threading.Thread):
         if res > 1:
             ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
             print("Exception raise failure")
-"""
+

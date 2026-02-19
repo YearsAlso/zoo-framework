@@ -9,6 +9,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 from zoo_framework.core.params_path import ParamsPath
 
@@ -36,4 +37,3 @@ class ParamsFactory:
     def validate_params(self, params):
         # 参数验证逻辑
         return True
-"""

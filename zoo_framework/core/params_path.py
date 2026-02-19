@@ -9,6 +9,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 
 class ParamsPath:
@@ -38,4 +39,3 @@ class ParamsPath:
 
     def __str__(self):
         return f"ParamsPath(value={self.value}, default={self.default})"
-"""

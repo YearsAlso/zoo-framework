@@ -14,3 +14,14 @@ def worker(func):
     def wrapper(*args, **kwargs):
         return func(*args, **kwargs)
     return wrapper
+
+# Expose worker_register as a registry instance or placeholder
+# Since core.worker_registry uses it as a registry instance, we might need a better implementation here.
+# But for now, fixing the unresolved reference.
+class WorkerRegisterStub:
+    def register(self, *args, **kwargs):
+        pass
+    def register_class(self, *args, **kwargs):
+        pass
+
+worker_register = WorkerRegisterStub()

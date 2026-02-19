@@ -10,6 +10,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 from zoo_framework.fifo.node import EventNode
 
@@ -60,4 +61,3 @@ class BaseFIFO:
         if self._fifo:
             return self._fifo[0]
         return None
-"""

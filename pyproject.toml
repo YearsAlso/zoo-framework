@@ -240,7 +240,7 @@ exclude_lines = [
 # Bump My Version 配置 (自动版本号管理)
 # ============================================
 [tool.bumpversion]
-current_version = "0.1.1-beta"
+current_version = "0.5.1"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
 serialize = ["{major}.{minor}.{patch}"]
 search = "{current_version}"
@@ -266,4 +266,3 @@ replace = 'version = "{new_version}"'
 filename = "zoo_framework/__init__.py"
 search = '__version__ = "{current_version}"'
 replace = '__version__ = "{new_version}"'
-

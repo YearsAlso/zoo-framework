@@ -10,7 +10,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
-
+"""
 import os
 import shutil
 
@@ -95,4 +95,3 @@ class FileUtils:
     def move_file(cls, src_path, dst_path):
         """移动文件"""
         shutil.move(src_path, dst_path)
-"""

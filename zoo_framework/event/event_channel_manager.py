@@ -4,7 +4,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
-
+"""
 from zoo_framework.core.aop import cage
 from zoo_framework.reactor import EventReactor
 
@@ -117,4 +117,3 @@ class EventChannelManager:
                     if reactor.reactor_name == event.reactor_name:
                         return [reactor]
         return []
-"""

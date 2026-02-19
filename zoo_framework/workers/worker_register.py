@@ -4,7 +4,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
-
+"""
 from typing import Any
 
 from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
@@ -31,4 +31,4 @@ class WorkerRegister:
     def unregister(self, key: str) -> None:
         """注销worker."""
         self._worker_register.pop(key)
-"""
+

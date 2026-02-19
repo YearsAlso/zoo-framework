@@ -7,16 +7,6 @@ safe_waiter - zoo_framework/core/waiter/safe_waiter.py
 版本: 0.5.2-beta
 """
 
-safe_waiter - zoo_framework/core/waiter/safe_waiter.py
-
-模块功能描述:
-
-
-
-作者: XiangMeng
-版本: 0.5.1-beta
-"""
-
 from zoo_framework.reactor.event_reactor_manager import EventReactorManager
 
 from .base_waiter import BaseWaiter
@@ -63,4 +53,4 @@ class SafeWaiter(BaseWaiter):
             self.rebuild_worker = True
 
         EventReactorManager().dispatch(result.topic, result.content)
-"""
+

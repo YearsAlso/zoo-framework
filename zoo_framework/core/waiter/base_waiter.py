@@ -4,6 +4,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -171,4 +172,4 @@ class BaseWaiter:
     def worker_report(worker):
         result = worker.result()
         EventReactorManager().dispatch(result.topic, result.content)
-"""
+

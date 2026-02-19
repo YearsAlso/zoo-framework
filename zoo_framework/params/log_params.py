@@ -4,9 +4,6 @@
 版本: 0.5.2-beta
 """
 
-
-    TODO: 添加类功能详细描述
-
 from zoo_framework.core import ParamsPath
 from zoo_framework.core.aop import params
 

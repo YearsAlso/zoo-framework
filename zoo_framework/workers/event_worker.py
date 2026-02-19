@@ -7,22 +7,11 @@ event_worker - zoo_framework/workers/event_worker.py
 版本: 0.5.2-beta
 """
 
-event_worker - zoo_framework/workers/event_worker.py
-
-模块功能描述:
-
-作者: XiangMeng
-版本: 0.5.1-beta
-
 from typing import TYPE_CHECKING
 
 import gevent
 
 from zoo_framework.core.aop import cage
-    """EventWorker - 类功能描述
-
-    TODO: 添加类功能详细描述
-    """
 from zoo_framework.event.event_channel_manager import EventChannelManager
 from zoo_framework.workers import BaseWorker
 
@@ -34,6 +23,7 @@ if TYPE_CHECKING:
 @cage
 class EventWorker(BaseWorker):
     """EventWorker - 类功能描述"""
+
     def __init__(self):
         BaseWorker.__init__(self, {"is_loop": True, "delay_time": 5, "name": "EventWorker"})
         self.is_loop = True

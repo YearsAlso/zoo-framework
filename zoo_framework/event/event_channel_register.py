@@ -4,6 +4,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 from zoo_framework.core.aop import cage
 from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
@@ -54,4 +55,3 @@ class EventChannelRegister:
     @classmethod
     def get_channel_count(cls):
         return len(cls._channel_map)
-"""

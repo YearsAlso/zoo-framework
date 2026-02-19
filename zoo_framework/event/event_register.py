@@ -4,6 +4,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 from zoo_framework.core.aop import cage
 
@@ -92,4 +93,3 @@ class EventRegister:
             if index == event_index_index[1] and event.name == event_index_index[0]:
                 return event.name
         return None
-"""

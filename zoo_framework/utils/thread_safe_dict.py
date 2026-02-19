@@ -4,6 +4,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 from multiprocessing import Lock
 
@@ -69,4 +70,3 @@ class ThreadSafeDict:
     def get_keys(self):
         with _lock:
             return list(self._dict.keys())
-"""

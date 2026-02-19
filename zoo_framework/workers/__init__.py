@@ -4,7 +4,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
-
+"""
 from .base_worker import BaseWorker
 from .event_worker import EventWorker
 from .state_machine_work import StateMachineWorker
@@ -46,4 +46,3 @@ if ASYNC_WORKER_AVAILABLE:
             "AsyncWorkerType",
         ]
     )
-"""

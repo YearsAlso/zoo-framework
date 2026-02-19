@@ -4,7 +4,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
-
+"""
 import time
 
 from zoo_framework.utils import LogUtils
@@ -14,6 +14,7 @@ from .worker_result import WorkerResult
 
 class BaseWorker:
     """BaseWorker - 类功能描述"""
+
     def __init__(self, props: dict):
         self._props = props
         self.state = {}
@@ -74,4 +75,3 @@ class BaseWorker:
 
     def _on_done(self):
         pass
-"""

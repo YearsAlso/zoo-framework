@@ -1,6 +1,7 @@
 """Worker 注册器 - 重构 Worker 注册机制.
 
 P2 优化:重构 Worker 注册,支持更灵活的注册方式
+"""
 
 from abc import ABC, abstractmethod
 from collections.abc import Callable
@@ -49,7 +50,7 @@ class WorkerRegistry:
         self._worker_metadata: dict[str, dict] = {}
 
     def register_class(
-        self, name: str, worker_class: type[BaseWorker], metadata: dict | None = None
+            self, name: str, worker_class: type[BaseWorker], metadata: dict | None = None
     ) -> None:
         """注册 Worker 类（延迟实例化）.
 
@@ -68,7 +69,7 @@ class WorkerRegistry:
         LogUtils.info(f"📦 Worker class '{name}' registered")
 
     def register_instance(
-        self, name: str, worker_instance: BaseWorker, metadata: dict | None = None
+            self, name: str, worker_instance: BaseWorker, metadata: dict | None = None
     ) -> None:
         """注册 Worker 实例.
 
@@ -85,7 +86,7 @@ class WorkerRegistry:
         LogUtils.info(f"✅ Worker instance '{name}' registered")
 
     def register_factory(
-        self, name: str, factory: Callable[[], BaseWorker], metadata: dict | None = None
+            self, name: str, factory: Callable[[], BaseWorker], metadata: dict | None = None
     ) -> None:
         """注册 Worker 工厂函数.
 
@@ -268,4 +269,3 @@ __all__ = [
     "get_worker_registry",
     "register_worker",
 ]
-"""

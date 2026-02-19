@@ -10,6 +10,7 @@
 
 作者: XiangMeng
 版本: 0.5.1-beta
+"""
 
 import logging
 import sys
@@ -39,10 +40,10 @@ class LogUtils:
 
     @classmethod
     def setup_file_logging(
-        cls,
-        logger: logging.Logger,
-        filepath: str,
-        level: int = logging.INFO
+            cls,
+            logger: logging.Logger,
+            filepath: str,
+            level: int = logging.INFO
     ) -> None:
         """设置文件日志记录"""
         file_handler = logging.FileHandler(filepath)
@@ -89,4 +90,3 @@ class LogUtils:
             'CRITICAL': logging.CRITICAL
         }
         logger.setLevel(level_map.get(level.upper(), logging.INFO))
-"""
