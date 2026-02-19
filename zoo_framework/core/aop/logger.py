@@ -8,9 +8,7 @@ log_utils = LogUtils()
 def logger(cls):
     """为类添加日志记录功能的装饰器。
 
-    该装饰器会为传入的类创建一个日志记录器，并将其赋值给类的 [_logger](file:///Users/mengxiang/Projects/Persional/Architecture/zoo-framework/zoo_framework/utils/structured_log.py#L202-L202) 属性。
-    同时，它会遍历类中的所有可调用方法，并为每个方法添加日志记录功能，
-    在方法调用前后分别记录调试信息。
+    该装饰器会为传入的类创建一个日志记录器，并将其赋值给类的 `_logger` 属性。
 
     参数:
         cls (class): 需要添加日志功能的类。
