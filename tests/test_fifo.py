@@ -3,13 +3,13 @@
 测试 BaseFIFO、EventFIFO 和 EventNode
 """
 
-import pytest
 import time
+
 from zoo_framework.fifo import BaseFIFO, EventFIFO
 from zoo_framework.fifo.node import EventNode
 from zoo_framework.fifo.node.event_fifo_node import (
-    PriorityLevel,
     EventPriorityCalculator,
+    PriorityLevel,
 )
 
 
@@ -21,9 +21,9 @@ class TestBaseFIFO:
         fifo = BaseFIFO()
         fifo.push_value("item1")
         fifo.push_value("item2")
-        
+
         assert fifo.size() == 2
-        
+
         item = fifo.pop_value()
         assert item == "item1"
         assert fifo.size() == 1
@@ -55,7 +55,7 @@ class TestEventNode:
             content="test content",
             channel_name="test_channel"
         )
-        
+
         assert node.topic == "test.topic"
         assert node.content == "test content"
         assert node.channel_name == "test_channel"
@@ -68,7 +68,7 @@ class TestEventNode:
             content="test content",
             priority_level=PriorityLevel.HIGH
         )
-        
+
         assert node.priority == PriorityLevel.HIGH.value
 
     def test_event_node_equality(self):
@@ -76,7 +76,7 @@ class TestEventNode:
         node1 = EventNode(topic="test", content="content")
         node2 = EventNode(topic="test", content="content")
         node3 = EventNode(topic="other", content="content")
-        
+
         assert node1 == node2
         assert node1 != node3
 
@@ -84,7 +84,7 @@ class TestEventNode:
         """测试 EventNode 哈希值"""
         node1 = EventNode(topic="test", content="content")
         node2 = EventNode(topic="test", content="content")
-        
+
         assert hash(node1) == hash(node2)
 
     def test_event_node_comparison(self):
@@ -92,7 +92,7 @@ class TestEventNode:
         node1 = EventNode(topic="test1", content="content", priority=100)
         time.sleep(0.01)  # 确保创建时间不同
         node2 = EventNode(topic="test2", content="content", priority=200)
-        
+
         assert node1 < node2  # node2 优先级更高
         assert node2 > node1
 
@@ -100,17 +100,17 @@ class TestEventNode:
         """测试获取有效优先级"""
         node = EventNode(topic="test", content="content", priority=100)
         effective_priority = node.get_effective_priority()
-        
+
         assert effective_priority >= 100
 
     def test_increment_retry(self):
         """测试增加重试次数"""
         node = EventNode(topic="test", content="content")
         assert node.get_retry_times() == 0
-        
+
         node.increment_retry()
         assert node.get_retry_times() == 1
-        
+
         node.increment_retry()
         assert node.get_retry_times() == 2
 
@@ -126,7 +126,7 @@ class TestEventPriorityCalculator:
             create_time=create_time,
             wait_time_weight=0.3
         )
-        
+
         assert priority >= 100
 
     def test_calculate_with_wait_time(self):
@@ -137,7 +137,7 @@ class TestEventPriorityCalculator:
             create_time=create_time,
             wait_time_weight=0.5
         )
-        
+
         # 等待时间越长，优先级越高
         assert priority > 100
 
@@ -157,14 +157,14 @@ class TestEventFIFO:
         """测试推送 EventNode"""
         fifo = EventFIFO()
         node = EventNode(topic="test", content="content")
-        
+
         fifo.push_value(node)
         assert fifo.size() == 1
 
     def test_push_dict(self):
         """测试推送字典"""
         fifo = EventFIFO()
-        
+
         fifo.push_value({
             "topic": "test",
             "content": "content"
@@ -174,10 +174,10 @@ class TestEventFIFO:
     def test_dispatch(self):
         """测试 dispatch 方法"""
         fifo = EventFIFO()
-        
+
         fifo.dispatch("test.topic", "test content")
         assert fifo.size() == 1
-        
+
         node = fifo.pop_value()
         assert node.topic == "test.topic"
         assert node.content == "test content"

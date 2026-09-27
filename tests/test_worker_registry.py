@@ -3,9 +3,7 @@
 测试 WorkerRegistry 的注册、查找等功能
 """
 
-import pytest
 from zoo_framework.core.worker_registry import WorkerRegistry
-from zoo_framework.workers import BaseWorker, WorkerProps
 
 
 class TestWorkerRegistry:
