@@ -3,10 +3,10 @@
 测试 LogUtils 和其他工具函数
 """
 
-import pytest
 import os
 import tempfile
-from zoo_framework.utils import LogUtils, FileUtils
+
+from zoo_framework.utils import FileUtils, LogUtils
 
 
 class TestLogUtils:
@@ -37,7 +37,7 @@ class TestFileUtils:
         """测试文件存在检查 - 存在"""
         with tempfile.NamedTemporaryFile(delete=False) as f:
             temp_file = f.name
-        
+
         try:
             assert FileUtils.file_exists(temp_file) is True
         finally:
@@ -51,25 +51,25 @@ class TestFileUtils:
         """测试目录存在检查"""
         with tempfile.TemporaryDirectory() as temp_dir:
             assert FileUtils.dir_exists(temp_dir) is True
-        
+
         assert FileUtils.dir_exists("/nonexistent/dir") is False
 
     def test_create_file(self):
         """测试创建文件"""
         with tempfile.TemporaryDirectory() as temp_dir:
             file_path = os.path.join(temp_dir, "test.txt")
-            
+
             FileUtils.create_file(file_path)
-            
+
             assert os.path.exists(file_path)
 
     def test_mkdir(self):
         """测试创建目录"""
         with tempfile.TemporaryDirectory() as temp_dir:
             dir_path = os.path.join(temp_dir, "newdir")
-            
+
             FileUtils.mkdir(dir_path)
-            
+
             assert os.path.exists(dir_path)
             assert os.path.isdir(dir_path)
 

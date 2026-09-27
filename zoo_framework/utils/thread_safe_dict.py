@@ -55,6 +55,11 @@ class ThreadSafeDict:
         with _lock:
             return self._dict.pop(key)
 
+    def clear(self):
+        """清空内容."""
+        with _lock:
+            self._dict.clear()
+
     def get_values(self):
         with _lock:
             return list(self._dict.values())

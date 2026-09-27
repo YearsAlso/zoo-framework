@@ -36,3 +36,6 @@ htmlcov/
 # OS
 .DS_Store
 Thumbs.db
+
+# Rust 探针的构建产物（bench/pyo3_probe 仅用于基准测量，不进入发布产物）
+/bench/pyo3_probe/target/

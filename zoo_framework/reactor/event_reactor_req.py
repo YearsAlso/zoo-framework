@@ -123,11 +123,17 @@ class ChannelManager:
     def register_reactor_channels(self, reactor_name: str, channels: list[str]) -> None:
         """注册响应器监听的通道
 
+        累加而非覆盖：同一个响应器可能被注册到多个通道（例如先经 `@event` 声明
+        业务通道，再显式补充系统通道），覆盖会让先注册的通道静默失效。
+
         Args:
             reactor_name: 响应器名称
             channels: 监听的通道列表
         """
-        self._reactor_channels[reactor_name] = channels
+        allowed = self._reactor_channels.setdefault(reactor_name, [])
+        for channel in channels:
+            if channel not in allowed:
+                allowed.append(channel)
 
     def is_channel_valid(self, channel: str) -> bool:
         """检查通道是否有效
@@ -139,6 +145,22 @@ class ChannelManager:
             是否有效
         """
         return channel in self._channels
+
+    def can_handle_channel(self, reactor_name: str, channel: str) -> bool:
+        """检查响应器是否监听指定通道
+
+        这是通道判定的轻量入口：不构造事件请求对象，因而不会产生 UUID。
+        分发热路径 MUST 使用本方法，而非构造完整请求后再判断。
+
+        Args:
+            reactor_name: 响应器名称
+            channel: 通道名称
+
+        Returns:
+            是否监听该通道
+        """
+        allowed_channels = self._reactor_channels.get(reactor_name, [ChannelType.DEFAULT.value])
+        return channel in allowed_channels
 
     def can_handle_event(self, reactor_name: str, event: EventReactorReq) -> bool:
         """检查响应器是否可以处理事件

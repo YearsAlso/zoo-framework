@@ -1,0 +1,190 @@
+{
+  "generated_by": "bench/",
+  "platforms": [
+    "Linux-x86_64",
+    "Windows-AMD64",
+    "Linux-x86_64",
+    "Windows-AMD64",
+    "Linux-x86_64",
+    "Windows-AMD64"
+  ],
+  "files": {
+    "boundary_Linux-x86_64.json": {
+      "python_to_rust_noop": {
+        "best_ns": 23.943589985719882,
+        "median_ns": 25.160170007438865
+      },
+      "rust_to_python_callback": {
+        "best_ns": 48.24376999749802,
+        "median_ns": 53.68491998524405
+      },
+      "allow_threads_roundtrip": {
+        "best_ns": 63.38593000691616,
+        "median_ns": 65.60031997651095
+      },
+      "python_only_call": {
+        "best_ns": 20.811410031456035,
+        "median_ns": 21.28300999174826
+      },
+      "fine_grained_per_call": {
+        "best_ns": 17466.695007897215
+      },
+      "coarse_grained_per_call": {
+        "best_ns": 756.5899977635127
+      },
+      "granularity_ratio": {
+        "ratio": 23.08607708207739,
+        "work_per_call": 1000
+      }
+    },
+    "boundary_Windows-AMD64.json": {
+      "python_to_rust_noop": {
+        "best_ns": 28.92400007112883,
+        "median_ns": 29.95300004840829
+      },
+      "rust_to_python_callback": {
+        "best_ns": 63.47599992295728,
+        "median_ns": 65.42299990542233
+      },
+      "allow_threads_roundtrip": {
+        "best_ns": 63.866000127745785,
+        "median_ns": 64.10499991034158
+      },
+      "python_only_call": {
+        "best_ns": 27.397999947424978,
+        "median_ns": 27.763000107370317
+      },
+      "fine_grained_per_call": {
+        "best_ns": 25363.000022480264
+      },
+      "coarse_grained_per_call": {
+        "best_ns": 780.5000495864078
+      },
+      "granularity_ratio": {
+        "ratio": 32.49583396685277,
+        "work_per_call": 1000
+      }
+    },
+    "framework_overhead_Linux-x86_64.json": {
+      "cpu-1x": {
+        "scale": 1,
+        "io_wait_ms": 0.0,
+        "body_median_ms": 0.043610001739580184,
+        "end_to_end_median_ms": 0.4074159987794701,
+        "framework_overhead_median_ms": 0.3638059970398899,
+        "framework_overhead_ratio": 0.8929595257176295,
+        "samples": 60
+      },
+      "cpu-10x": {
+        "scale": 10,
+        "io_wait_ms": 0.0,
+        "body_median_ms": 0.2582479974080343,
+        "end_to_end_median_ms": 0.6094199998187833,
+        "framework_overhead_median_ms": 0.351172002410749,
+        "framework_overhead_ratio": 0.5762397074516314,
+        "samples": 60
+      },
+      "cpu-100x": {
+        "scale": 100,
+        "io_wait_ms": 0.0,
+        "body_median_ms": 2.3709790002612863,
+        "end_to_end_median_ms": 2.6984399992215913,
+        "framework_overhead_median_ms": 0.327460998960305,
+        "framework_overhead_ratio": 0.12135196597099303,
+        "samples": 60
+      },
+      "io-10ms": {
+        "scale": 1,
+        "io_wait_ms": 10.0,
+        "body_median_ms": 10.152498998650117,
+        "end_to_end_median_ms": 10.584064999420661,
+        "framework_overhead_median_ms": 0.43156600077054463,
+        "framework_overhead_ratio": 0.040775070900846436,
+        "samples": 60
+      }
+    },
+    "framework_overhead_Windows-AMD64.json": {
+      "cpu-1x": {
+        "scale": 1,
+        "io_wait_ms": 0.0,
+        "body_median_ms": 0.039000005926936865,
+        "end_to_end_median_ms": 0.1334000116912648,
+        "framework_overhead_median_ms": 0.09440000576432794,
+        "framework_overhead_ratio": 0.707646158103818,
+        "samples": 60
+      },
+      "cpu-10x": {
+        "scale": 10,
+        "io_wait_ms": 0.0,
+        "body_median_ms": 0.28900000324938446,
+        "end_to_end_median_ms": 0.39119999564718455,
+        "framework_overhead_median_ms": 0.10219999239780009,
+        "framework_overhead_ratio": 0.26124742723661026,
+        "samples": 60
+      },
+      "cpu-100x": {
+        "scale": 100,
+        "io_wait_ms": 0.0,
+        "body_median_ms": 2.7338999934727326,
+        "end_to_end_median_ms": 2.858000007108785,
+        "framework_overhead_median_ms": 0.12410001363605261,
+        "framework_overhead_ratio": 0.04342197807115993,
+        "samples": 60
+      },
+      "io-10ms": {
+        "scale": 1,
+        "io_wait_ms": 10.0,
+        "body_median_ms": 10.33189998997841,
+        "end_to_end_median_ms": 10.55130000167992,
+        "framework_overhead_median_ms": 0.21940001170150936,
+        "framework_overhead_ratio": 0.020793647386253607,
+        "samples": 60
+      }
+    },
+    "timer_resolution_Linux-x86_64.json": {
+      "0.5ms": {
+        "sleep_median_ms": 0.0783,
+        "sleep_max_ms": 0.1166,
+        "event_wait_median_ms": 0.0885,
+        "event_wait_max_ms": 0.1308
+      },
+      "1ms": {
+        "sleep_median_ms": 0.0838,
+        "sleep_max_ms": 0.0979,
+        "event_wait_median_ms": 0.0893,
+        "event_wait_max_ms": 0.2079
+      },
+      "5ms": {
+        "sleep_median_ms": 0.0897,
+        "sleep_max_ms": 0.1908,
+        "event_wait_median_ms": 0.095,
+        "event_wait_max_ms": 0.1564
+      }
+    },
+    "timer_resolution_Windows-AMD64.json": {
+      "0.5ms": {
+        "sleep_median_ms": 0.5253,
+        "sleep_max_ms": 0.6794,
+        "event_wait_median_ms": 14.8498,
+        "event_wait_max_ms": 15.7926
+      },
+      "1ms": {
+        "sleep_median_ms": 0.2381,
+        "sleep_max_ms": 0.9736,
+        "event_wait_median_ms": 14.4652,
+        "event_wait_max_ms": 15.1823
+      },
+      "5ms": {
+        "sleep_median_ms": 0.2049,
+        "sleep_max_ms": 0.537,
+        "event_wait_median_ms": 10.274,
+        "event_wait_max_ms": 10.9835
+      }
+    }
+  },
+  "notes": [
+    "framework_overhead 的 Linux 数据取自 WSL2，其跨线程唤醒延迟被 Hypervisor 放大（实测 ThreadPoolExecutor 往返 82 µs vs Windows 31.9 µs），绝对数字不可用于决策，仅印证占比随执行体变长而下降的形状。",
+    "boundary 与 timer_resolution 的机制性结论跨平台成立。",
+    "负载为代表性替身，非真实业务 trace。"
+  ]
+}

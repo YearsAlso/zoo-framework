@@ -1,3 +1,4 @@
+import contextlib
 import json
 import os
 
@@ -10,11 +11,10 @@ class ParamsFactory:
     def __init__(self, config_path="./config.json"):
         if not os.path.exists(config_path):
             return
-            with open(config_path, "w") as f:
-                json.dump(self.config_params, f)
 
-        with open(config_path) as f:
-            ParamsFactory.config_params = json.load(f)
+        # 配置文件的读写 MUST 显式指定编码：默认编码随平台变化（Windows 中文环境为 GBK），
+        # 会让同一份配置在不同平台上被解析成不同的值，且不抛异常。
+        ParamsFactory.config_params = json.loads(FileUtils.read_text(config_path))
 
         # 处理 exports
         self.load_exports()
@@ -36,12 +36,11 @@ class ParamsFactory:
         ParamsFactory.config_params[export_name] = content
 
     def get_export_file(self, file_name):
+        """读取导出配置文件；读不到或解析失败时返回空字典."""
         content = {}
-        try:
-            with open(file_name) as fp:
-                content = json.load(fp)
-        except:
-            pass
+        # 读不到或解析不了都按"空配置"处理，调用方只关心能否取到内容
+        with contextlib.suppress(Exception):
+            content = json.loads(FileUtils.read_text(file_name))
 
         return content
 

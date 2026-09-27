@@ -629,7 +629,10 @@ class TestAsyncWorkerProperties:
 
     def test_loop_flag_defaults_to_false(self):
         """Scenario: 读取异步 Worker 的循环标志."""
-        assert _ConcreteAsyncWorker(_uniq("AW")).is_loop() is False
+        worker = _ConcreteAsyncWorker(_uniq("AW"))
+        assert worker.is_loop is False
+        # 属性语义：读取不需要调用语法，且返回的是布尔值
+        assert isinstance(worker.is_loop, bool)
 
 
 class TestAsyncWorkerLifecycle:

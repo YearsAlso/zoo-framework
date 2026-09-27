@@ -1,0 +1,32 @@
+{
+  "platform": "Windows-AMD64",
+  "python": "3.13.14",
+  "results": {
+    "python_to_rust_noop": {
+      "best_ns": 28.92400007112883,
+      "median_ns": 29.95300004840829
+    },
+    "rust_to_python_callback": {
+      "best_ns": 63.47599992295728,
+      "median_ns": 65.42299990542233
+    },
+    "allow_threads_roundtrip": {
+      "best_ns": 63.866000127745785,
+      "median_ns": 64.10499991034158
+    },
+    "python_only_call": {
+      "best_ns": 27.397999947424978,
+      "median_ns": 27.763000107370317
+    },
+    "fine_grained_per_call": {
+      "best_ns": 25363.000022480264
+    },
+    "coarse_grained_per_call": {
+      "best_ns": 780.5000495864078
+    },
+    "granularity_ratio": {
+      "ratio": 32.49583396685277,
+      "work_per_call": 1000
+    }
+  }
+}

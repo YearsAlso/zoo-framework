@@ -5,9 +5,10 @@
 
 import os
 import tempfile
+
 import pytest
 
-from zoo_framework.utils import LogUtils, FileUtils
+from zoo_framework.utils import FileUtils, LogUtils
 from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 
 

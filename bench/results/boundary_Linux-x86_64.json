@@ -1,0 +1,32 @@
+{
+  "platform": "Linux-x86_64",
+  "python": "3.13.5",
+  "results": {
+    "python_to_rust_noop": {
+      "best_ns": 23.943589985719882,
+      "median_ns": 25.160170007438865
+    },
+    "rust_to_python_callback": {
+      "best_ns": 48.24376999749802,
+      "median_ns": 53.68491998524405
+    },
+    "allow_threads_roundtrip": {
+      "best_ns": 63.38593000691616,
+      "median_ns": 65.60031997651095
+    },
+    "python_only_call": {
+      "best_ns": 20.811410031456035,
+      "median_ns": 21.28300999174826
+    },
+    "fine_grained_per_call": {
+      "best_ns": 17466.695007897215
+    },
+    "coarse_grained_per_call": {
+      "best_ns": 756.5899977635127
+    },
+    "granularity_ratio": {
+      "ratio": 23.08607708207739,
+      "work_per_call": 1000
+    }
+  }
+}

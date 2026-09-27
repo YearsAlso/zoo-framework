@@ -3,12 +3,9 @@
 测试 Plugin 和 PluginManager
 """
 
-import pytest
 from zoo_framework.plugin import (
-    Plugin, 
-    PluginManager, 
+    PluginManager,
     WorkerDelayManager,
-    get_plugin_manager,
 )
 
 
@@ -22,14 +19,14 @@ class TestWorkerDelayManager:
     def test_set_delay(self):
         """测试设置延迟"""
         self.manager.set_delay("worker1", 5.0)
-        
+
         assert "worker1" in self.manager._delays
         assert self.manager._delays["worker1"] == 5.0
 
     def test_get_delay(self):
         """测试获取延迟"""
         self.manager.set_delay("worker1", 3.0)
-        
+
         delay = self.manager.get_delay("worker1")
         assert delay == 3.0
 
@@ -42,7 +39,7 @@ class TestWorkerDelayManager:
         """测试重置延迟"""
         self.manager.set_delay("worker1", 5.0)
         self.manager.reset("worker1")
-        
+
         assert "worker1" not in self.manager._delays
 
 
@@ -71,6 +68,6 @@ class TestPluginManager:
     def test_context(self):
         """测试上下文操作"""
         self.manager.set_context("key1", "value1")
-        
+
         assert self.manager.get_context("key1") == "value1"
         assert self.manager.get_context("key2", "default") == "default"

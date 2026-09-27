@@ -3,13 +3,12 @@
 测试 PersistenceScheduler 的持久化功能
 """
 
-import pytest
 import os
 import tempfile
 
 from zoo_framework.core.persistence_scheduler import (
-    PersistenceScheduler,
     FileChecksumValidator,
+    PersistenceScheduler,
     PicklePersistenceStrategy,
 )
 
@@ -22,7 +21,7 @@ class TestFileChecksumValidator:
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
             f.write("test content")
             temp_file = f.name
-        
+
         try:
             checksum = FileChecksumValidator.calculate_checksum(temp_file)
             assert checksum is not None
@@ -35,7 +34,7 @@ class TestFileChecksumValidator:
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
             f.write("test content")
             temp_file = f.name
-        
+
         try:
             checksum = FileChecksumValidator.calculate_checksum(temp_file)
             is_valid = FileChecksumValidator.verify_checksum(temp_file, checksum)
@@ -48,7 +47,7 @@ class TestFileChecksumValidator:
         with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
             f.write("test content")
             temp_file = f.name
-        
+
         try:
             is_valid = FileChecksumValidator.verify_checksum(temp_file, "invalid_checksum")
             assert is_valid is False
@@ -68,11 +67,11 @@ class TestPersistenceScheduler:
                 strategy=PicklePersistenceStrategy(),
                 auto_save_interval=0,  # 禁用自动保存
             )
-            
+
             data = {"key": "value", "number": 42}
             scheduler.update_data(data)
             scheduler.save(force=True)
-            
+
             # 创建新的 scheduler 加载数据
             scheduler2 = PersistenceScheduler(
                 filepath=filepath,
@@ -88,6 +87,6 @@ class TestPersistenceScheduler:
             filepath="/nonexistent/path/file.pkl",
             auto_save_interval=0,
         )
-        
+
         result = scheduler.load()
         assert result is None

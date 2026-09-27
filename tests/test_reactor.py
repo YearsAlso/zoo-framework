@@ -3,12 +3,11 @@
 测试事件响应器功能
 """
 
-import pytest
 
 from zoo_framework.reactor.event_reactor_req import (
-    EventReactorReq,
-    ChannelType,
     ChannelManager,
+    ChannelType,
+    EventReactorReq,
 )
 
 

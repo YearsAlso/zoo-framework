@@ -13,11 +13,23 @@ def params(cls):
             params_path = getattr(cls, param)
             if not isinstance(params_path, ParamsPath):
                 continue
-            param_value = params_path.get_value()
-            default_value = params_path.get_default()
-            value = ParamsFactory().get_params(param_value, default_value=default_value)
+            value = _resolve(params_path)
             setattr(cls, param, value)
         config_params[cls.__name__] = cls
         return cls
 
     return inner()
+
+
+def _resolve(params_path: ParamsPath):
+    """按首选路径 → 别名 → 默认值的顺序解析配置项。"""
+    value = ParamsFactory().get_params(params_path.get_value(), default_value=None)
+    if value is not None:
+        return value
+
+    for alias in params_path.get_aliases():
+        value = ParamsFactory().get_params(alias, default_value=None)
+        if value is not None:
+            return value
+
+    return params_path.get_default()

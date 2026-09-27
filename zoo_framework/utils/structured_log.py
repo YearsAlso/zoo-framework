@@ -7,6 +7,8 @@ import logging
 import sys
 from typing import Any
 
+from .log_utils import SafeStreamHandler
+
 # 尝试导入 structlog，如果不可用则回退到标准库
 # 运行时安装: pip install structlog
 try:
@@ -77,12 +79,16 @@ class StructuredLogUtils:
         self._logger = structlog.get_logger("zoo_framework")
 
     def _setup_standard_logging(self) -> None:
-        """配置标准日志作为后备."""
-        logging.basicConfig(
-            format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-            level=logging.INFO,
-            stream=sys.stdout,
+        """配置标准日志作为后备.
+
+        控制台输出使用 SafeStreamHandler：在非 UTF-8 控制台下最坏情况是含非 ASCII
+        字符的字形降级，MUST NOT 是整条日志连同时间戳一起消失。
+        """
+        handler = SafeStreamHandler(sys.stdout)
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
         )
+        logging.basicConfig(level=logging.INFO, handlers=[handler])
         self._logger = logging.getLogger("zoo_framework")
 
     def bind(self, **context) -> "StructuredLogUtils":
