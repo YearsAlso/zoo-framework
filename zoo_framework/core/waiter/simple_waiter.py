@@ -2,6 +2,8 @@ from .base_waiter import BaseWaiter
 
 
 class SimpleWaiter(BaseWaiter):
+    """简单调度器：资源池尺寸不足时自动扩容到 Worker 数量 + 1。"""
+
     def __init__(self):
         BaseWaiter.__init__(self)
 

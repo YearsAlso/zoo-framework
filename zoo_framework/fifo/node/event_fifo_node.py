@@ -245,8 +245,18 @@ class EventNode:
             self.timeout_response(self)
 
     def get_retry_times(self) -> int:
-        """获取重试次数."""
+        """获取剩余重试次数."""
         return self.retry_times
+
+    def set_retry_times(self, retry_times: int) -> None:
+        """设置剩余重试次数.
+
+        消费路径据此决定事件在无法投递时是回队重试还是记入死信。
+
+        Args:
+            retry_times: 剩余重试次数；<=0 表示不再重试
+        """
+        self.retry_times = max(0, int(retry_times))
 
     def increment_retry(self) -> None:
         """增加重试次数.

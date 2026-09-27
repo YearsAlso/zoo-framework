@@ -3,9 +3,9 @@
 测试 BaseWorker 和相关的 Worker 功能
 """
 
-import pytest
 
-from zoo_framework.workers import BaseWorker, WorkerResult, WorkerProps
+from zoo_framework.constant import WaiterConstant
+from zoo_framework.workers import BaseWorker, WorkerProps, WorkerResult
 
 
 class TestBaseWorker:
@@ -20,14 +20,15 @@ class TestBaseWorker:
         }
         worker = BaseWorker(props)
         assert worker._props == props
-        assert worker.is_loop() is True
+        # is_loop 是以 _props 为唯一真源的属性，读取不需要调用语法
+        assert worker.is_loop is True
         assert "TestWorker" in worker.name
 
     def test_worker_init_defaults(self):
         """测试 Worker 默认属性"""
         props = {"name": "TestWorker"}
         worker = BaseWorker(props)
-        assert worker.is_loop() is False
+        assert worker.is_loop is False
         assert "TestWorker" in worker.name
 
     def test_worker_name_property(self):
@@ -49,8 +50,9 @@ class TestBaseWorker:
         # run 方法应该返回 WorkerResult
         result = worker.run()
         assert isinstance(result, WorkerResult)
-        # topic 格式是 baseworker_result（类名小写）
-        assert "_result" in result.topic.lower()
+        # 结果统一投递到结果主题，并携带产生它的 Worker 名
+        assert result.topic == WaiterConstant.WORKER_RESULT_TOPIC
+        assert result.worker_name == worker.name
 
 
 class TestWorkerProps:
