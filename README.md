@@ -168,7 +168,7 @@ detect a silent downgrade**, and a loud error is the signal it needs to self-cor
 
 **Changes can be checked automatically**
 
-The framework carries a spec baseline and a 313-case regression suite covering the
+The framework carries a spec baseline and a 356-case regression suite covering the
 core contracts, so an agent's change can be judged by running `pytest` rather than by
 asking a human to read it.
 
@@ -327,7 +327,7 @@ Worker 只依赖传给 `__init__` 的 props 字典，不感知框架内部结构
 
 **改动可被自动校验**
 
-框架带 spec 基线与 313 条回归用例，核心契约都有对应用例守护 —— Agent 生成的改动
+框架带 spec 基线与 356 条回归用例，核心契约都有对应用例守护 —— Agent 生成的改动
 可以靠 `pytest` 判断对错，而不必靠人逐行读。
 
 ### 核心概念
@@ -395,6 +395,18 @@ zfc --worker my_task
 # 启动
 python src/main.py
 ```
+
+选项只有 `--create` 与 `--worker` 两个，可以在同一次调用里组合使用
+（`zfc --create myapp --worker my_task` 会把 Worker 直接落进本次创建的项目）。
+两者都会在**产出之前**校验输入，并且都不接受「静默无效」的调用：
+
+- `--create` 的目标目录已存在时**报错退出**，不会合并、不会覆盖既有内容；
+  脚本中需要幂等时请自行先判断目录是否存在。
+- `--worker` 的名称必须是合法 Python 标识符：不能以数字开头，不能含连字符、
+  点号或空格，不能是 Python 关键字。`my-task` / `123task` 这类写法会被拒绝，
+  请改用下划线命名（`my_task`）。
+
+失败时命令以非 0 退出码结束并说明原因，且不会留下半成品产物。
 
 ### 文档
 
