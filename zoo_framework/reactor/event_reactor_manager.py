@@ -28,32 +28,28 @@ class EventReactorManager:
             value.set_event_timeout(EventParams.EVENT_JOIN_TIMEOUT)
 
     @classmethod
-    def dispatch(
-        cls, topic, content, reactor_name="default", channel: str = ChannelType.DEFAULT.value
-    ):
+    def dispatch(cls, topic, content, reactor_name=None, channel: str = ChannelType.DEFAULT.value):
         """分发事件.
 
-        P1 任务：支持指定通道分发事件
+        把主题下、且通过通道校验的所有响应器逐个执行。单个响应器抛出的异常不会
+        阻断其余响应器；主题下没有匹配的响应器时静默返回。
 
         Args:
             topic: 事件主题
             content: 事件内容
-            reactor_name: 响应器名称
-            channel: 通道名称（P1 新增）
+            reactor_name: 响应器名称；None 表示不过滤。历史默认哨兵值 "default"
+                同样视为不过滤——它来自本方法的旧签名，且与 `get_reactor` 的
+                "按名称过滤"参数语义冲突（过滤一个名为 default 的响应器必然匹配
+                不到任何响应器）
+            channel: 通道名称
         """
-        reactor = cls.get_reactor(reactor_name)
+        name_filter = None if reactor_name in (None, "default") else [reactor_name]
 
-        # P1：创建带通道信息的事件请求
-        event_req = EventReactorReq(
-            topic=topic, content=content, reactor_name=reactor_name, channel=channel
-        )
-
-        # 验证通道权限
-        if not cls._validate_channel(reactor_name, event_req):
-            LogUtils.warning(f"⚠️ Reactor '{reactor_name}' cannot handle channel '{channel}'")
-            return
-
-        reactor.execute(topic, content)
+        for reactor in cls.get_reactor(topic, name_filter, channel):
+            try:
+                reactor.execute(topic, content)
+            except Exception as e:
+                LogUtils.error(f"❌ Reactor '{reactor.reactor_name}' execution failed: {e}")
 
     @classmethod
     def get_reactor(

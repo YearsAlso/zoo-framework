@@ -168,17 +168,23 @@ classDiagram
 ```mermaid
 classDiagram
     class StateMachineManager {
-        +create_state_machine(name)
-        +add_state(machine, state)
-        +transition(machine, from, to)
-        +observe_state(key, callback)
-        +unobserve_state(key, callback)
+        +create_scope(scope)
+        +get_and_create_scope(scope)
+        +set_state(scope, key, value)
+        +get_state(scope, key)
+        +remove_state(scope, key)
+        +observe_state(scope, key, effect)
+        +unobserve_state(scope, key, effect)
+        +load_state_machines()
+        +get_state_machines()
     }
     
     class StateScope {
         +StateIndex _state_index
         +register_node(key, value)
+        +set_state_node(key, value)
         +get_state_node(key)
+        +get_state_value(key)
         +observe_state_node(key, effect)
         +unobserve_state_node(key, effect)
     }

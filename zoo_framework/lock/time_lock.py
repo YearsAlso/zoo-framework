@@ -2,29 +2,43 @@ from .base_lock import BaseLock
 
 
 class TimeLock(BaseLock):
-    """超时锁，可以指定事件超时时间，当超时后触发回调，并且释放锁."""
+    """按剩余次数放行的计数闸门（与 CountLock 语义相同）.
+
+    历史说明：本类旧文档声称具备超时与回调语义，但实现中从未提供超时计时或
+    回调调用——``__init__`` 接收的 ``callback`` 只被保存、从未被调用，
+    ``timeout`` 实际被当作剩余放行次数递减。此处按实际行为如实描述，避免
+    文档与实现不符。
+
+    注意：与 ``CountLock`` 一样，本类覆写了 ``acquire`` / ``release``，因此
+    **不提供互斥、也不线程安全**，实际并未使用 ``BaseLock`` 持有的那把锁。
+    它仅适用于单线程内的次数控制。
+    """
 
     def __init__(self, timeout=1, callback=None):
+        """初始化计数闸门.
+
+        Args:
+            timeout: 剩余放行次数（参数名沿用历史，语义实为次数）
+            callback: 历史遗留参数，当前实现不会调用它
+        """
         super().__init__()
         self._timeout = timeout
         self._callback = callback
 
     def acquire(self, blocking=True, timeout=-1):
+        """尝试放行一次.
+
+        Returns:
+            还有剩余额度时为 True，否则为 False
+        """
         if self._timeout > 0:
             self._timeout -= 1
             return True
         return False
 
     def release(self):
+        """归还一次额度."""
         self._timeout += 1
-        return True
-
-    def __enter__(self):
-        self.acquire()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.release()
         return True
 
     def __str__(self):

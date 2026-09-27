@@ -2,7 +2,6 @@ from typing import TYPE_CHECKING
 
 import gevent
 
-from zoo_framework.core.aop import cage
 from zoo_framework.event.event_channel_manager import EventChannelManager
 from zoo_framework.workers import BaseWorker
 
@@ -11,8 +10,15 @@ if TYPE_CHECKING:
     from zoo_framework.fifo.node import EventNode
 
 
-@cage
 class EventWorker(BaseWorker):
+    """事件 Worker.
+
+    注意：本类**不得**加 `@cage`。`@cage` 会把类替换成工厂函数，而
+    `WorkerRegistry.register_class` 用 `issubclass` 校验契约，二者不兼容
+    （会抛 `TypeError: issubclass() arg 1 must be a class`）。单例与实例
+    缓存由 `WorkerRegistry._worker_instances` 承担，无需第二套机制。
+    """
+
     def __init__(self):
         BaseWorker.__init__(self, {"is_loop": True, "delay_time": 5, "name": "EventWorker"})
         self.is_loop = True
@@ -46,8 +52,9 @@ class EventWorker(BaseWorker):
                         channel.push_event(event_node)
                     continue
                 for reactor in reactors:
-                    # 执行事件反应器
-                    g = gevent.spawn(reactor.perform, (event_node.content, event_node.topic))
+                    # 执行事件反应器：EventReactor 的公开入口是 execute(topic, content)。
+                    # 不存在 perform 方法，且实参顺序必须与签名一致。
+                    g = gevent.spawn(reactor.execute, event_node.topic, event_node.content)
                     g_queue.append(g)
 
         # 根据优先级排序

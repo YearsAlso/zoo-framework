@@ -5,15 +5,20 @@ from zoo_framework.utils import LogUtils
 
 
 class EventChannel:
-    """事件通道."""
+    """事件通道.
 
-    # 事件队列
-    _event_fifo: EventFIFO = EventFIFO()
-
-    # 事件反应器管理器
-    _reactor_manager = EventReactorManager()
+    队列与响应器管理器都是**实例级**的：`EventChannel` 由 `EventChannelRegister`
+    按名称创建并缓存，单例应当落在注册器（名称 → 通道的映射）上，而不是落在每个
+    通道实例内部持有的队列上。曾经二者是类属性，导致所有通道共用一条队列。
+    """
 
     def __init__(self, channel_name):
+        # 事件队列（每个通道独立）
+        self._event_fifo: EventFIFO = EventFIFO()
+
+        # 事件反应器管理器（@cage 单例，各通道持有同一引用；响应器登记仍是全局的）
+        self._reactor_manager = EventReactorManager()
+
         # 是否公开, 通道不公开时, 只能通过事件反应器来触发事件,如果公开, 则可以通过事件通道来触发事件
         self.public = False
         # 通道名称

@@ -35,7 +35,9 @@ class AsyncWorker(BaseWorker):
     """
 
     def __init__(self, name: str | None = None):
-        super().__init__(name)
+        # 保留 name 这一公开签名，内部转成属性字典再交给 BaseWorker——BaseWorker
+        # 以 _props 字典承载配置，直接传字符串会让 name / is_loop 等属性访问崩溃。
+        super().__init__({"is_loop": False, "delay_time": 1, "name": name})
         self._loop: asyncio.AbstractEventLoop | None = None
         self._async_type = AsyncWorkerType.COROUTINE
         self._max_concurrent = 10  # 最大并发数
@@ -47,7 +49,7 @@ class AsyncWorker(BaseWorker):
         子类可重写此方法进行异步资源初始化
         """
         self._semaphore = asyncio.Semaphore(self._max_concurrent)
-        LogUtils.info(f"✅ AsyncWorker '{self._worker_name}' initialized")
+        LogUtils.info(f"✅ AsyncWorker '{self.name}' initialized")
 
     async def async_destroy(self, timeout: float | None = None) -> None:
         """异步销毁.
@@ -57,7 +59,7 @@ class AsyncWorker(BaseWorker):
         Args:
             timeout: 超时时间
         """
-        LogUtils.info(f"🛑 AsyncWorker '{self._worker_name}' destroyed")
+        LogUtils.info(f"🛑 AsyncWorker '{self.name}' destroyed")
 
     @abstractmethod
     async def async_execute(self, *args, **kwargs) -> Any:
@@ -106,15 +108,13 @@ class AsyncWorker(BaseWorker):
                 result = await self.async_execute(*args, **kwargs)
 
             duration = time.time() - start_time
-            LogUtils.info(f"✅ AsyncWorker '{self._worker_name}' executed in {duration:.3f}s")
+            LogUtils.info(f"✅ AsyncWorker '{self.name}' executed in {duration:.3f}s")
 
             return result
 
         except Exception as e:
             duration = time.time() - start_time
-            LogUtils.error(
-                f"❌ AsyncWorker '{self._worker_name}' failed after {duration:.3f}s: {e}"
-            )
+            LogUtils.error(f"❌ AsyncWorker '{self.name}' failed after {duration:.3f}s: {e}")
             raise
 
     def run_in_background(self, *args, **kwargs) -> Any:

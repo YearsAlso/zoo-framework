@@ -16,28 +16,33 @@ from zoo_framework.fifo.node.event_fifo_node import (
 class TestBaseFIFO:
     """BaseFIFO 测试类"""
 
-    def setup_method(self):
-        """每个测试前清理"""
-        BaseFIFO._fifo = []
-
     def test_push_and_pop(self):
         """测试入队和出队"""
         fifo = BaseFIFO()
-        BaseFIFO.push_value("item1")
-        BaseFIFO.push_value("item2")
+        fifo.push_value("item1")
+        fifo.push_value("item2")
         
-        assert BaseFIFO.size() == 2
+        assert fifo.size() == 2
         
-        item = BaseFIFO.pop_value()
+        item = fifo.pop_value()
         assert item == "item1"
-        assert BaseFIFO.size() == 1
+        assert fifo.size() == 1
 
     def test_push_values(self):
         """测试批量入队"""
         fifo = BaseFIFO()
-        BaseFIFO.push_values(["item1", "item2", "item3"])
-        
-        assert BaseFIFO.size() == 3
+        fifo.push_values(["item1", "item2", "item3"])
+
+        assert fifo.size() == 3
+
+    def test_instances_do_not_share_storage(self):
+        """补充：两个实例的队列相互隔离（此前共享同一个类级列表）"""
+        first = BaseFIFO()
+        second = BaseFIFO()
+        first.push_value("only-in-first")
+
+        assert first.size() == 1
+        assert second.size() == 0
 
 
 class TestEventNode:
@@ -148,10 +153,6 @@ class TestEventPriorityCalculator:
 class TestEventFIFO:
     """EventFIFO 测试类"""
 
-    def setup_method(self):
-        """每个测试前清理"""
-        BaseFIFO._fifo = []
-
     def test_push_event_node(self):
         """测试推送 EventNode"""
         fifo = EventFIFO()
@@ -177,6 +178,6 @@ class TestEventFIFO:
         fifo.dispatch("test.topic", "test content")
         assert fifo.size() == 1
         
-        node = BaseFIFO.pop_value()
+        node = fifo.pop_value()
         assert node.topic == "test.topic"
         assert node.content == "test content"

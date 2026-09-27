@@ -22,8 +22,12 @@ class EventFIFO(BaseFIFO):
             LogUtils.error(str(e), EventFIFO.__name__)
 
     def dispatch(self, topic, content, provider_name="default"):
-        """将事件推入事件队列."""
-        node = EventNode(topic=topic, content=content)
+        """将事件推入事件队列.
+
+        注意：`provider_name` 必须写到事件的 `channel_name` 上——它决定事件
+        归属哪个通道队列，丢弃它会让所有事件都落到默认通道，通道隔离随之失效。
+        """
+        node = EventNode(topic=topic, content=content, channel_name=provider_name)
         super().push_value(node)
 
     def get_top(self):
@@ -33,11 +37,16 @@ class EventFIFO(BaseFIFO):
         return None
 
     def has_event(self, event):
-        """判断事件是否存在."""
-        return self._fifo.index(event) != -1
+        """判断事件是否存在.
+
+        必须用包含性判断：`list.index()` 在未命中时抛 `ValueError` 而不是返回 -1，
+        而本方法的调用方（`EventChannel.refresh_event`、`EventProvider.refresh`）
+        的正常路径恰恰是"未命中则不做处理"。
+        """
+        return event in self._fifo
 
     def replace(self, event):
-        """替换事件."""
-        index = self._fifo.index(event)
-        if index != -1:
-            self._fifo[index] = event
+        """替换事件；事件不存在时不做处理."""
+        if event not in self._fifo:
+            return
+        self._fifo[self._fifo.index(event)] = event

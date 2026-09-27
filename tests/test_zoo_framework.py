@@ -12,7 +12,6 @@ from zoo_framework.workers import BaseWorker, WorkerResult, WorkerProps
 
 # FIFO 测试
 from zoo_framework.fifo import EventFIFO
-from zoo_framework.fifo.base_fifo import BaseFIFO
 from zoo_framework.fifo.node.event_fifo_node import EventNode, PriorityLevel
 
 # Utils 测试
@@ -133,20 +132,19 @@ class TestEventFIFO:
 
     def test_fifo_push_and_pop(self):
         """测试 FIFO 入队和出队"""
-        # 注意：BaseFIFO 使用类变量，需要清理
-        BaseFIFO._fifo = []
         fifo = EventFIFO()
         fifo.push_value("test_value")
-        assert BaseFIFO.size() > 0
-        popped = BaseFIFO.pop_value()
+        assert fifo.size() == 1
+        popped = fifo.pop_value()
         assert popped is not None
 
     def test_fifo_dispatch(self):
         """测试 FIFO dispatch"""
-        BaseFIFO._fifo = []
         fifo = EventFIFO()
         fifo.dispatch("test.topic", "test_content", "test_provider")
-        assert BaseFIFO.size() > 0
+        assert fifo.size() == 1
+        # 第三个实参是通道名，必须被保留到事件上，否则通道隔离失效
+        assert fifo.get_top().channel_name == "test_provider"
 
 
 # ==================== Utils Tests ====================

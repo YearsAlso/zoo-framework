@@ -96,7 +96,9 @@ class EventChannelManager:
             # 根据事件优先级获得事件反应器
             reactors: list[EventReactor] = channel.get_reactors(event.topic)
             if reactors is not None and len(reactors) > 0:
-                return reactors.sort(key=lambda x: x.priority)
+                # 按综合优先级由高到低：EventNode 的既有注释为"优先级高的先响应"。
+                # 必须用 sorted 而非 list.sort——后者原地排序并返回 None。
+                return sorted(reactors, key=lambda x: x.get_priority(), reverse=True)
         elif event.response_mechanism == 3:
             # 获得所有的事件反应器
             reactors: list[EventReactor] = channel.get_reactors(event.topic)

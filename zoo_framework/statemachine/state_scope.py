@@ -33,13 +33,20 @@ class StateScope:
     def observe_state_node(self, key: str, effect: Any) -> None:
         """观察状态节点.
 
+        键尚不存在时先创建占位节点再登记观察者：静默丢弃注册会让"先声明观察者、
+        等数据到达"这一主要用法失效。此处与 `unobserve_state_node` 的不对称是
+        刻意的——注销一个从未存在的观察者通常意味着调用方出错，应当暴露。
+
         Args:
             key: 状态键名
             effect: 观察者回调
         """
         node = self.get_state_node(key)
         if node is None:
-            return
+            self.register_node(key, None)
+            node = self.get_state_node(key)
+            if node is None:
+                return
         node.add_effect(effect)
 
     def unobserve_state_node(self, key: str, effect: Any) -> None:
@@ -98,10 +105,14 @@ class StateScope:
         if len(key_queue) > 1:
             self._check_and_build_tree(key_queue)
         else:
-            # 如果是根节点，直接注册
+            # 顶层键：与嵌套键分支保持同一语义——存在则更新，不存在则注册。
+            # 曾经这里在节点已存在时直接 return、跳过了 set_value，导致顶层键的
+            # 重复写入被静默丢弃（且不会触发观察者）。
             node = self.get_state_node(key)
             if node is None:
-                self.register_node(key, value)
+                self.register_node(key, value, effect)
+            else:
+                node.set_value(value)
             return
 
         if StateNodeType.get_type_by_value(value) == StateNodeType.branch:
