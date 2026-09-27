@@ -31,6 +31,12 @@ It is **not** a web framework and **not** a task queue — there is no HTTP laye
 broker, and no distributed scheduling. It is the in-process equivalent: a scheduler, an
 event pipeline, and a state store that you embed in a service.
 
+The extension surface is deliberately narrow — **subclass, implement `_execute`,
+register** — and every unsupported input fails loudly rather than degrading silently.
+That makes it well suited to **AI-agent-generated code**: short diffs, no glue code to
+get wrong, and a test suite that can judge a change automatically.
+See [Built for AI-agent-generated code](#built-for-ai-agent-generated-code).
+
 ### Capabilities
 
 | Capability | Status |
@@ -120,6 +126,52 @@ dispatch and the wake-up back to the scheduler. It is therefore negligible for
 millisecond-scale work and dominant for sub-100 µs work — pick your task granularity
 accordingly. `bench/DECISION.md` has the breakdown and the cross-platform caveats.
 
+### Built for AI-agent-generated code
+
+The extension surface is deliberately narrow, so generated code is short, verifiable,
+and — when it is wrong — wrong *loudly*.
+
+**Three steps, no glue code**
+
+```python
+class OrderSyncWorker(BaseWorker):          # 1. subclass
+    def __init__(self):
+        super().__init__({"is_loop": True, "delay_time": 5, "name": "OrderSync"})
+
+    def _execute(self):                     # 2. write only the business logic
+        sync_orders()
+
+master.register_worker("OrderSync", OrderSyncWorker)   # 3. register
+```
+
+Thread management, concurrency limits, in-flight de-duplication, timeout
+circuit-breaking, graceful shutdown and state persistence are the framework's job.
+An agent does not have to generate that code — and therefore cannot get it wrong.
+
+**Configuration is separate from implementation**
+
+A Worker only depends on the `props` dict handed to `__init__`. It has no visibility
+into framework internals, so generating one does not require reading the source or
+understanding how `Waiter` / `WorkerRegistry` / `EventReactor` relate.
+
+**Failures are explicit, never silently swallowed**
+
+| Input | Behaviour |
+|---|---|
+| A scheduler mode that isn't implemented (`process`) | raises `NotImplementedError` |
+| An unrecognised run-policy name in config | raises `ValueError` |
+| Importing a public name that doesn't exist | `ImportError` |
+| A text file in an unexpected encoding | emits a warning naming the file |
+
+This matters more for generated code than for hand-written code: an agent **cannot
+detect a silent downgrade**, and a loud error is the signal it needs to self-correct.
+
+**Changes can be checked automatically**
+
+The framework carries a spec baseline and a 313-case regression suite covering the
+core contracts, so an agent's change can be judged by running `pytest` rather than by
+asking a human to read it.
+
 ### Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) — module layout and data flow
@@ -144,6 +196,11 @@ Zoo Framework 用来运行**长期存活的后台任务**。你声明任务单�
 
 它**不是** Web 框架，也**不是**任务队列 —— 没有 HTTP 层、没有 broker、没有分布式调度。
 它是进程内的等价物：一个可以嵌进服务里的调度器 + 事件管道 + 状态存储。
+
+框架的扩展面被刻意收窄 —— **继承、实现 `_execute`、注册**，三步；且所有不受支持的
+输入都会**显式报错**而非静默降级。这使它很适合 **AI Agent 生成代码**：改动短、没有
+容易写错的胶水代码、且有测试套件可以自动判断改动对错。
+详见[面向 AI Agent 的代码生成](#面向-ai-agent-的代码生成)。
 
 ### 能力清单
 
@@ -230,6 +287,48 @@ Windows / Python 3.13 实测，负载为代表性任务（JSON 编解码 + 字�
 框架自身开销约为**每任务 100–220 µs**，主要来自线程派发与调度线程的唤醒。因此它对
 毫秒级任务是可忽略的，对 100 µs 以下的任务则占主导 —— 任务粒度请据此选择。
 拆解与跨平台说明见 `bench/DECISION.md`。
+
+### 面向 AI Agent 的代码生成
+
+框架的扩展面被刻意收窄，使生成的代码短、可校验，而且 —— 出错时**出错得很大声**。
+
+**三步接入，没有胶水代码**
+
+```python
+class OrderSyncWorker(BaseWorker):          # 1. 继承
+    def __init__(self):
+        super().__init__({"is_loop": True, "delay_time": 5, "name": "OrderSync"})
+
+    def _execute(self):                     # 2. 只写业务逻辑
+        sync_orders()
+
+master.register_worker("OrderSync", OrderSyncWorker)   # 3. 注册
+```
+
+线程管理、并发上限、在飞去重、超时熔断、优雅停机、状态落盘全部由框架承担。
+Agent 不需要生成这些代码，也就不会把它们生成错。
+
+**配置与实现分离**
+
+Worker 只依赖传给 `__init__` 的 props 字典，不感知框架内部结构。生成一个 Worker
+不需要读框架源码，也不需要理解 `Waiter` / `WorkerRegistry` / `EventReactor` 之间的关系。
+
+**失败是显式的，不会被静默吞掉**
+
+| 输入 | 行为 |
+|---|---|
+| 请求未实现的调度模式（如 `process`） | 抛 `NotImplementedError` |
+| 配置里写了无法识别的运行策略名 | 抛 `ValueError` |
+| 导入不存在的公开名称 | `ImportError` |
+| 文本文件编码与预期不符 | 输出告警并指明文件 |
+
+这一点对生成式代码比对人工代码更重要：**Agent 无法从"静默降级"中察觉自己写错了**，
+而明确的报错正是它自我修正所需的信号。
+
+**改动可被自动校验**
+
+框架带 spec 基线与 313 条回归用例，核心契约都有对应用例守护 —— Agent 生成的改动
+可以靠 `pytest` 判断对错，而不必靠人逐行读。
 
 ### 核心概念
 
