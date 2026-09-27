@@ -270,7 +270,7 @@ pip install -e ".[dev]"
 ```toml
 [project]
 name = "zoo-framework"
-version = "0.5.3-beta"
+version = "0.7.0"
 requires-python = ">=3.13"
 
 [project.optional-dependencies]
