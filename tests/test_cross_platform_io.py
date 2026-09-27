@@ -9,6 +9,7 @@ CI 才会红"的覆盖缺口，而这类缺陷恰恰因为如此才长期潜伏�
 """
 
 import io
+import locale
 import logging
 import os
 import sys
@@ -76,6 +77,16 @@ class TestTextWriteEncoding:
 class TestTextReadEncoding:
     """cross-platform-io: 读取 MUST 优先 UTF-8，回退 MUST 告警."""
 
+    @staticmethod
+    def _pretend_platform_encoding(monkeypatch, encoding: str) -> None:
+        """把"运行平台的默认编码"模拟为指定值.
+
+        回退的目标是 `locale.getpreferredencoding(False)`。用例若只写死某个编码的
+        文件、而不模拟这个值，就会退化成"只在默认编码恰好相同的平台上通过"——
+        默认编码为 UTF-8 的 Linux/macOS 上必然失败。
+        """
+        monkeypatch.setattr(locale, "getpreferredencoding", lambda *_: encoding, raising=False)
+
     def test_utf8_read_does_not_warn(self, tmp_path, caplog):
         """Scenario: 读取 UTF-8 文件得到正确内容."""
         path = str(tmp_path / "utf8.txt")
@@ -86,11 +97,14 @@ class TestTextReadEncoding:
 
         assert "不是 UTF-8" not in caplog.text
 
-    def test_non_utf8_file_falls_back_without_corruption(self, tmp_path, caplog):
+    def test_non_utf8_file_falls_back_without_corruption(self, tmp_path, caplog, monkeypatch):
         """Scenario: 回退后内容仍与源文件一致.
 
-        显式构造 GBK 文件来模拟"旧版本在非 UTF-8 平台上写出的配置"。
+        显式构造 GBK 文件来模拟"旧版本在非 UTF-8 平台上写出的配置"：旧版本是按
+        **当时的平台默认编码** 落盘的，因此这里同时把平台默认编码模拟为 GBK，
+        使该场景在任意平台上都成立。
         """
+        self._pretend_platform_encoding(monkeypatch, "gbk")
         path = tmp_path / "legacy.txt"
         path.write_bytes(NON_ASCII.encode("gbk"))
 
@@ -126,12 +140,17 @@ class TestTextReadEncoding:
         ParamsFactory(path)
         assert ParamsFactory.get_params("log:level") == NON_ASCII
 
-    def test_legacy_gbk_config_is_still_readable(self, tmp_path):
-        """旧版本写出的 GBK 配置仍可被读取（回退路径的兼容性保证）."""
+    def test_legacy_gbk_config_is_still_readable(self, tmp_path, monkeypatch):
+        """旧版本写出的 GBK 配置仍可被读取（回退路径的兼容性保证）.
+
+        与上一条同理：GBK 文件对应的是"平台默认编码为 GBK"的旧环境，须一并模拟，
+        否则该用例只在中文 Windows 上通过。
+        """
         import json
 
         from zoo_framework.core.params_factory import ParamsFactory
 
+        self._pretend_platform_encoding(monkeypatch, "gbk")
         path = tmp_path / "legacy_config.json"
         path.write_bytes(json.dumps({"log": {"level": NON_ASCII}}, ensure_ascii=False).encode("gbk"))
 

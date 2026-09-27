@@ -122,7 +122,10 @@ class BaseWaiter:
         self.workers = list(worker_list)
 
         # 生成池或者列表，这里使用线程池，如果使用进程池，需要考虑进程间通信，暂时不考虑
-        if self.worker_mode == WaiterConstant.WORKER_MODE_THREAD_POOL and self.resource_pool is None:
+        if (
+            self.worker_mode == WaiterConstant.WORKER_MODE_THREAD_POOL
+            and self.resource_pool is None
+        ):
             self.resource_pool = ThreadPoolExecutor(
                 max_workers=self.pool_size, thread_name_prefix="zoo-worker"
             )
