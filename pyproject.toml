@@ -56,8 +56,8 @@ docs = [
 ]
 
 [project.scripts]
-zfc = "zoo_framework.__main__:zfc"
-zoo = "zoo_framework.__main__:zfc"
+zfc = "zoo_framework.cli:zfc"
+zoo = "zoo_framework.cli:zfc"
 
 [project.urls]
 Homepage = "https://github.com/YearsAlso/zoo-framework"

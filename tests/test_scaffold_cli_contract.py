@@ -19,7 +19,7 @@ import pytest
 from click import BadParameter, UsageError
 from click.testing import CliRunner
 
-from zoo_framework.__main__ import zfc
+from zoo_framework.cli import zfc
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
@@ -95,7 +95,7 @@ class TestWorkerNameValidation:
         断言的是"命令失败"与"指出了问题"，不是某个具体措辞——措辞会变，
         失败与否不会。
         """
-        from zoo_framework.__main__ import _validate_worker_name
+        from zoo_framework.cli.scaffold import _validate_worker_name
 
         with pytest.raises((BadParameter, UsageError)):
             _validate_worker_name(name)
@@ -149,7 +149,7 @@ class TestWorkerNameValidation:
     @pytest.mark.parametrize("name", ["my_task", "task2", "_private", "a"])
     def test_legal_name_yields_legal_class_name(self, in_dir, name):
         """合法名称推导出的类名也必须是合法标识符（否则又产出不可解析的文件）."""
-        from zoo_framework.__main__ import _worker_names
+        from zoo_framework.cli.scaffold import _worker_names
 
         _, class_name = _worker_names(name)
 
