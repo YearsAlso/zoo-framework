@@ -33,9 +33,7 @@ class EventReactorManager:
                 reactor.set_event_timeout(EventParams.EVENT_JOIN_TIMEOUT)
 
     @classmethod
-    def dispatch(
-        cls, topic, content, reactor_name=None, channel: str = ChannelType.DEFAULT.value
-    ):
+    def dispatch(cls, topic, content, reactor_name=None, channel: str = ChannelType.DEFAULT.value):
         """分发事件.
 
         把主题下、且通过通道校验的所有响应器逐个执行。单个响应器抛出的异常不会

@@ -85,9 +85,7 @@ class StructuredLogUtils:
         字符的字形降级，MUST NOT 是整条日志连同时间戳一起消失。
         """
         handler = SafeStreamHandler(sys.stdout)
-        handler.setFormatter(
-            logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
         logging.basicConfig(level=logging.INFO, handlers=[handler])
         self._logger = logging.getLogger("zoo_framework")
 
