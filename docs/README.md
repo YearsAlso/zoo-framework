@@ -1,6 +1,14 @@
 # 🎪 Zoo Framework 开发文档
 
-> Zoo Framework 是一个基于动物园隐喻的 Python 多线程框架，提供 Worker（动物）、Cage（笼子）、Master（园长）、Event（食物）、FIFO（饲养员队列）等核心概念。
+> Zoo Framework 是一个**后台任务编排框架**：调度 Worker、投递事件、持久化状态，
+> 嵌入服务进程内运行长期存活的后台任务。
+>
+> 并发模型：**多线程**已实现（`thread` / `thread_pool` 两种调度模式）；**协程**由
+> `AsyncWorker` 承载，在调度路径上执行；**多进程未实现**（模式常量是占位，请求会被
+> 显式拒绝）。
+>
+> 框架用动物园隐喻命名（Worker / Cage / Master / Event / FIFO），但**隐喻只影响命名，
+> 不影响语义**。各名称对应的实际组件见下方「核心概念」。
 
 ---
 
@@ -34,7 +42,7 @@ graph TB
 
 ### 技术栈
 
-- **Python**: 3.8+
+- **Python**: 3.13+
 - **异步支持**: asyncio, gevent
 - **代码质量**: Ruff, MyPy, pre-commit
 - **测试**: pytest, pytest-cov, pytest-asyncio
@@ -54,10 +62,11 @@ cd zoo-framework
 ### 2. 安装依赖
 
 ```bash
-# 创建虚拟环境
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-# 或: venv\Scripts\activate  # Windows
+# 创建虚拟环境（请使用 3.13；仓库默认的 `python` 可能指向一个 3.9 环境，
+# 它无法导入本包）
+python3.13 -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+# 或: .venv\Scripts\activate  # Windows
 
 # 安装开发依赖
 pip install -e ".[dev]"
@@ -78,7 +87,7 @@ pytest
 ### 5. 运行示例
 
 ```bash
-python example/basic_usage.py
+python example/threads/demo_thread.py
 ```
 
 ---
@@ -90,7 +99,7 @@ zoo-framework/
 ├── zoo_framework/          # 核心源码
 │   ├── core/              # 核心模块
 │   │   ├── master.py      # 👨‍🌾 园长（Master）
-│   │   ├── waiter.py      # 🍽️ 饲养员（Waiter）
+│   │   ├── waiter/        # 🍽️ 饲养员（Waiter）
 │   │   ├── persistence_scheduler.py  # 💾 持久化调度器
 │   │   └── worker_registry.py        # 📝 Worker 注册表
 │   ├── workers/           # 👷 Worker 实现
@@ -129,14 +138,20 @@ Master 是框架的入口，负责管理所有 Worker 的生命周期。
 ```python
 from zoo_framework.core import Master
 
-# 创建 Master（自动初始化所有 Worker）
+# 创建 Master（自动注册并实例化内置的系统 Worker）
 master = Master()
 
-# 运行（阻塞）
+# 注册自定义 Worker —— 注册后才进入调度
+master.register_worker("MyWorker", MyWorker)
+
+# 运行（阻塞，Ctrl-C 退出）
 master.run()
 
-# 获取健康报告
+# 获取健康报告（⚠️ 指标链路尚未接通，execute_count 恒为 0）
 report = master.get_health_report()
+
+# 停机：停止派发 → 取消调度任务 → 停事件循环 → 停监控 → 注销 Worker
+master.shutdown()
 ```
 
 ### 👷 Worker - 动物
@@ -149,28 +164,36 @@ from zoo_framework.workers import BaseWorker
 class MyWorker(BaseWorker):
     def __init__(self):
         super().__init__({
-            "is_loop": True,    # 循环执行
-            "delay_time": 1.0,  # 每秒执行一次
-            "name": "MyWorker"
+            "is_loop": True,    # 循环执行（属性，读取时不要加括号）
+            "delay_time": 1.0,  # 单次执行结束后的等待秒数
+            "name": "MyWorker",
+            # "run_timeout": 30,  # 可选：执行超时（观测 + 熔断，不强制终止）
         })
-    
+
     def _execute(self):
         print("执行业务逻辑")
 ```
 
+可用钩子（都是可选的，覆写即可）：`_execute`（必须）、`_destroy(result)`
+（注销时调用，停机流程会触发）、`_on_error`、`_on_done`。
+
 ### 🏠 Cage - 笼子
 
-Cage 提供线程安全和生命周期管理。
+`@cage` 是一个**单例工厂**：按类名缓存实例，重复调用返回同一个对象。
+它**不是**线程安全装饰器 —— 线程安全由 `ThreadSafeDict` 等具体组件各自保证。
 
 ```python
 from zoo_framework.core.aop import cage
 
-@cage  # 线程安全装饰器
-class SafeWorker(BaseWorker):
-    def _execute(self):
-        # 线程安全的代码
-        pass
+@cage  # 装饰后 MyService 变成工厂函数，不是类
+class MyService:
+    pass
+
+MyService() is MyService()   # True
 ```
+
+⚠️ **`@cage` 不能用于 Worker**：`WorkerRegistry` 用 `issubclass` 校验契约，
+装饰后拿到的是工厂函数，注册会抛 `TypeError: issubclass() arg 1 must be a class`。
 
 ---
 
@@ -247,19 +270,19 @@ pip install -e ".[dev]"
 ```toml
 [project]
 name = "zoo-framework"
-version = "0.5.3"
-requires-python = ">=3.8"
+version = "0.5.3-beta"
+requires-python = ">=3.13"
 
 [project.optional-dependencies]
 dev = ["ruff", "mypy", "pytest", ...]
 docs = ["mkdocs", ...]
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py313"
 line-length = 100
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.13"
 ```
 
 ---
