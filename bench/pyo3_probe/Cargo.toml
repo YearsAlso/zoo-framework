@@ -1,0 +1,18 @@
+[package]
+name = "pyo3_probe"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "pyo3_probe"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.23", features = ["extension-module"] }
+tokio = { version = "1", features = ["rt-multi-thread", "time"] }
+
+[profile.release]
+# design D3：panic MUST NOT 导致 Python 进程 abort。
+# 保持 unwind，并在 FFI 边界用 catch_unwind 兜住。
+panic = "unwind"
+opt-level = 3

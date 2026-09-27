@@ -1,0 +1,61 @@
+{
+  "platform": "Windows-AMD64",
+  "python": "3.13.14",
+  "rounds": 60,
+  "workers": 2,
+  "note": "Rust 侧为最小对照实现，不含超时熔断/在飞表/结果聚合",
+  "rust_crossings_per_task_upper_bound": 2,
+  "results": {
+    "cpu-1x": {
+      "python": {
+        "end_to_end_median_ms": 0.15890000213403255,
+        "body_median_ms": 0.046200002543628216,
+        "framework_overhead_median_ms": 0.11269999959040433,
+        "crossings_per_task": 0,
+        "samples": 60
+      },
+      "rust": {
+        "end_to_end_median_ms": 0.09499999578110874,
+        "body_median_ms": 0.044200001866556704,
+        "framework_overhead_median_ms": 0.05079999391455203,
+        "crossings_per_task": 2,
+        "samples": 60
+      },
+      "speedup": 1.6726316756914075
+    },
+    "cpu-10x": {
+      "python": {
+        "end_to_end_median_ms": 0.4158999945502728,
+        "body_median_ms": 0.307999987853691,
+        "framework_overhead_median_ms": 0.10790000669658184,
+        "crossings_per_task": 0,
+        "samples": 60
+      },
+      "rust": {
+        "end_to_end_median_ms": 0.34169999707955867,
+        "body_median_ms": 0.2899000101024285,
+        "framework_overhead_median_ms": 0.051799986977130175,
+        "crossings_per_task": 2,
+        "samples": 60
+      },
+      "speedup": 1.2171495408395863
+    },
+    "io-10ms": {
+      "python": {
+        "end_to_end_median_ms": 10.559699992882088,
+        "body_median_ms": 10.34320000326261,
+        "framework_overhead_median_ms": 0.21649998961947858,
+        "crossings_per_task": 0,
+        "samples": 60
+      },
+      "rust": {
+        "end_to_end_median_ms": 10.49580000108108,
+        "body_median_ms": 10.429199988720939,
+        "framework_overhead_median_ms": 0.06660001236014068,
+        "crossings_per_task": 2,
+        "samples": 60
+      },
+      "speedup": 1.0060881487637365
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "platform": "Windows-AMD64",
+  "python": "3.13.14",
+  "repeats": 30,
+  "results": {
+    "0.5ms": {
+      "sleep_median_ms": 0.5253,
+      "sleep_max_ms": 0.6794,
+      "event_wait_median_ms": 14.8498,
+      "event_wait_max_ms": 15.7926
+    },
+    "1ms": {
+      "sleep_median_ms": 0.2381,
+      "sleep_max_ms": 0.9736,
+      "event_wait_median_ms": 14.4652,
+      "event_wait_max_ms": 15.1823
+    },
+    "5ms": {
+      "sleep_median_ms": 0.2049,
+      "sleep_max_ms": 0.537,
+      "event_wait_median_ms": 10.274,
+      "event_wait_max_ms": 10.9835
+    }
+  }
+}

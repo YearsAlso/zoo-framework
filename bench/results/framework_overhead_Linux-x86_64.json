@@ -1,0 +1,44 @@
+{
+  "platform": "Linux-x86_64",
+  "python": "3.13.5",
+  "rounds": 60,
+  "note": "代表性负载替身，非真实业务 trace；执行体耗时在同一次运行内埋点测得",
+  "results": {
+    "cpu-1x": {
+      "scale": 1,
+      "io_wait_ms": 0.0,
+      "body_median_ms": 0.043610001739580184,
+      "end_to_end_median_ms": 0.4074159987794701,
+      "framework_overhead_median_ms": 0.3638059970398899,
+      "framework_overhead_ratio": 0.8929595257176295,
+      "samples": 60
+    },
+    "cpu-10x": {
+      "scale": 10,
+      "io_wait_ms": 0.0,
+      "body_median_ms": 0.2582479974080343,
+      "end_to_end_median_ms": 0.6094199998187833,
+      "framework_overhead_median_ms": 0.351172002410749,
+      "framework_overhead_ratio": 0.5762397074516314,
+      "samples": 60
+    },
+    "cpu-100x": {
+      "scale": 100,
+      "io_wait_ms": 0.0,
+      "body_median_ms": 2.3709790002612863,
+      "end_to_end_median_ms": 2.6984399992215913,
+      "framework_overhead_median_ms": 0.327460998960305,
+      "framework_overhead_ratio": 0.12135196597099303,
+      "samples": 60
+    },
+    "io-10ms": {
+      "scale": 1,
+      "io_wait_ms": 10.0,
+      "body_median_ms": 10.152498998650117,
+      "end_to_end_median_ms": 10.584064999420661,
+      "framework_overhead_median_ms": 0.43156600077054463,
+      "framework_overhead_ratio": 0.040775070900846436,
+      "samples": 60
+    }
+  }
+}
