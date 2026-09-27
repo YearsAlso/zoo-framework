@@ -5,6 +5,7 @@
 """
 
 import json
+import keyword
 import os
 
 import click
@@ -13,7 +14,10 @@ from jinja2 import Template
 from zoo_framework.templates import (
     WORKER_IMPORT_MARKER,
     WORKER_REGISTRATION_MARKER,
+    conf_template,
+    events_template,
     main_template,
+    params_template,
     worker_template,
 )
 from zoo_framework.utils import FileUtils
@@ -22,6 +26,8 @@ DEFAULT_CONF = {
     "_exports": [],
     "log": {"path": "./logs", "level": "debug"},
     "worker": {"runPolicy": "simple", "pool": {"size": 5, "enabled": False}},
+    # 供 params 示例模块读取，路径为 demo:greeting
+    "demo": {"greeting": "hello from config.json"},
 }
 
 # 脚手架产出的源码目录名
@@ -53,11 +59,23 @@ def resolve_worker_dir(cwd: str | None = None) -> str:
 
 
 def create_func(object_name):
-    """生成一个脚手架项目."""
-    if os.path.exists(object_name):
-        return
+    """生成一个脚手架项目.
 
-    os.mkdir(object_name)
+    目标已存在时 MUST 明确失败：静默返回让调用方无法区分"本次创建了"与"本来就存在"，
+    而把目标当作"已就绪"继续使用，会掩盖路径写错这类真实故障。
+
+    Args:
+        object_name: 目标目录路径，可含尚未存在的父目录
+
+    Raises:
+        click.ClickException: 目标路径已存在。抛出前未做任何写入
+    """
+    if os.path.exists(object_name):
+        raise click.ClickException(
+            f"目标 {object_name!r} 已存在，未做任何改动。请换一个名称，或先删除该目录。"
+        )
+
+    os.makedirs(object_name)
     src_dir = os.path.join(object_name, "src")
     conf_dir = os.path.join(src_dir, "conf")
     params_dir = os.path.join(src_dir, "params")
@@ -90,6 +108,15 @@ def create_func(object_name):
     ):
         FileUtils.write_text(init_file, "")
 
+    # 三个扩展点各给一份可加载的示例模块。空目录会让产出物本身就不自洽——
+    # 存在"生成了但从头到尾不被加载"的模块，用户也看不出这些目录是干什么用的。
+    for module_file, module_template in (
+        (os.path.join(conf_dir, "demo_conf.py"), conf_template),
+        (os.path.join(params_dir, "demo_params.py"), params_template),
+        (os.path.join(events_dir, "demo_event.py"), events_template),
+    ):
+        FileUtils.write_text(module_file, module_template)
+
     with open(main_file, "w", encoding=FileUtils.DEFAULT_ENCODING) as fp:
         fp.write(main_template)
 
@@ -113,6 +140,10 @@ def _wire_worker_into_main(main_path: str, worker_name: str, class_name: str) ->
     没有任何代码导入那个包，即使写了也不会被执行。显式化之后，"生成的文件"与
     "被加载的代码"之间才有可追踪的链路。
 
+    接线是**幂等**的：同一个 Worker 重复接入不会让入口累积重复的导入行或注册条目。
+    判重按整行精确比较而非子串包含——按行比较与"一个 Worker 一行"的产出形态一致，
+    也不会把更长的名字或注释里的片段误判为已存在。
+
     Args:
         main_path: 入口文件路径
         worker_name: 用户输入的 Worker 名
@@ -125,19 +156,64 @@ def _wire_worker_into_main(main_path: str, worker_name: str, class_name: str) ->
     # 条目本身不带缩进：插入点保留了标记前的缩进
     registration_line = f'("{class_name}", {class_name}),'
 
-    content = content.replace(
-        WORKER_IMPORT_MARKER, f"{import_line}\n{WORKER_IMPORT_MARKER}", 1
-    )
-    content = content.replace(
-        WORKER_REGISTRATION_MARKER, f"{registration_line}\n    {WORKER_REGISTRATION_MARKER}", 1
-    )
+    if import_line not in content.splitlines():
+        content = content.replace(WORKER_IMPORT_MARKER, f"{import_line}\n{WORKER_IMPORT_MARKER}", 1)
+
+    if registration_line not in [line.strip() for line in content.splitlines()]:
+        content = content.replace(
+            WORKER_REGISTRATION_MARKER, f"{registration_line}\n    {WORKER_REGISTRATION_MARKER}", 1
+        )
 
     FileUtils.write_text(main_path, content)
 
 
-def worker_func(worker_name):
-    """在当前的脚手架项目中新增一个 Worker 文件."""
-    src_dir = resolve_worker_dir()
+def _validate_worker_name(worker_name: str) -> None:
+    """校验 Worker 名称可作 Python 标识符使用.
+
+    校验 MUST 发生在产出之前：先产出再检查等于把恢复成本转嫁给调用方，而且会留下
+    一份不可解析的文件——报错时磁盘上已经有坏产物了。
+
+    合法标识符的判定直接取自 Python 自身：`isidentifier()` 覆盖"不以数字开头、
+    不含连字符/点号/空格、非空"，`iskeyword()` 补上 `class`/`def` 这类合法标识符
+    但不可作类名的情况。
+
+    Args:
+        worker_name: 用户输入的 Worker 名
+
+    Raises:
+        click.BadParameter: 名称不是合法标识符，或为 Python 关键字
+    """
+    if worker_name.isidentifier() and not keyword.iskeyword(worker_name):
+        return
+
+    raise click.BadParameter(
+        f"{worker_name!r} 不是合法的 Worker 名称：它必须是合法的 Python 标识符"
+        "（不能以数字开头，不能含连字符、点号或空格，不能是 Python 关键字）。"
+        "请改用下划线命名，例如 'my_task'。"
+    )
+
+
+def worker_func(worker_name, project_dir: str | None = None):
+    """在当前的脚手架项目中新增一个 Worker 文件.
+
+    产出目录的判定分两条路径：`project_dir` 给定就落在该项目的 `src/workers/`；
+    否则按工作目录结构判定（`resolve_worker_dir`）。同一次调用中先创建项目再新增
+    Worker 时**必须**走前者——按工作目录判定看不到刚创建的目录，会把文件写到项目外。
+
+    Args:
+        worker_name: 用户输入的 Worker 名
+        project_dir: 显式指定的项目根目录；None 表示按工作目录结构判定
+
+    Raises:
+        click.BadParameter: `worker_name` 不是合法标识符
+    """
+    _validate_worker_name(worker_name)
+
+    if project_dir is not None:
+        src_dir = os.path.join(project_dir, SRC_DIR_NAME, WORKER_DIR_NAME)
+    else:
+        src_dir = resolve_worker_dir()
+
     module_name, class_name = _worker_names(worker_name)
     file_path = os.path.join(src_dir, f"{module_name}.py")
 
@@ -162,12 +238,20 @@ def zfc(create, worker):
 
     每个选项都会产生可观察的产出；不接受任何无效果的选项——被静默忽略的选项会让
     调用方以为自己的意图已被实现。
+
+    校验先于一切产出：同时传入 `--create` 与 `--worker` 时，Worker 名非法就不会
+    先建出半个项目——"非法输入不产出任何文件"必须是字面成立的，而不是仅对单独调用成立。
     """
+    if worker is not None:
+        _validate_worker_name(worker.lower())
+
+    project_dir = None
     if create is not None:
         create_func(create)
+        project_dir = create
 
     if worker is not None:
-        worker_func(worker.lower())
+        worker_func(worker.lower(), project_dir)
 
 
 if __name__ == "__main__":
