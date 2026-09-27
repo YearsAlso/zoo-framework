@@ -1,0 +1,73 @@
+## Purpose
+
+定义以默认配置启动框架所依赖的 Worker 注册与实例化契约，以及异步 Worker 的属性访问与生命周期日志契约。该能力确保框架管理器总能被成功构造，且 Worker 的配置读取路径不会在运行时抛出属性错误。
+
+## ADDED Requirements
+
+### Requirement: 框架管理器 MUST 能以默认配置构造
+
+系统 SHALL 允许调用方以默认配置构造框架管理器，并自动完成默认 Worker 的注册与实例化。构造过程 MUST NOT 因 Worker 注册抛出类型错误。
+
+#### Scenario: 默认配置构造成功
+- **WHEN** 调用方以默认配置构造框架管理器
+- **THEN** 构造成功并返回管理器实例，不抛出任何异常
+
+#### Scenario: 默认 Worker 注册后可被枚举
+- **WHEN** 框架管理器构造完成后枚举已注册的 Worker
+- **THEN** 枚举结果至少包含状态机 Worker 与事件 Worker
+
+#### Scenario: 构造过程可重复
+- **WHEN** 先后两次以默认配置构造框架管理器
+- **THEN** 两次均成功，不抛出异常
+
+### Requirement: Worker 注册 MUST 接受可产出实例的 Worker 定义
+
+注册 Worker 时，注册表 SHALL 接受任何能够产出 Worker 实例的定义形式（类或工厂函数），并 SHALL 支持延迟实例化——注册时不要求立即创建实例。对于不能产出 Worker 实例的输入，注册表 MUST 抛出 TypeError，且错误信息 SHALL 能够定位被拒绝的输入。
+
+#### Scenario: 注册 Worker 类并取用实例
+- **WHEN** 向注册表注册一个 Worker 类，随后按名称取用
+- **THEN** 返回该 Worker 的实例，不抛出异常
+
+#### Scenario: 同一名称重复取用返回同一实例
+- **WHEN** 对同一名称连续两次取用 Worker
+- **THEN** 两次返回同一个实例
+
+#### Scenario: 注册时不立即实例化
+- **WHEN** 仅注册一个 Worker 类而不取用
+- **THEN** 注册过程不抛出异常，且注册表可列出该名称
+
+#### Scenario: 拒绝不可产出 Worker 的输入
+- **WHEN** 向注册表注册一个不能产出 Worker 实例的对象
+- **THEN** 抛出 TypeError，且错误信息包含被拒绝输入的标识
+
+### Requirement: 异步 Worker MUST 以属性字典承载配置
+
+异步 Worker 的配置 SHALL 通过属性字典传入。其名称、循环标志与延迟时间的读取 MUST 始终返回配置值或既定默认值，MUST NOT 抛出 AttributeError。
+
+#### Scenario: 读取异步 Worker 的名称
+- **WHEN** 以名称为参数构造异步 Worker，并读取其名称
+- **THEN** 返回的名称包含传入的名称，不抛出 AttributeError
+
+#### Scenario: 未传名称时读取异步 Worker 的名称
+- **WHEN** 不传名称构造异步 Worker，并读取其名称
+- **THEN** 返回非空名称，不抛出 AttributeError
+
+#### Scenario: 读取异步 Worker 的循环标志
+- **WHEN** 未显式开启循环时读取异步 Worker 的循环标志
+- **THEN** 返回假值，不抛出 AttributeError
+
+### Requirement: 异步 Worker 的生命周期日志 MUST 可安全执行
+
+异步 Worker 的初始化、销毁与同步执行入口 SHALL 能在日志输出中引用该 Worker 自身的名称，MUST NOT 因名称属性缺失而抛出 AttributeError。
+
+#### Scenario: 异步初始化成功
+- **WHEN** 在事件循环中执行异步 Worker 的异步初始化
+- **THEN** 初始化成功完成，不抛出 AttributeError
+
+#### Scenario: 异步销毁成功
+- **WHEN** 在事件循环中执行异步 Worker 的异步销毁
+- **THEN** 销毁成功完成，不抛出 AttributeError
+
+#### Scenario: 同步执行入口的日志路径可用
+- **WHEN** 调用异步 Worker 的同步执行入口以触发其日志输出
+- **THEN** 日志输出成功引用 Worker 名称，不抛出 AttributeError
