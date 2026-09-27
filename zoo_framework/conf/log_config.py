@@ -3,7 +3,7 @@ import os
 
 from zoo_framework.core.aop import configure
 from zoo_framework.params import LogParams
-from zoo_framework.utils import DateTimeUtils, FileUtils
+from zoo_framework.utils import DateTimeUtils, FileUtils, SafeStreamHandler
 
 level_relations = {
     "debug": logging.DEBUG,
@@ -39,7 +39,7 @@ def log_config_instance(logger, level: str = "info"):
 
     formatter = logging.Formatter(LogParams.LOG_BASIC_FORMAT, LogParams.LOG_DATE_FORMAT)
 
-    choler = logging.StreamHandler()  # 输出到控制台的handler
+    choler = SafeStreamHandler()  # 输出到控制台的handler
     choler.setFormatter(formatter)
     choler.setLevel(logging.INFO)  # 也可以不设置，不设置就默认用logger的level
 
@@ -48,7 +48,9 @@ def log_config_instance(logger, level: str = "info"):
     FileUtils.dir_exists_and_create(log_dir_path)
 
     log_path = "{}/{}.log".format(log_dir_path, DateTimeUtils.get_format_now("%Y-%m-%d"))
-    filer = logging.FileHandler(log_path)  # 输出到文件的handler
+    # 日志文件显式以 UTF-8 写出：依赖平台默认编码会让含 emoji / 中文的日志在
+    # 非 UTF-8 平台上整行丢失，也会让日志文件无法被跨平台读取
+    filer = logging.FileHandler(log_path, encoding=FileUtils.DEFAULT_ENCODING)
     filer.setFormatter(formatter)
     logger.addHandler(choler)
     logger.addHandler(filer)

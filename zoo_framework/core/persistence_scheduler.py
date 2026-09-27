@@ -128,8 +128,7 @@ class FileChecksumValidator:
             checksum: 校验和值
         """
         checksum_path = filepath + ".checksum"
-        with open(checksum_path, "w") as f:
-            f.write(checksum)
+        FileUtils.write_text(checksum_path, checksum)
 
     @staticmethod
     def load_checksum(filepath: str) -> Any | None:
@@ -145,8 +144,7 @@ class FileChecksumValidator:
         if not os.path.exists(checksum_path):
             return None
 
-        with open(checksum_path) as f:
-            return f.read().strip()
+        return FileUtils.read_text(checksum_path).strip()
 
 
 class BackupManager:
@@ -177,7 +175,9 @@ class BackupManager:
         os.makedirs(backup_dir, exist_ok=True)
 
         # 生成备份文件名
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # 时间戳精确到微秒：秒级精度下同一秒内的多次备份会相互覆盖。
+        # 固定宽度的微秒后缀同时保证"字典序等于时间序"——取最新备份依赖该性质。
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         filename = os.path.basename(filepath)
         backup_path = os.path.join(backup_dir, f"{filename}.{timestamp}.bak")
 
