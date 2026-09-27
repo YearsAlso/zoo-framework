@@ -26,7 +26,7 @@ classifiers = [
 
 dependencies = [
     "click>=8.0.0",
-    "jinja2>=3.0.0",
+    # jinja2 已移除：脚手架模板只用 string.Template 的变量替换，不需要模板引擎
     "gevent>=23.0.0",
     "pyyaml>=6.0",
     "python-dotenv>=1.0.0",

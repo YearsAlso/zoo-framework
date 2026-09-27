@@ -7,9 +7,9 @@
 import json
 import keyword
 import os
+from string import Template
 
 import click
-from jinja2 import Template
 
 from zoo_framework.templates import (
     WORKER_IMPORT_MARKER,
@@ -222,7 +222,9 @@ def worker_func(worker_name, project_dir: str | None = None):
         FileUtils.write_text(os.path.join(src_dir, "__init__.py"), "")
 
     template = Template(worker_template)
-    FileUtils.write_text(file_path, template.render(worker_name=worker_name))
+    FileUtils.write_text(
+        file_path, template.substitute(worker_name=worker_name, class_name=class_name)
+    )
 
     # 把新 Worker 接入入口——只有当入口存在时才接线（非脚手架目录没有入口）
     main_path = os.path.join(os.path.dirname(src_dir), "main.py")

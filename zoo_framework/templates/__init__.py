@@ -18,14 +18,14 @@ WORKER_REGISTRATION_MARKER = "# zfc:worker-registrations"
 worker_template = """from zoo_framework.workers import BaseWorker
 
 
-class {{worker_name.title()}}Worker(BaseWorker):
-    \"\"\"{{worker_name}} Worker.\"\"\"
+class $class_name(BaseWorker):
+    \"\"\"$worker_name Worker.\"\"\"
 
     def __init__(self):
         BaseWorker.__init__(self, {
             "is_loop": True,
             "delay_time": 10,
-            "name": "{{worker_name}}_worker",
+            "name": "${worker_name}_worker",
         })
 
     def _execute(self):
