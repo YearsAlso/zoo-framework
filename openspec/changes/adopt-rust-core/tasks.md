@@ -2,7 +2,10 @@
 
 - [x] 1.1 确认硬依赖已满足：`fix-worker-scheduling` 已验收完成；验证：`openspec list` 中该变更不再处于进行中状态，且其全部回归用例（含 W-01 ~ W-25）通过。**该条件未满足时不得取基线**——缺陷造成的退化会混入"框架开销"的测量结果
 - [x] 1.2 在修复后的实现上重取基线：派发开销、`EventReactorManager.dispatch()` 全路径、事件管道单次投递；验证：三项数字均低于本轮评审记录的改前值（13.5 µs / 18.6 µs / 38.1 µs），且差距超出测量噪声
-- [ ] 1.3 **未完成** —— 四项纯 Python 优化至今未落地。实测 `gevent 26.9.0` 仍在依赖中，`ThreadSafeDict` 仍使用 `multiprocessing.Lock`。原因：design 的 P1 把它们列为 `fix-worker-scheduling` 的一部分，但**该变更的 tasks 从未包含它们**，属本变更任务表编写时的疏漏（把设计文档里论证用的优化清单误当成了已分配的工作）。已记入 `bench/DECISION.md` 的「未完成项」
+- [ ] 1.3 **未完成 · 归属已裁定** —— 四项纯 Python 优化至今未落地。核对后两条实测断言仍成立：`gevent` 仍在 `pyproject.toml` 依赖中，且**仅剩两处**使用（`workers/event_worker.py`、`statemachine/state_node.py`）；`ThreadSafeDict` 仍使用模块级 `multiprocessing.Lock`。归属裁定：
+  - **默认启用资源池** → 移交 `scheduler-model-seam`。它是"模型默认（并发原语 + 背压策略）"的决定，不是原语替换。补充事实：内核已从 `fix-worker-scheduling` 获得 `WORKER_MODE` 参数与 `worker:pool:enabled` 别名兼容，且线程模式与池模式现已共用单一结算点上报结果——该项风险低于本表编写时的水平
+  - **去 gevent（两处）+ `ThreadSafeDict` 换锁 + `BaseFIFO` 换 `deque`** → 移交待立变更 `align-execution-primitives`。三者不可拆：`gevent` 依赖只有在两处使用都清掉后才能从依赖列表移除，而其中 `state_node._perform_effect` 同时是"写路径阻塞观察者"的**行为**问题（同一个代码行）
+  - 原因为任务表编写疏漏（把 design 里论证用的优化清单误当成已分配的工作）。归属已同步记入 `bench/DECISION.md` 的「未完成项」
 - [x] 1.4 准备真实负载 trace，明确来源、规模与代表性；验证：trace 文件与说明写入 `bench/README.md`，MUST NOT 只使用空 Worker 的合成基准（见 design 的 Risks 首条）
 - [x] 1.5 按 design D0 为每个目标平台各建一份基线。**实际达成度**：Windows 为原生数据；Linux 只能在 WSL2 上取数，而 WSL2 的跨线程唤醒被 Hypervisor 放大（框架开销实测为 Windows 的约 3 倍），**原生 Linux 的绝对数字仍未取得**，需要 CI 的 `ubuntu-latest`。已记入 `bench/DECISION.md` 的「未完成项」
 - [x] 1.6 确认取数环境符合 design D0 对 WSL 的用途边界；验证：涉及跨线程唤醒的绝对延迟取自 CI 的 `ubuntu-latest` 而非 WSL2；WSL2 数据仅用于论证机制性差异（锁实现代价、`fork`/`spawn` 有无、GIL 行为）
@@ -58,7 +61,7 @@
 - [x] 8.2 确认产品构建链未被改动；验证：`pyproject.toml` 中 `build-backend` 仍为 `hatchling`，`release.yml` 未修改
 - [x] 8.3 确认已发布版本的运行时行为零变化；验证：`pytest -q` 全绿，用例数不少于 `fix-worker-scheduling` 完成后的数量
 - [x] 8.4 复跑 OpenSpec 校验；验证：`openspec validate --all` 全绿，`adopt-rust-core` 的 `skip_specs` 标记仍被正确采纳
-- [ ] 8.5 **未完成** —— 本机无法运行 CI 三平台矩阵。`bench/` 未被 `tests.yml` 引用，不增加现有测试耗时；但 macOS 抽样验证（D0 要求）同样需在 CI 上完成
+- [ ] 8.5 **未完成 · 归属已裁定** —— 本机无法运行 CI 三平台矩阵。核对后确认：`bench/` 未被任何 workflow 引用（`tests.yml` 的 `benchmark` 作业指向的是**不存在的** `tests/benchmarks/`，两个目录名撞车，容易误判）。归属裁定：并入待立变更 `align-execution-primitives` 的验证任务——该变更的 800x/13x/12.4x 声明需在原生 Linux 复测才能跨平台成立，与 `DECISION.md` 记录的「Linux 侧原生取数未完成」是同一件事
 
 ## 9. 跨平台缺陷的移交与追踪
 

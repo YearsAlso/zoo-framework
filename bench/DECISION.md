@@ -167,9 +167,17 @@ Rust**（细粒度档 Rust 也救不了：占比 53.5% 仍远超阈值；粗粒�
 
 ## 未完成项（如实记录）
 
-| 项 | 状态 | 原因 |
-|---|---|---|
-| Linux 侧框架开销的原生取数 | **未完成** | WSL2 的数字被 Hypervisor 放大（3x），不可用；需要 CI 的 `ubuntu-latest` |
-| 真实业务负载 trace | **未完成** | 仓库无真实样本，用代表性负载替代（`bench/workload.py` 已标注其为替身） |
-| 四项纯 Python 优化 | **未完成** | design 中列为 P1 的一部分，但 `fix-worker-scheduling` 的 tasks 未包含；属任务表编写疏漏 |
-| macOS 抽样验证 | **未完成** | 本机无 macOS 环境，需要 CI 的 `macos-latest` |
+四项均**未完成**。归属已于 2026-09-27 裁定，避免继续处于"无人承接"状态：
+
+| 项 | 状态 | 原因 | 归属 |
+|---|---|---|---|
+| Linux 侧框架开销的原生取数 | **未完成** | WSL2 的数字被 Hypervisor 放大（3x），不可用；需要 CI 的 `ubuntu-latest` | 并入待立变更 `align-execution-primitives` 的复测任务 |
+| 真实业务负载 trace | **未完成** | 仓库无真实样本，用代表性负载替代（`bench/workload.py` 已标注其为替身） | 仍无归属——需要真实样本才有意义，不宜为它单立变更 |
+| 四项纯 Python 优化 | **未完成** | design 中列为 P1 的一部分，但 `fix-worker-scheduling` 的 tasks 未包含；属任务表编写疏漏 | 「默认启用资源池」→ `scheduler-model-seam`；「去 gevent + `ThreadSafeDict` 换锁 + `BaseFIFO` 换 `deque`」→ 待立变更 `align-execution-primitives` |
+| macOS 抽样验证 | **未完成** | 本机无 macOS 环境，需要 CI 的 `macos-latest` | 并入待立变更 `align-execution-primitives` 的复测任务 |
+
+**三项与本次裁定相关的实测补充（2026-09-27 复核）：**
+
+1. **`gevent` 只有两处使用**，且**不可拆分**：`workers/event_worker.py`（事件管道）与 `statemachine/state_node.py` 的 `_perform_effect`（状态写路径）。后者同时是**行为**问题——`set_value` 会在写路径上阻塞等待观察者，最长 5 秒（`gevent.joinall(timeout=5)`）。依赖 `gevent` 只有在两处都清掉后才能从 `pyproject.toml` 移除，故三项优化必须同属一个变更。
+2. **`ThreadSafeDict` 仍是模块级单把 `multiprocessing.Lock`**，即全进程串行。换锁时不应只换类型，还应把"全局单锁"改为按实例或按作用域——这与 `scoped-container` 要求的线程安全归属声明是同一条线。
+3. **「默认启用资源池」的风险已低于本表编写时的水平**：内核已获得 `WORKER_MODE` 参数（`worker:mode`，未实现的模式明确拒绝而非静默降级）与 `worker:pool:enabled` 的历史键名别名兼容，且线程模式与池模式现在**共用单一结算点**上报结果（`_on_worker_done`）。因此把默认值由 `False` 改为 `True` 不再是结果投递的行为变更，只剩资源边界与背压的变化。
