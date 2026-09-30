@@ -24,7 +24,10 @@ class ParamsFactory:
 
     def load_exports(self):
         export_files = self.config_params.get("_exports")
-        if type(export_files) != type([]):
+        # 用 `isinstance` 而非 `type(x) != type([])`：后者不构成检查器可识别的类型收窄
+        # （故基线此处一直报 union-attr），且会连带**拒绝 list 的子类**。
+        # 配置来自 JSON，产出的是精确 list，两种写法在本场景等价。
+        if not isinstance(export_files, list):
             return
 
         for export_file in export_files:

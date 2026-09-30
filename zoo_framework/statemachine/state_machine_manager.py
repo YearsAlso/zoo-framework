@@ -93,12 +93,14 @@ class StateMachineManager:
         if self._state_scope_map.get(scope) is None:
             return None
 
-        if self._state_scope_map[scope].get_state_node(key) is None:
-            return None
-
-        # 移除状态节点
+        # 取一次并判空：原先先 `get_state_node(key) is None` 判空、随后**再取一次**，
+        # 而 map 是 ThreadSafeDict——两次取值之间节点可能已被并发移除，故原本存在一个
+        # 真实空窗（届时 `node.get_value()` 会 AttributeError）。合并为一次取值，
+        # 同时消掉该窗口与类型错误。
         state_register: StateScope = self._state_scope_map[scope]
         node = state_register.get_state_node(key)
+        if node is None:
+            return None
 
         value = node.get_value()
         state_register.remove_state_node(key)

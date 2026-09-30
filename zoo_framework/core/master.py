@@ -251,6 +251,11 @@ class Master:
 
     def _setup_svm(self) -> None:
         """设置 SVM 监控."""
+        # 先判空——本文件其余四处取用 svm_worker 时都判了（226/306/381/399），只此处漏；
+        # 未启用 SVM 时 svm_worker 为 None，原先这里会直接 AttributeError。
+        if not self.svm_worker:
+            return
+
         # 注册所有 Worker 到 SVM
         for name, worker in self.worker_registry.get_all_workers().items():
             self.svm_worker.register_worker(name, worker)

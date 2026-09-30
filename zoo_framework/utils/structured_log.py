@@ -104,7 +104,9 @@ class StructuredLogUtils:
             返回自身，支持链式调用
         """
         self._context.update(context)
-        if STRUCTLOG_AVAILABLE and hasattr(self._logger, "bind"):
+        # 补一个显式 `is not None`：`hasattr(None, "bind")` 在运行期本就为 False，故行为不变；
+        # 但静态检查无法从 hasattr 收窄 `Any | None`，补判空只为让这处既有防护可见。
+        if STRUCTLOG_AVAILABLE and self._logger is not None and hasattr(self._logger, "bind"):
             self._logger = self._logger.bind(**context)
         return self
 
@@ -116,7 +118,7 @@ class StructuredLogUtils:
         """
         for key in keys:
             self._context.pop(key, None)
-        if STRUCTLOG_AVAILABLE and hasattr(self._logger, "unbind"):
+        if STRUCTLOG_AVAILABLE and self._logger is not None and hasattr(self._logger, "unbind"):
             self._logger = self._logger.unbind(*keys)
         return self
 
