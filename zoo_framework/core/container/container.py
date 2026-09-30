@@ -132,7 +132,13 @@ class ScopedContainer:
             )
 
         registered_type = self._resolve_registered_type(target, name)
-        key = name or qualified_name(registered_type)
+        if name is not None:
+            key = name
+        else:
+            # _resolve_registered_type 对字符串目标要求必须给出 name，故此处 registered_type
+            # 必非 None。显式断言把这条不变量变成检查器可见的，也在原地写清了"为何可调用"。
+            assert registered_type is not None
+            key = qualified_name(registered_type)
 
         if factory is not None and instance is not None:
             raise ValueError(f"注册 {key!r} 同时给出了 factory 与 instance，二者只能取其一")

@@ -225,7 +225,9 @@ class StateScope:
         """
         node = self.get_state_node(key)
         if node is None:
-            LogUtils.error(self.__class__, f"State is not exist, key: {key}")
+            # 参数原先写反了：LogUtils.error 的签名是 (message, cls_name=None)，而这里把
+            # **类**当 message、把消息当 cls_name 传——日志里打出的是类对象而不是这条消息。
+            LogUtils.error(f"State is not exist, key: {key}", self.__class__.__name__)
             return
 
         node.set_key(target_key)
@@ -241,7 +243,9 @@ class StateScope:
         """
         node = self.get_state_node(key)
         if node is None:
-            LogUtils.error(self.__class__, f"State is not exist, key: {key}")
+            # 参数原先写反了：LogUtils.error 的签名是 (message, cls_name=None)，而这里把
+            # **类**当 message、把消息当 cls_name 传——日志里打出的是类对象而不是这条消息。
+            LogUtils.error(f"State is not exist, key: {key}", self.__class__.__name__)
             return
 
         if node.get_type() == StateNodeType.branch:
