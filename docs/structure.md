@@ -58,7 +58,7 @@ zoo_framework/
 | Path | Responsibility |
 |---|---|
 | `core/master.py` | `Master` — the lifecycle entry point: load config → register Workers → start scheduling → shut down |
-| `core/aop/` | The remaining decorators: `params` (resolve `ParamsPath` into literals), `event`, `worker`, `configure`, `logger`, `stopwatch`, `validation`. The `cage` decorator was **removed** — process-level sharing is declared through the container instead |
+| `core/aop/` | The remaining decorators: `params` (resolve `ParamsPath` into literals), `event`, `worker`, `configure`, `logger`, `stopwatch`, `validation`. The `cage` decorator was **removed** — process-level sharing is declared through the container instead. The directory holds decorators only: there is **no** aspect-weaving machinery here (no join points, advice, or pointcut matching), despite the `aop` in the name |
 | `core/waiter/` | The scheduler. `base_waiter.py` composes a `WorkerDispatchCore` (model-agnostic bookkeeping: single settlement point, timeout observation, shutdown reclaim, runtime registration) with a `SchedulerModel` (`ThreadPerTaskModel` / `ThreadPoolModel`); `waiter_factory.py` builds it from `worker:mode` |
 | `core/container/` | The scoped container: `ScopedContainer` (`register` / `resolve` / `exclusive` / `release` / `replace` / `reset`), `Scope` + `ScopeKind` (process / session / prototype handles), `ThreadSafety` (the required thread-safety declaration), `Registration` + `qualified_name` (the module-qualified key), and `registry` — the framework's **own** process-level container plus `process_scoped` / `process_instance`, which register without replacing the class |
 | `core/worker_registry.py` | `WorkerRegistry` — a **module-level singleton**, never reset between `Master` instances, and **not** part of the container |
@@ -194,7 +194,7 @@ zoo_framework/
 | 路径 | 职责 |
 |---|---|
 | `core/master.py` | `Master` —— 生命周期入口：加载配置 → 注册 Worker → 启动调度 → 停机 |
-| `core/aop/` | 余下的装饰器：`params`（把 `ParamsPath` 解析为字面值）、`event`、`worker`、`configure`、`logger`、`stopwatch`、`validation`。`cage` 装饰器**已删除** —— 进程级共享改由容器声明 |
+| `core/aop/` | 余下的装饰器：`params`（把 `ParamsPath` 解析为字面值）、`event`、`worker`、`configure`、`logger`、`stopwatch`、`validation`。`cage` 装饰器**已删除** —— 进程级共享改由容器声明。该目录只有装饰器：**没有**切面织入机制（无连接点、无通知、无切点匹配），尽管包名里有 `aop` |
 | `core/waiter/` | 调度器。`base_waiter.py` 把 `WorkerDispatchCore`（模型无关的簿记：单一结算收口、超时观测、停机资源回收、运行期注册）与 `SchedulerModel`（`ThreadPerTaskModel` / `ThreadPoolModel`）组合起来；`waiter_factory.py` 按 `worker:mode` 装配 |
 | `core/container/` | 按作用域解析的容器：`ScopedContainer`（`register` / `resolve` / `exclusive` / `release` / `replace` / `reset`）、`Scope` + `ScopeKind`（进程 / 会话 / 原型三种句柄）、`ThreadSafety`（必填的线程安全声明）、`Registration` + `qualified_name`（模块+限定名的键），以及 `registry` —— 框架**自身**的进程级容器与 `process_scoped` / `process_instance`（登记但**不替换类**） |
 | `core/worker_registry.py` | `WorkerRegistry` —— **模块级单例**，在不同 `Master` 实例之间从不重置，且**不属于**容器 |
