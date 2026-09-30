@@ -4,10 +4,20 @@ from ..params_path import ParamsPath
 config_params = {}
 
 
+def _cache_key(cls) -> str:
+    """解析缓存的键：限定名（模块 + 限定名）.
+
+    MUST NOT 只用裸类名——两个定义位置不同的同名参数类会命中同一条记录，
+    后定义者**跳过解析**、直接复用前者的配置值，且发生在 import 期、无任何提示。
+    """
+    return f"{cls.__module__}.{cls.__qualname__}"
+
+
 def params(cls):
     def inner():
-        if config_params.get(cls.__name__) is not None:
-            return config_params[cls.__name__]
+        key = _cache_key(cls)
+        if config_params.get(key) is not None:
+            return config_params[key]
         params_list = dir(cls)
         for param in params_list:
             params_path = getattr(cls, param)
@@ -15,7 +25,7 @@ def params(cls):
                 continue
             value = _resolve(params_path)
             setattr(cls, param, value)
-        config_params[cls.__name__] = cls
+        config_params[key] = cls
         return cls
 
     return inner()
