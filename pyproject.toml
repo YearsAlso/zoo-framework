@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "zoo-framework"
 version = "0.5.3-beta"
-description = "🎪 Zoo Framework - A simple and quick multi-threaded Python framework with zoo metaphor"
+description = "🎪 Zoo Framework - the foundation framework for agent and device orchestration: schedule Workers, deliver events, persist state"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.13"
@@ -266,4 +266,3 @@ replace = 'version = "{new_version}"'
 filename = "zoo_framework/__init__.py"
 search = '__version__ = "{current_version}"'
 replace = '__version__ = "{new_version}"'
-

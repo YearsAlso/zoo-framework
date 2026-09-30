@@ -4,7 +4,7 @@
 
 # 🎪 Zoo Framework
 
-**后台任务编排框架** —— 调度 Worker、投递事件、持久化状态
+**打造智能体与设备编排的下一代基石架** —— 调度 Worker、投递事件、持久化状态
 
 [![Python](https://img.shields.io/badge/Python-3.13%2B-blue)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/zoo-framework)](https://pypi.org/project/zoo-framework/)
