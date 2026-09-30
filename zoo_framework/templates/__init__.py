@@ -71,12 +71,12 @@ def demo_conf():
 params_template = '''"""配置项声明示例.
 
 `@params` 在**导入时**把类属性替换成 `config.json` 里对应路径的值，路径形如
-`a:b:c`，与配置文件的嵌套结构一一对应；取不到时退回 `ParamsPath` 声明的默认值。
+`a:b:c`，与配置文件的嵌套结构一一对应；取不到时退回声明中给出的默认值。
 
 本模块的 `demo:greeting` 对应入口同级的 `config.json` 中 `demo.greeting`。
 """
 
-from zoo_framework.core import ParamsPath
+from zoo_framework.core import param
 from zoo_framework.core.aop import params
 
 
@@ -84,7 +84,7 @@ from zoo_framework.core.aop import params
 class DemoParams:
     """与 `config.json` 的 `demo` 段对应."""
 
-    GREETING = ParamsPath(value="demo:greeting", default="hello from default")
+    GREETING = param(value="demo:greeting", default="hello from default")
 '''
 
 events_template = '''"""事件反应器示例.

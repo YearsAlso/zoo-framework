@@ -57,7 +57,7 @@
 - **选**：删除该文件，随后验证打包路径不受影响（`python -m build` + `twine check dist/*`）。
 - **理由**：冲突的根源是"根目录被当成包"这一错误事实，删除即消除根源；在配置里加 `explicit_package_bases` 只是绕过症状，且会让"为什么需要这个开关"成为后续维护者的隐性知识。
 - **已考虑的替代**：保留文件 + 在 `[tool.mypy]` 设 `explicit_package_bases = true`。作为**兜底**保留在任务中：若删除后仍出现映射冲突，再启用该开关。
-- **验证要求**：删除后必须实测打包通过，因为 `setup.py` 里存在 `find_packages()`（见 Risks）。
+- **验证要求**：删除后必须实测打包通过。**依据已收窄**：原写的是"因为 `setup.py` 里有 `find_packages()`"，而该文件已随遗留构建路径删除（它导入 `distutils`，而 `distutils` 自 Python 3.12 起不在标准库，故对本项目任何受支持的版本都跑不起来）。现在打包完全由 `pyproject.toml` 的 hatchling 配置决定——**风险与其验证要求仍然成立，只是依据换了**，故收窄而非删除。
 
 ### D2 · 清除 `continue-on-error` 的顺序：先清零，再上锁
 
@@ -111,7 +111,7 @@
 
 ## Risks / Trade-offs
 
-**[删除根 `__init__.py` 影响打包] → ** `setup.py` 里有 `find_packages()`，删除文件可能改变其发现结果。缓解：任务中要求实测 `python -m build` + `twine check dist/*` 通过；若失败则回退到 D1 的兜底方案（保留文件 + `explicit_package_bases`）。
+**[删除根 `__init__.py` 影响打包] → ** 打包由 `pyproject.toml` 的 hatchling 配置（`[tool.hatchling.build] packages = ["zoo_framework"]`）决定，与"仓库根是不是包"无关。**本条原先写的机制（`setup.py` 里的 `find_packages()`）已不存在**——`setup.py` 已随遗留构建路径删除（它导入 `distutils`，而该模块自 Python 3.12 起不在标准库）。**风险与其验证要求仍然成立，依据换了**，故收窄而非删除。缓解：仍要求实测 `python -m build` + `twine check dist/*`；**已实测通过**（产出 `zoo_framework-0.5.3b0.tar.gz` 与 wheel，`twine check` 两项 PASSED）；若失败则回退到 D1 的兜底方案（保留文件 + `explicit_package_bases`）。
 
 **[清零 110 个错误时用 `# type: ignore` 掩盖真实缺陷] → ** 这是本次最实质的风险：把类型错误压成绿色，却留下未修的 bug，比不做门禁更坏（因为它制造"已检查"的假象）。缓解：任务中设专门环节审查每一处新增的 `ignore`/`cast`，要求逐处注释原因；并明确禁止用批量压制替代修复。
 
