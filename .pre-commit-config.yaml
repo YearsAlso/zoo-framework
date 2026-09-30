@@ -8,7 +8,12 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
+      # --unsafe 用于放行自定义 YAML 标签：mkdocs.yml 用
+      # !!python/name:pymdownx.superfences.fence_code_format 声明 Mermaid 的自定义
+      # fence（mkdocs-material 的标准写法），safe_load 会直接拒绝该标签、导致
+      # mkdocs.yml 无法提交。本钩子只做语法检查，不解析标签语义。
       - id: check-yaml
+        args: [--unsafe]
       - id: check-added-large-files
         args: ['--maxkb=500']
       - id: check-case-conflict
