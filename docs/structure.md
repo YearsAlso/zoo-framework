@@ -20,14 +20,12 @@ zoo-framework/
 ├── example/             usage examples (see the caveat below)
 ├── bench/               Rust feasibility measurement & decision — NOT product code
 ├── openspec/            specs + in-flight changes (spec-first workflow)
-├── script/              legacy release scripts (pro.sh / pro.bat → setup.py + twine)
 ├── .github/workflows/   build / tests / quality / docs / release
 ├── pyproject.toml       metadata, dependencies, and all tool config
-├── setup.py             legacy build path, reads the version from .env
 └── .env                 VERSION (one of the three places the version lives)
 ```
 
-Two caveats about the tree:
+Three caveats about the tree:
 
 - `test/` (singular) at the root contains only stale `__pycache__` artifacts, not sources.
   The live suite is `tests/`.
@@ -35,6 +33,10 @@ Two caveats about the tree:
   API** — `main.py` calls `Master(1)`, and `demo_event.py` imports from
   `build.lib.zoo_framework`. `example/threads/demo_thread.py` is the example that reflects
   current usage.
+- The legacy `setup.py` + `script/pro.{sh,bat}` release path was **removed**: `setup.py`
+  imported `distutils`, which left the standard library in Python 3.12, so it could not run
+  on any Python this project supports (`>= 3.13`). Releases go through `python -m build`
+  (hatchling) and the release workflow.
 
 ### `zoo_framework/` by concern
 
@@ -166,19 +168,20 @@ zoo-framework/
 ├── example/             使用示例（注意下面的例外）
 ├── bench/               Rust 可行性测量与决策 —— 不属于产品代码
 ├── openspec/            规范 + 在途变更（规范先行工作流）
-├── script/              遗留发布脚本（pro.sh / pro.bat → setup.py + twine）
 ├── .github/workflows/   build / tests / quality / docs / release
 ├── pyproject.toml       元数据、依赖，以及全部工具配置
-├── setup.py             遗留构建路径，从 .env 读版本号
 └── .env                 VERSION（版本号所在的三处之一）
 ```
 
-两个需要注意的地方：
+三个需要注意的地方：
 
 - 根目录的 `test/`（单数）里只有过期的 `__pycache__` 产物，不是源码。生效的套件是 `tests/`。
 - `example/main.py` 与 `example/event/demo_event.py` **已过期，与当前 API 不符** ——
   `main.py` 调用的是 `Master(1)`，`demo_event.py` 从 `build.lib.zoo_framework` 导入。
   反映当前用法的是 `example/threads/demo_thread.py`。
+- 遗留的 `setup.py` + `script/pro.{sh,bat}` 发布路径**已删除**：`setup.py` 导入 `distutils`，
+  而它在 Python 3.12 已从标准库移除，因此在本项目支持的 Python 版本（`>= 3.13`）上根本
+  跑不起来。发布走 `python -m build`（hatchling）与发布工作流。
 
 ### `zoo_framework/` 按关注点划分
 

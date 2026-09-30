@@ -24,7 +24,6 @@ on:
     paths:
       - 'zoo_framework/**'
       - 'pyproject.toml'
-      - 'setup.py'
       - '.env'
       - '.github/workflows/release.yml'
 
@@ -162,8 +161,6 @@ jobs:
             CURRENT_VERSION=$(python -c "import toml; print(toml.load('pyproject.toml')['project']['version'])")
           elif [ -f ".env" ]; then
             CURRENT_VERSION=$(grep "^VERSION=" .env | cut -d'=' -f2)
-          elif [ -f "setup.py" ]; then
-            CURRENT_VERSION=$(grep "version=" setup.py | cut -d"'" -f2)
           else
             echo "❌ 无法找到版本信息"
             exit 1
@@ -228,12 +225,6 @@ jobs:
           if [ -f "pyproject.toml" ]; then
             sed -i "s/version = \"${{ steps.current_version.outputs.version }}\"/version = \"$NEW_VERSION\"/" pyproject.toml
             git add pyproject.toml
-          fi
-
-          # 更新 setup.py
-          if [ -f "setup.py" ]; then
-            sed -i "s/version='${{ steps.current_version.outputs.version }}'/version='$NEW_VERSION'/" setup.py
-            git add setup.py
           fi
 
           # 更新 __init__.py

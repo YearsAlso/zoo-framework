@@ -93,4 +93,4 @@
 | 推送到 `main` | minor，无后缀 | 正式版 |
 
 发布由 `.github/workflows/release.yml` 完成，仅在 `zoo_framework/`、`pyproject.toml`、
-`setup.py`、`.env` 或该工作流本身发生变更时触发——纯文档或纯测试提交不会触发发版。
+`.env` 或该工作流本身发生变更时触发——纯文档或纯测试提交不会触发发版。
