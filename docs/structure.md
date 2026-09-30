@@ -58,9 +58,10 @@ zoo_framework/
 | Path | Responsibility |
 |---|---|
 | `core/master.py` | `Master` — the lifecycle entry point: load config → register Workers → start scheduling → shut down |
-| `core/aop/` | The process-global decorators: `cage` (singleton factory), `params` (resolve `ParamsPath` into literals), `event`, `worker`, `configure`, `logger`, `stopwatch`, `validation` |
+| `core/aop/` | The remaining decorators: `params` (resolve `ParamsPath` into literals), `event`, `worker`, `configure`, `logger`, `stopwatch`, `validation`. The `cage` decorator was **removed** — process-level sharing is declared through the container instead |
 | `core/waiter/` | The scheduler. `base_waiter.py` composes a `WorkerDispatchCore` (model-agnostic bookkeeping: single settlement point, timeout observation, shutdown reclaim, runtime registration) with a `SchedulerModel` (`ThreadPerTaskModel` / `ThreadPoolModel`); `waiter_factory.py` builds it from `worker:mode` |
-| `core/worker_registry.py` | `WorkerRegistry` — a **module-level singleton**, never reset between `Master` instances |
+| `core/container/` | The scoped container: `ScopedContainer` (`register` / `resolve` / `exclusive` / `release` / `replace` / `reset`), `Scope` + `ScopeKind` (process / session / prototype handles), `ThreadSafety` (the required thread-safety declaration), `Registration` + `qualified_name` (the module-qualified key), and `registry` — the framework's **own** process-level container plus `process_scoped` / `process_instance`, which register without replacing the class |
+| `core/worker_registry.py` | `WorkerRegistry` — a **module-level singleton**, never reset between `Master` instances, and **not** part of the container |
 | `core/params_factory.py`, `core/params_path.py` | `config.json` loading, `_exports` resolution, and the `ParamsPath` value handle |
 | `core/persistence_scheduler.py` | Atomic-write + checksum + rolling-backup persistence, reusable outside the state machine |
 | `workers/base_worker.py` | `BaseWorker` — `_execute()` is the single extension point; `is_loop` / `run_timeout` / `delay_time` are properties read from `_props` |
@@ -92,20 +93,55 @@ Master.run               asyncio task loops waiter.execute_service() every 1s
                          → on completion: unregister in-flight, report to the event pipeline
 ```
 
-### Two facts worth knowing before you touch the wiring
+### Three facts worth knowing before you touch the wiring
 
 **Configuration resolution happens once, at first import of a params module.** `@params`
-rewrites each `ParamsPath` into the resolved literal, cached by class name. That is why
+rewrites each `ParamsPath` into the resolved literal, cached under the module-qualified name
+(`cls.__module__` + `cls.__qualname__` — never the bare class name, or two same-named params
+classes in different modules would collide and the later one would silently reuse the
+earlier one's values). That is why
 `zoo_framework.params` is imported lazily (inside `Master._create_waiter`,
 `BaseWaiter.__init__` and `StateMachineWorker`) — so `ParamsFactory` has read `config.json`
 first. Importing a params class before constructing `Master` freezes the defaults instead.
 `ParamsFactory()` with a missing path returns early and leaves the config empty, silently.
 
-**The decorators are process-global.** `@cage` returns a singleton cached by class name, and
-`@event` registers a reactor at import time. State on caged classes (`EventReactorManager`'s
-`reactor_map`, the channel manager's `_channel_map`) is therefore shared across the whole
-process and can leak between tests. `WorkerRegistry` is a module-level singleton for the
-same reason.
+**Three kinds of state outlive a test, and only one of them is in the container.** Clearing
+one is not enough to isolate a test case — the split is deliberate and is **not** unified by
+the container change:
+
+1. **The container's process-level instances** — the event reactor manager, the channel
+   register, the state machine manager, and the other managers migrated off `@cage`. They are
+   *declared* process-level in `core/container/`, so `framework_container().reset()` reclaims
+   them (along with any replacements and single-thread bindings).
+2. **Class-level registries** — `EventReactorManager.reactor_map` and
+   `EventChannelRegister._channel_map`. These are **class attributes**, not instance state, so
+   the container's reset does not take them; they need resetting separately. `@event` writes
+   here at import time.
+3. **Process-level state outside the container** — `WorkerRegistry`'s instance cache and the
+   channel-listener configuration. These never went through the container and still have their
+   own reset paths.
+
+`tests/conftest.py`'s `_reset_registries()` resets all three and its docstring is the
+authoritative enumeration. `EventWorker` is a concrete example of (3): it must remain one
+instance *per Worker*, so its docstring records why declaring it process-level would move that
+ownership out of `WorkerRegistry`.
+
+**`process_scoped` registers without replacing the class, and CPython imposes three
+consequences.** Read this before changing how the framework declares its own process-level
+managers, or before writing your own `__new__` delegation:
+
+1. `__new__` returns an instance of `cls`, so `type.__call__` still invokes `__init__` on it.
+   `process_scoped` therefore makes `__init__` idempotent — it really runs only once. A class
+   with instance state whose `__init__` ran twice would have that state reset;
+   `StateMachineManager`'s `_state_scope_map` is the concrete case.
+2. The container must construct instances **bypassing** `__new__` (it keeps a reference to the
+   original). Otherwise "factory → `cls()` → `__new__` → resolve" recurses back into the
+   container.
+3. A subclass does **not** inherit process-level identity: when `subcls is not cls`, the normal
+   constructor runs. Otherwise decorating a base class would collapse every subclass into one
+   shared instance.
+
+Each has a test guarding it, so breaking one fails rather than silently sharing state.
 
 ---
 
@@ -158,9 +194,10 @@ zoo_framework/
 | 路径 | 职责 |
 |---|---|
 | `core/master.py` | `Master` —— 生命周期入口：加载配置 → 注册 Worker → 启动调度 → 停机 |
-| `core/aop/` | 进程级装饰器：`cage`（单例工厂）、`params`（把 `ParamsPath` 解析为字面值）、`event`、`worker`、`configure`、`logger`、`stopwatch`、`validation` |
+| `core/aop/` | 余下的装饰器：`params`（把 `ParamsPath` 解析为字面值）、`event`、`worker`、`configure`、`logger`、`stopwatch`、`validation`。`cage` 装饰器**已删除** —— 进程级共享改由容器声明 |
 | `core/waiter/` | 调度器。`base_waiter.py` 把 `WorkerDispatchCore`（模型无关的簿记：单一结算收口、超时观测、停机资源回收、运行期注册）与 `SchedulerModel`（`ThreadPerTaskModel` / `ThreadPoolModel`）组合起来；`waiter_factory.py` 按 `worker:mode` 装配 |
-| `core/worker_registry.py` | `WorkerRegistry` —— **模块级单例**，在不同 `Master` 实例之间从不重置 |
+| `core/container/` | 按作用域解析的容器：`ScopedContainer`（`register` / `resolve` / `exclusive` / `release` / `replace` / `reset`）、`Scope` + `ScopeKind`（进程 / 会话 / 原型三种句柄）、`ThreadSafety`（必填的线程安全声明）、`Registration` + `qualified_name`（模块+限定名的键），以及 `registry` —— 框架**自身**的进程级容器与 `process_scoped` / `process_instance`（登记但**不替换类**） |
+| `core/worker_registry.py` | `WorkerRegistry` —— **模块级单例**，在不同 `Master` 实例之间从不重置，且**不属于**容器 |
 | `core/params_factory.py`、`core/params_path.py` | `config.json` 加载、`_exports` 解析，以及 `ParamsPath` 取值句柄 |
 | `core/persistence_scheduler.py` | 原子写入 + 校验和 + 滚动备份，可在状态机之外复用 |
 | `workers/base_worker.py` | `BaseWorker` —— `_execute()` 是唯一扩展点；`is_loop` / `run_timeout` / `delay_time` 是从 `_props` 读取的属性 |
@@ -192,14 +229,40 @@ Master.run               asyncio 任务每秒循环一次 waiter.execute_service
                          → 执行结束时：注销在飞状态，把结果投递进事件管道
 ```
 
-### 改动装配逻辑前需要知道的两件事
+### 改动装配逻辑前需要知道的三件事
 
 **配置解析只发生一次，在对应 params 模块首次导入时。** `@params` 把每个 `ParamsPath`
-改写为解析后的字面值，并按类名缓存。这正是 `zoo_framework.params` 被惰性导入的原因
+改写为解析后的字面值，并按**模块 + 限定名**缓存（`cls.__module__` + `cls.__qualname__`，
+不用裸类名——否则两个定义在不同模块的同名参数类会互相覆盖，后定义者会静默复用前者的
+配置值）。这正是 `zoo_framework.params` 被惰性导入的原因
 （在 `Master._create_waiter`、`BaseWaiter.__init__` 与 `StateMachineWorker` 内部）——
 好让 `ParamsFactory` 先读完 `config.json`。在构造 `Master` 之前导入某个 params 类，会把
 默认值**冻结**下来。`ParamsFactory()` 在路径缺失时会提前返回，并**静默**留下空配置。
 
-**装饰器是进程级的。** `@cage` 返回按类名缓存的单例，`@event` 在导入时注册响应器。因此
-被 cage 的类上的状态（`EventReactorManager` 的 `reactor_map`、通道管理器的 `_channel_map`）
-在整个进程内共享，并且可能在测试之间泄漏。`WorkerRegistry` 出于同样的原因是模块级单例。
+**有三类状态会活过单个用例，其中只有一类在容器里。** 只清掉一类不足以隔离用例 —— 这个划分是
+刻意的，容器变更**没有**把它统一：
+
+1. **容器的进程级实例** —— 事件反应器管理器、通道注册器、状态机管理器，以及其余从 `@cage`
+   迁出的管理器。它们在 `core/container/` 里被**声明**为进程级，因此
+   `framework_container().reset()` 会回收它们（顺带清掉替换与单线程绑定）。
+2. **类级注册表** —— `EventReactorManager.reactor_map` 与 `EventChannelRegister._channel_map`。
+   它们是**类属性**而非实例状态，容器复位带不走，需单独复位。`@event` 在导入时写入这里。
+3. **容器之外的进程级状态** —— `WorkerRegistry` 的实例缓存与通道监听配置。它们从不走容器，
+   现在也不走，各有各的复位方式。
+
+`tests/conftest.py` 的 `_reset_registries()` 三类都复位，其 docstring 是权威清单。
+`EventWorker` 是第 3 类的具体例子：它必须保持「每个 Worker 一个实例」，其 docstring 记录了
+为什么把它声明为进程级会把这份归属从 `WorkerRegistry` 挪走。
+
+**`process_scoped` 不替换类，而 CPython 给它带来三条副作用。** 改动框架自身进程级管理器的声明
+方式之前、或自己手写 `__new__` 委托之前，请先看这三条：
+
+1. `__new__` 返回的既然是 `cls` 的实例，`type.__call__` 就仍会对它调用一次 `__init__`。因此
+   `process_scoped` 把 `__init__` 做成幂等的 —— 真正只跑一次。有实例状态的类若第二次
+   `__init__` 真跑了，状态会被重置；具体例子是 `StateMachineManager` 的 `_state_scope_map`。
+2. 容器构造实例时**必须绕过** `__new__`（它保存了原始引用）。否则
+   「工厂 → `cls()` → `__new__` → 解析」会递归回容器自身。
+3. 子类**不**继承进程级身份：当 `subcls is not cls` 时走正常构造。否则给基类加一次装饰器
+   会把它的所有子类卷成同一个共享实例。
+
+三条各有用例守护，破坏任何一条都会失败，而不是静默共享状态。

@@ -131,10 +131,12 @@ zfc --worker my_task    # adds src/workers/my_task_worker.py and registers it
 python src/main.py
 ```
 
-> **Do not decorate a Worker with `@cage`.** It replaces the class with a factory
-> function, and `WorkerRegistry` validates with `issubclass` — registration fails with
-> `TypeError: issubclass() arg 1 must be a class`. `@cage` is a singleton factory for
-> *service* classes, not a thread-safety wrapper.
+> **A Worker must be registered as a *class*.** `WorkerRegistry` validates with
+> `issubclass`, so a function or an instance is rejected with
+> `TypeError: issubclass() arg 1 must be a class`. The requirement is unchanged — what
+> changed is that the old `@cage` decorator, which replaced the class with a factory
+> function and tripped exactly this check, has been **removed**. Process-level sharing is
+> now declared through the container instead.
 
 <!--
 演示图占位（demo image placeholder）—— 产出图片后，删掉下面这行图片引用前的注释标记即可。
@@ -202,7 +204,7 @@ semantics** — if a name is unclear, read the right-hand column:
 | 🦁 **Worker** | `BaseWorker` subclass | Task execution unit; implement `_execute()` |
 | 👨🌾 **Master** | `Master` | Lifecycle entry point: load config, register Workers, start scheduling, shut down |
 | 🍽️ **Waiter** | `core/waiter/` | The scheduler. `worker:mode` picks the model (`thread` / `thread_pool`); `worker:runPolicy` only sets the pool's backpressure (`simple` expand / `stable` queue / `safe` reject) |
-| 🏠 **Cage** | `@cage` | **Singleton factory**: caches instances by class name. Unrelated to thread safety |
+| 🏠 **Cage** | `ScopedContainer` | **Scoped registry**: holds shared instances per scope (process / session / prototype). Instances are declared, then resolved; `reset()` / `replace()` are the test seams |
 | 🍎 **Event** | `EventNode` / `EventChannel` | Inter-worker message, carrying channel, priority and retry count |
 | 🥘 **FIFO** | `EventFIFO` | One independent queue per channel |
 | 📢 **Reactor** | `EventReactor` | Event responder, registered via `@event(topic, channel=...)` |
@@ -487,9 +489,10 @@ zfc --worker my_task    # 写入 src/workers/my_task_worker.py 并自动注册
 python src/main.py
 ```
 
-> **不要用 `@cage` 装饰 Worker。** 它会把类替换成工厂函数，而 `WorkerRegistry` 用
-> `issubclass` 校验契约，注册会抛 `TypeError: issubclass() arg 1 must be a class`。
-> `@cage` 是给**服务类**用的单例工厂，不是线程安全包装器。
+> **Worker 必须以「类」的形式注册。** `WorkerRegistry` 用 `issubclass` 校验契约，传函数或
+> 实例会被拒绝并抛 `TypeError: issubclass() arg 1 must be a class`。这个要求没有变 —— 变的
+> 是旧的 `@cage` 装饰器**已被删除**：它把类替换成工厂函数，正好踩中这条校验。进程级共享
+> 现在改由容器声明。
 
 <!--
 演示图占位 —— 产出图片后，删掉下面这行图片引用前的注释标记即可。
@@ -555,7 +558,7 @@ flowchart TB
 | 🦁 **Worker** | `BaseWorker` 子类 | 任务执行单元，实现 `_execute()` |
 | 👨🌾 **Master** | `Master` | 生命周期入口：加载配置、注册 Worker、启动调度、停机 |
 | 🍽️ **Waiter** | `core/waiter/` | 调度器。由 `worker:mode` 选调度模型（`thread` / `thread_pool`，留空则由 `worker:pool:enable` 推导）；`worker:runPolicy` 只决定资源池背压（`simple` 扩容 / `stable` 排队 / `safe` 拒绝） |
-| 🏠 **Cage** | `@cage` | **单例工厂**：按类名缓存实例。与线程安全无关 |
+| 🏠 **Cage** | `ScopedContainer` | **按作用域注册**：按作用域（进程 / 会话 / 原型）持有共享实例。先声明、再解析；`reset()` / `replace()` 是测试接缝 |
 | 🍎 **Event** | `EventNode` / `EventChannel` | Worker 间通信的事件，带通道、优先级与重试次数 |
 | 🥘 **FIFO** | `EventFIFO` | 每个通道一条独立队列 |
 | 📢 **Reactor** | `EventReactor` | 事件响应器：`@event(topic, channel=...)` 注册 |

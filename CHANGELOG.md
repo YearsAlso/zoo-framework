@@ -16,6 +16,12 @@
   新增 `CONTRIBUTING.md`、`SECURITY.md`、`CODE_OF_CONDUCT.md`，以及 GitHub 的 issue 模板
   与 PR 模板。
 
+- **按作用域解析的容器** `core/container/`：`ScopedContainer`（`register` / `resolve` /
+  `exclusive` / `release` / `replace` / `reset`）、`Scope` + `ScopeKind`（进程 / 会话 /
+  原型三种作用域）、必填的 `ThreadSafety` 线程安全声明，以及 `process_scoped` /
+  `process_instance`（登记但**不替换类**，供框架自身的进程级管理器使用）。
+- 注册项支持 `on_release` 销毁钩子：作用域释放时每个实例触发一次，不做引用计数。
+
 ### Changed
 
 - 调度器（Waiter）的装配方式改为按**调度模型名**键控：`worker:mode` 选择调度模型
@@ -30,6 +36,31 @@
 
 - `SimpleWaiter` / `StableWaiter` / `SafeWaiter` 三个子类。它们此前的唯一差异是"池尺寸
   不足时怎么办"，现已由 `ThreadPoolModel` 的背压策略参数承载。
+- ⚠️ **破坏性变更：`@cage` 装饰器已删除** —— 不再从 `zoo_framework.core.aop` 或
+  `zoo_framework.core` 导出，`core/aop/cage.py` 已移除。它此前把类替换成工厂函数，使
+  `issubclass` / `isinstance` 双双失效（曾由此造成一次 P0），并且按**裸类名**做键（两个同名
+  类会互相覆盖）。框架自身原有的 8 处使用点已改由容器的进程级注册承担，调用点零改动。
+  自建单例请改用显式注册：
+
+  ```python
+  from zoo_framework.core.container import Scope, ScopeKind, ThreadSafety
+
+  container.register(
+      MyService,
+      scope_kind=ScopeKind.PROCESS,
+      thread_safety=ThreadSafety.INSTANCE_GUARANTEED,
+  )
+  service = container.resolve(MyService, Scope.process())
+  ```
+
+  `thread_safety` 与 `scope` 句柄均为**必填**，刻意不提供隐式默认值——隐式默认一个安全假设、
+  或默认"不传即进程级"，都会静默破坏隔离。另注意「进程级作用域」**不等于**「单例」：容器
+  另有会话级与原型级作用域。
+
+### Fixed
+
+- `@params` 的解析缓存由**裸类名**改为**模块 + 限定名**。此前两个定义在不同模块的同名参数类会
+  命中同一条缓存——后定义者跳过解析、直接复用前者的配置值，且发生在导入期、无任何提示。
 
 ---
 
