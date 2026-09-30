@@ -29,10 +29,15 @@
 
 ## 6. 收尾验证
 
-- [ ] 6.1 全量回归；验证：`pytest -q` 全绿，用例总数高于本变更开始时
-- [ ] 6.2 确认未夹带范围外改动；验证：`git diff --stat` 限于容器、8 处使用点与测试；不含 `aop/` 其他装饰器的重构、不含 AOP 织入机制、不含 `@params` 改造、不含依赖变更
-- [ ] 6.3 核对文档与接口表述未越界；验证：不出现"已实现 AOP 织入 / 自动装配 / 循环依赖检测 / 配置驱动 bean"这类超出实现的表述
-- [ ] 6.4 确认本变更与 `scheduler-model-seam` 在作用域传递上的一致性有可核对的依据；验证：两处文档对"显式句柄为真相来源"的表述一致，且实现的传递路径不依赖隐式上下文
+- [x] 6.1 全量回归；验证：`pytest -q` 全绿，用例总数高于本变更开始时。**通过**：**653 passed / 0 failed**（本变更开始前基线 463；增量全部来自本变更新增的 5 个测试文件——容器 36 + 生命周期 32 + 测试接缝 24 + 配置解析 11 + 类替换守门 94，另有 `test_aop.py` 的两条 `cage` 用例改写为 5 条 `process_scoped` 用例）。`ruff check zoo_framework` 与 `ruff format --check zoo_framework` 亦为 CI 口径通过（94 files already formatted）
+- [x] 6.2 确认未夹带范围外改动；验证：`git diff --stat` 限于容器、8 处使用点与测试；不含 `aop/` 其他装饰器的重构、不含 AOP 织入机制、不含 `@params` 改造、不含依赖变更。**通过**，逐条给出判据（基线取 `44dcb1f`，即上一个变更归档之后）：
+  - **改动集** = 容器包（`container.py` / `registration.py` / `registry.py` / `scope.py` / `thread_safety.py` / `__init__.py`）+ 8 处使用点 + `cage.py` 删除 + `core/__init__.py` 与 `aop/__init__.py` 的导出移除 + 测试 + 本变更自己的 openspec 文档
+  - **不含 `aop/` 其他装饰器的重构**：`git diff --name-only 44dcb1f..HEAD -- zoo_framework/core/aop/` 只报 `__init__.py` 与 `cage.py`——即 `params` / `configure` / `logger` / `stopwatch` / `validation` **一个都没碰**
+  - **不含 AOP 织入机制**：`weave` / `joinpoint` / `advice` / `aspect` / `pointcut` 在 `zoo_framework/` 零命中。需要说明的是 `registry.py` 确实会给类装 `__new__`/`__init__`，但那是**普通类装饰器对自身类的改写**，不是织入（D1 明确允许装饰器存在、只禁止它**替换类**）
+  - **不含依赖变更**：`pyproject.toml` / `uv.lock` / `setup.py` / `.env` 在本区间内**零改动**（`uv.lock` 在工作区有改动，但那是并行会话误触发的重解析，未被任何提交纳入）
+  - **历史含混（如实记下，免得归档后对不上）**：本变更的 `@params` 缓存键修正（设计 D8 / 任务组 7）**实际提交在 `e041040`**，该提交在时间线上落在上一个变更的提交序列里、早于 `44dcb1f` 归档，故不出现在上述 diff 中。它**仍是本变更的范围**——`specs/config-resolution/spec.md` 就是它的 delta，任务组 7 的 5 条任务也标记为已完成。这条含混不是遗漏，是排期使然（D8 的执行顺序例外），记在此处以备核对
+- [x] 6.3 核对文档与接口表述未越界；验证：不出现"已实现 AOP 织入 / 自动装配 / 循环依赖检测 / 配置驱动 bean"这类超出实现的表述。**通过**：`docs/` 与 `CLAUDE.md` 对这些能力**零声称**；命中仅出现在 `design.md` / `proposal.md` 的 **Non-Goals** 段（"不做构造期自动装配图、不做循环依赖检测、不做配置驱动 bean"）与 D6 的取舍说明里——即**明确声明不做**，而不是误称已做。另外 `design.md` 的 Non-Goals 还写了"不做 AOP：不施加通知、不定义连接点、不做切点匹配"，与 6.2 的织入排查互为佐证
+- [x] 6.4 确认本变更与 `scheduler-model-seam` 在作用域传递上的一致性有可核对的依据；验证：两处文档对"显式句柄为真相来源"的表述一致，且实现的传递路径不依赖隐式上下文。**通过**：两处文档各用自己的术语说同一件事——本变更 D3「作用域传递走**显式句柄**，不从上下文变量隐式取」，归档里的 D3「标识传播：**显式字段为真相来源**，上下文变量仅作**便利读法**」；两边都把 `contextvars` 限定为便利读法、都要求跨线程时显式 `copy_context`，且本变更 D3 原文即写明"与 `scheduler-model-seam` 的 D3 必须保持一致"。实现侧核对：`resolve(target, scope)` 的**作用域句柄必填**（无"不传即进程级"的默认值）、`Scope.of(identity)` 是**显式调用**而非隐式读取——故作用域的传递路径不依赖隐式上下文。**一处如实说明的边界**：`run_identity` 的 `current_identity()` 确实是 `ContextVar` 读取，`EventNode` 与派发登记会用它；但按**两处 D3 的共同约定**，那是便利读法、真相来源是对象上的显式字段（`run_id`/`session_id` 显式字段、`Scope` 显式句柄），故不构成"依赖隐式上下文"
 
 ## 7. 配置解析（**不依赖会话标识，可与第 2–6 组并行**）
 
