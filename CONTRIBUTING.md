@@ -218,6 +218,11 @@ and the commit aborts with `files were modified by this hook`; re-add the file a
 again. Accept the rewrite — it is formatting-only, and the fenced code stays valid (checked
 with `ast.parse`). Both `README.md` and this file were normalised that way.
 
+To confirm that rather than take it on trust: run `git diff` — a hook-only change touches
+whitespace or line endings and nothing semantic. The same test separates the other auto-fixers
+here (`trailing-whitespace`, `end-of-file-fixer`), so a re-commit after a hook has modified a
+file is expected, and it is not a content change.
+
 ### Pull requests
 
 Use the [PR template](.github/PULL_REQUEST_TEMPLATE.md): what changed, whether tests were
@@ -469,6 +474,10 @@ openspec validate --strict              # 每个改动都要过这道门
 `files were modified by this hook` 中止，你需要重新 `git add` 再提交一次。请接受这次
 重写：它只改格式，代码块语义不变（已用 `ast.parse` 验证）。本仓库的 `README.md` 与本文
 都被这样归一过。
+
+想核实而不是只听结论的话：跑 `git diff` —— 只是钩子改的，差异只落在空白或行尾，不含语义
+变化。这条判据对本仓库其它自动修正钩子（`trailing-whitespace`、`end-of-file-fixer`）同样
+适用：钩子改过文件之后需要重新提交是正常现象，那不是内容变更。
 
 ### PR 流程
 
