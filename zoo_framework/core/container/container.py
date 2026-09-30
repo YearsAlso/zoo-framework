@@ -78,6 +78,8 @@ class ScopedContainer:
         self._exclusion_locks: dict[str, threading.RLock] = {}
         # "仅限单线程"的项：首次解析所在线程，作为该注册项的绑定线程
         self._thread_owners: dict[str, int] = {}
+        # 测试接缝：按作用域注入的替代实现（见 replace / reset）
+        self._overrides: dict[tuple, Callable[[], Any]] = {}
 
     # ------------------------------------------------------------------ 注册
 
@@ -218,7 +220,11 @@ class ScopedContainer:
         """
         self._check_scope_handle(scope)
         registration = self._require(target)
-        self._guard_access(registration)
+        self._check_scope_compatibility(registration, scope)
+        # 注入了替代实现时跳过归属校验：假实现是测试自己的对象，其线程安全由测试负责，
+        # 用真实实现的声明去拦它会挡住合法的注入（见 replace）
+        if self._override_for(registration, scope) is None:
+            self._guard_access(registration)
         return self._resolve_instance(registration, scope)
 
     @contextlib.contextmanager
@@ -247,6 +253,12 @@ class ScopedContainer:
         调用方须已完成作用域句柄类型校验与线程安全归属校验。
         """
         self._check_scope_compatibility(registration, scope)
+
+        # 替代实现优先于一切缓存：注入即生效，且不进入本作用域的实例表（它不属于
+        # 生命周期管理——没有 on_release 可言，换掉它也不必走 release）
+        override = self._override_for(registration, scope)
+        if override is not None:
+            return override()
 
         # 原型级不缓存：每次解析都新建，作用域句柄在这里只是"允许解析"的凭据
         if registration.scope_kind == ScopeKind.PROTOTYPE:
@@ -317,7 +329,13 @@ class ScopedContainer:
         if subject is None:
             # 原型级不缓存，没有可释放的实例
             return []
+        return self._release_subject(subject)
 
+    def _release_subject(self, subject: tuple) -> list[str]:
+        """释放某个缓存主体（进程级或某个会话）名下的全部实例.
+
+        注入的替代实现不在此列：它不在实例表里，换掉它也不必走生命周期（见 ``replace``）。
+        """
         with self._lock:
             victims = [
                 (key, instance)
@@ -430,6 +448,91 @@ class ScopedContainer:
                 lock = threading.RLock()
                 self._exclusion_locks[name] = lock
             return lock
+
+    # ------------------------------------------------------------------ 测试接缝
+
+    def replace(
+        self,
+        target: type | str,
+        scope: Scope,
+        *,
+        factory: Callable[[], Any] | None = None,
+        instance: Any = None,
+    ) -> None:
+        """为该作用域注入替代实现（测试用）.
+
+        替换的作用域范围与解析的作用域范围**同义**：键与缓存键同形，因此进程级注册项
+        是在**进程**范围内被替换（它本就是全进程唯一的一个实例），会话级注册项则按会话
+        各自替换——这正是"替换仅作用于指定作用域"。
+
+        注入立即生效，并丢掉该作用域已建立的实例。**不触发销毁钩子**：替换是测试接缝，
+        不是生命周期的结束；真需要钩子请先 ``release(scope)``。
+
+        Args:
+            target: 注册时给出的类，或其标识
+            scope: 作用域句柄
+            factory: 替代构造函数
+            instance: 替代实例；与 factory 只能取其一
+
+        Raises:
+            ValueError: 既未给出 factory 也未给出 instance，或两者同时给出
+            LookupError: 该标识未注册
+        """
+        self._check_scope_handle(scope)
+        registration = self._require(target)
+        self._check_scope_compatibility(registration, scope)
+
+        if factory is not None and instance is not None:
+            raise ValueError(
+                f"替换 {registration.name!r} 同时给出了 factory 与 instance，二者只能取其一"
+            )
+        if factory is None and instance is None:
+            raise ValueError(f"替换 {registration.name!r} 须给出 factory 或 instance")
+
+        product = _Constant(instance) if instance is not None else factory
+        with self._lock:
+            self._overrides[self._override_key(registration, scope)] = product
+            if registration.scope_kind != ScopeKind.PROTOTYPE:
+                # 原型级本就不缓存，没有可丢的实例
+                self._instances.pop(self._store_key(registration, scope), None)
+
+    def reset(self) -> list[str]:
+        """重置容器：清掉全部替代实现，并释放全部已建立实例.
+
+        "回到初始状态"指三件事：没有假实现、没有遗留下来的实例、没有单线程绑定。注册项
+        本身**保留**——它们是容器的配置，不是测试产生的状态。
+
+        实例走的是与 ``release`` 同一条路径，故声明的销毁钩子照常触发、失败也只记录。
+
+        Returns:
+            本次释放的实例标识（排序后，便于断言）
+        """
+        with self._lock:
+            self._overrides.clear()
+            self._thread_owners.clear()
+            subjects = set()
+            for key in self._instances:
+                # 会话键形如 (session, sid, name)，进程键形如 (process, name)
+                subjects.add(key[:2] if key[0] == "session" else key[:1])
+
+        released = []
+        for subject in sorted(subjects):
+            released.extend(self._release_subject(subject))
+        return sorted(released)
+
+    def _override_key(self, registration: Registration, scope: Scope) -> tuple:
+        """替代实现的键；与 ``_store_key`` 同形，故作用域语义完全一致."""
+        if registration.scope_kind == ScopeKind.PROCESS:
+            return ("process", registration.name)
+        if registration.scope_kind == ScopeKind.PROTOTYPE:
+            return ("prototype", registration.name)
+        return ("session", scope.session_id, registration.name)
+
+    def _override_for(self, registration: Registration, scope: Scope) -> Callable[[], Any] | None:
+        """取该作用域下的替代实现；没有注入时为 None."""
+        key = self._override_key(registration, scope)
+        with self._lock:
+            return self._overrides.get(key)
 
     # ------------------------------------------------------------------ 查询
 
