@@ -8,7 +8,7 @@ class SingleFIFO(BaseFIFO):
     属已知问题。
     """
 
-    index_list = {}
+    index_list: dict = {}
 
     def __init__(self):
         BaseFIFO.__init__(self)

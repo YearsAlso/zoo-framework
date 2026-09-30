@@ -1,5 +1,10 @@
 # 全局字典，用于存储参数验证规则
-params_validate_map = {}
+#
+# 刻意标为**裸 `dict`**（≡ dict[Any, Any]）而不是 `dict[str, list]`：后者断言"值恒为 list"，
+# 而这个不变量并不成立——`validation_params` 里有一处 `isinstance(valid_values, list)` 防护，
+# 它的存在本身就是"值可能不是 list"的证据（该函数的文档也写明会返回 False 的"类型不正确"情形）。
+# 标成 dict[str, list] 会让那处防护被判定为 unreachable，即用一个更精确的注解**制造**了错误。
+params_validate_map: dict = {}
 
 
 def validation(params_key="") -> object:

@@ -15,7 +15,7 @@ class BaseWorker:
 
     def __init__(self, props: dict):
         self._props = props
-        self.state = {}
+        self.state: dict = {}
         self._destroy_func = None
         self._on_create()
         self.num = 1

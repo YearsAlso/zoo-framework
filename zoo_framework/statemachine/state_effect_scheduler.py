@@ -10,7 +10,7 @@ class StateEffectScheduler:
     _event_channel = EventChannelManager().get_channel(__name__)
 
     # 响应列表
-    _response_list = set()
+    _response_list: set = set()
 
     def __init__(self, state_machine):
         self.state_machine = state_machine

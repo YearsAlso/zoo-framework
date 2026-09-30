@@ -9,7 +9,7 @@ class ParamsFactory:
     # 【已知欠债】类属性即进程级共享状态（`get_params` 实际读取的配置字典），须由测试单独
     # 替换（见 tests/test_config_resolution.py 的 fixture）。属容器外、未收编的载体；依据与
     # 判据见 specs/scoped-container 的「框架自身的进程级共享 MUST 被显式归类」。
-    config_params = {}
+    config_params: dict = {}
 
     def __init__(self, config_path="./config.json"):
         if not os.path.exists(config_path):
