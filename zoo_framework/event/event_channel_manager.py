@@ -1,4 +1,4 @@
-from zoo_framework.core.aop import cage
+from zoo_framework.core.container import ThreadSafety, process_scoped
 from zoo_framework.reactor import EventReactor
 
 from ..fifo.node import EventNode
@@ -6,7 +6,7 @@ from .event_channel import EventChannel
 from .event_channel_register import EventChannelRegister
 
 
-@cage
+@process_scoped(thread_safety=ThreadSafety.INSTANCE_GUARANTEED)
 class EventChannelManager:
     """事件通道管理器."""
 

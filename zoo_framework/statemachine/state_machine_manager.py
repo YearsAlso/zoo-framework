@@ -1,11 +1,11 @@
 from typing import Any
 
-from zoo_framework.core.aop import cage
+from zoo_framework.core.container import ThreadSafety, process_scoped
 from zoo_framework.statemachine.state_scope import StateScope
 from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 
 
-@cage
+@process_scoped(thread_safety=ThreadSafety.INSTANCE_GUARANTEED)
 class StateMachineManager:
     """状态机管理器."""
 

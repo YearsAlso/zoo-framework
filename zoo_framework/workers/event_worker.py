@@ -17,10 +17,11 @@ class EventWorker(BaseWorker):
     消费循环的关键约束：从队列取出的事件 MUST 有确定去向——被投递、被回队、
     或被记入死信。静默丢弃是本类历史上最主要的事件丢失来源。
 
-    注意：本类**不得**加 `@cage`。`@cage` 会把类替换成工厂函数，而
-    `WorkerRegistry.register_class` 用 `issubclass` 校验契约，二者不兼容
-    （会抛 `TypeError: issubclass() arg 1 must be a class`）。单例与实例
-    缓存由 `WorkerRegistry._worker_instances` 承担，无需第二套机制。
+    注意：本类**不得**加任何"替换类"的装饰器（历史的 `@cage` 正是如此，已删除）。
+    `WorkerRegistry.register_class` 用 `issubclass` 校验契约，把类换成函数就会让它抛
+    `TypeError: issubclass() arg 1 must be a class`。单例与实例缓存由
+    `WorkerRegistry._worker_instances` 承担，无需第二套机制——所以本类也不加
+    `@process_scoped`：那会把"每 Worker 一实例"的归属从 `WorkerRegistry` 挪走。
     """
 
     def __init__(self):

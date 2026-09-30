@@ -1,7 +1,7 @@
 import threading
 from typing import Any
 
-from zoo_framework.core.aop import cage
+from zoo_framework.core.container import ThreadSafety, process_scoped
 from zoo_framework.utils import LogUtils
 from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 
@@ -9,7 +9,7 @@ from .event_reactor import EventReactor
 from .event_reactor_req import ChannelType, get_channel_manager
 
 
-@cage
+@process_scoped(thread_safety=ThreadSafety.INSTANCE_GUARANTEED)
 class EventReactorManager:
     """事件响应处理器.
 

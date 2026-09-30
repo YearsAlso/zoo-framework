@@ -1,10 +1,10 @@
-from zoo_framework.core.aop import cage
+from zoo_framework.core.container import ThreadSafety, process_scoped
 from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 
 from .event_channel import EventChannel
 
 
-@cage
+@process_scoped(thread_safety=ThreadSafety.INSTANCE_GUARANTEED)
 class EventChannelRegister:
     """事件通道注册器."""
 

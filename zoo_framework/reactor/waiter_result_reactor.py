@@ -1,9 +1,13 @@
-from zoo_framework.core.aop import cage
+from zoo_framework.core.container import ThreadSafety, process_scoped
 
 from .event_reactor import EventReactor
 
 
-@cage
+# 声明为"仅限单线程"而不是"实例自身保证"：基类 EventReactor 的 retry_strategy /
+# retry_times 是执行期读取的可变字段，而 worker_names / on_result 由调用方在派发之外
+# 赋值，两者之间没有栅栏（清点时记为 F4）。当前不出事只是因为赋值都发生在启动/绑定期
+# 的单线程阶段——那是时序上的侥幸，不是保证。
+@process_scoped(thread_safety=ThreadSafety.SINGLE_THREAD)
 class WaiterResultReactor(EventReactor):
     """Waiter 结果响应器.
 

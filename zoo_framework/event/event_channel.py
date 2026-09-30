@@ -19,7 +19,7 @@ class EventChannel:
         # 事件队列（每个通道独立）
         self._event_fifo: EventFIFO = EventFIFO()
 
-        # 事件反应器管理器（@cage 单例，各通道持有同一引用；响应器登记仍是全局的）
+        # 事件反应器管理器（进程级注册，各通道持有同一引用；响应器登记仍是全局的）
         self._reactor_manager = EventReactorManager()
 
         # 无法投递的事件记录（死信）
