@@ -1,3 +1,5 @@
+from typing import Any
+
 from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 
 # 创建一个线程安全的字典，用于存储配置函数
@@ -5,7 +7,7 @@ from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 # 【已知欠债】模块级注册表、进程级共享；须由测试单独复位（见
 # tests/test_scaffold_cli_contract.py 的清理辅助）。属容器外、未收编的载体；依据与判据见
 # specs/scoped-container 的「框架自身的进程级共享 MUST 被显式归类」。
-config_funcs = ThreadSafeDict()
+config_funcs: ThreadSafeDict[str, Any] = ThreadSafeDict()
 
 
 def configure(topic: str):

@@ -55,7 +55,7 @@ class ThreadSafeDictIndex(StateIndex):
     """
 
     def __init__(self):
-        self._index = ThreadSafeDict()
+        self._index: ThreadSafeDict[str, StateNode] = ThreadSafeDict()
 
     def get(self, key: str) -> StateNode | None:
         return self._index.get(key)

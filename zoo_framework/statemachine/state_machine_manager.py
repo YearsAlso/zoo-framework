@@ -13,7 +13,7 @@ class StateMachineManager:
     def __init__(self):
         """初始化状态机管理器."""
         # 状态域映射
-        self._state_scope_map = ThreadSafeDict()
+        self._state_scope_map: ThreadSafeDict[str, StateScope] = ThreadSafeDict()
 
         # 本地存储是否已经加载
         self._local_store_loaded = False

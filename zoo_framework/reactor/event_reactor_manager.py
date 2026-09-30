@@ -19,7 +19,7 @@ class EventReactorManager:
     # 【已知欠债】类属性即进程级共享状态，且属**尚未收编**的容器外载体：容器只持有本类的
     # **实例**，够不到这个类属性，故 tests/conftest.py 必须单独复位它。依据见
     # specs/scoped-container 的「框架自身的进程级共享 MUST 被显式归类」。
-    reactor_map = ThreadSafeDict()
+    reactor_map: ThreadSafeDict[str, list[EventReactor]] = ThreadSafeDict()
 
     # 注册表的读-改-写需要整体互斥：ThreadSafeDict 只保护单次操作，
     # 无法阻止两个线程同时为同一主题创建列表。

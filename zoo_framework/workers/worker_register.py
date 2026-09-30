@@ -7,7 +7,7 @@ class WorkerRegister:
     """worker注册器."""
 
     def __init__(self) -> None:
-        self._worker_register: ThreadSafeDict = ThreadSafeDict()
+        self._worker_register: ThreadSafeDict[str, Any] = ThreadSafeDict()
 
     def register(self, key: str, value: Any) -> None:
         """注册worker."""

@@ -15,7 +15,7 @@ class EventChannelRegister:
     # 【已知欠债】类属性即进程级共享状态，且属**尚未收编**的容器外载体：容器只持有本类的
     # **实例**，够不到这个类属性，故 tests/conftest.py 必须单独复位它。依据见
     # specs/scoped-container 的「框架自身的进程级共享 MUST 被显式归类」。
-    _channel_map: ThreadSafeDict = ThreadSafeDict()
+    _channel_map: ThreadSafeDict[str, EventChannel] = ThreadSafeDict()
 
     @classmethod
     def register(cls, channel_name):
@@ -29,13 +29,11 @@ class EventChannelRegister:
 
     @classmethod
     def get_channel(cls, channel_name) -> EventChannel:
+        # 用 `__getitem__`（返回非 Optional 的 V）而不是 `get()`（返回 V | None）：
+        # 未命中时先就地创建，故此处必有值，类型上也就不需要收窄或 cast。
         if channel_name not in cls._channel_map:
-            # 创建事件通道
-            from zoo_framework.event.event_channel import EventChannel
-
             cls._channel_map[channel_name] = EventChannel(channel_name)
-            return cls._channel_map.get(channel_name)
-        return cls._channel_map.get(channel_name)
+        return cls._channel_map[channel_name]
 
     @classmethod
     def get_all_channel(cls):
