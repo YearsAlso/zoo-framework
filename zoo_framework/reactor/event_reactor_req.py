@@ -193,6 +193,11 @@ class ChannelManager:
 
 
 # 全局通道管理器
+#
+# 【已知欠债】模块级单例，**导入时即实例化**（非惰性），其 `_channels` / `_reactor_channels`
+# 是进程级共享状态、须由测试单独复位（tests/conftest.py 的 _reset_registries）。
+# 属容器外、未收编的载体；依据与判据见 specs/scoped-container 的
+# 「框架自身的进程级共享 MUST 被显式归类」。
 _channel_manager = ChannelManager()
 
 
