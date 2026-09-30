@@ -36,8 +36,8 @@ def _reset_generated_state(src_dir: Path) -> None:
 
     - `sys.modules`：模块缓存
     - `config_funcs`：`@configure` 注册表
-    - `aop.params.config_params`：`@params` 的解析缓存，**按裸类名索引**，
-      两个同名配置类在同一进程里会命中同一条记录
+    - `aop.params.config_params`：`@params` 的解析缓存，**按限定名索引**；
+      历史上按裸类名索引，两个同名配置类会在同一进程里命中同一条记录
     """
     for name in list(sys.modules):
         if name == "main" or name.split(".")[0] in GENERATED_TOP_LEVEL:
@@ -52,7 +52,9 @@ def _reset_generated_state(src_dir: Path) -> None:
     # ThreadSafeDict.pop 不接受默认值，先判存在
     if "demo_conf" in config_funcs:
         config_funcs.pop("demo_conf")
-    resolved_params.pop("DemoParams", None)
+    # 解析缓存以限定名为键，按后缀清掉生成模块留下的条目
+    for key in [k for k in list(resolved_params) if k.endswith("DemoParams")]:
+        resolved_params.pop(key, None)
 
 
 def _import_entry(project: Path):
@@ -309,32 +311,60 @@ class TestWorkerWiringIdempotence:
 # =============================================================================
 
 
-def _readme_cli_steps() -> list:
-    """取出 README 代码块中的脚手架命令序列，保留 `cd` 造成的目录切换.
+def _strip_inline_comment(line: str) -> str:
+    """剥掉行内 shell 注释.
+
+    `#` 只有在**行首或前面是空白**时才是注释起始（与 shell 一致）；`myapp#x`
+    是一个完整的词，不能切。若不剥掉，`zfc --create myapp  # 说明` 会被当成
+    带 `#`、`->` 等参数的调用，而它在 shell 里本来是合法命令。
+    """
+    match = re.search(r"(?:^|\s)#", line)
+    if match is None:
+        return line.strip()
+    return line[: match.start()].strip()
+
+
+def _readme_cli_sequences() -> list:
+    """取出 README 中**每一段**脚手架命令序列（每个围栏代码块视为一段）.
 
     只看围栏代码块内部：正文里为了解释而提到的选项名不是可执行的示例，不该参与
     校验，否则文档措辞的调整会误伤这条用例。
 
+    行内注释按 shell 语义剥离：文档里 `zfc --create myapp  # 产出说明` 是**可执行**
+    的写法，校验 MUST 与"照着敲进终端"一致，而不是拿 `str.split()` 当 shell。
+
+    **每段是独立的一套步骤**：同一段示例在文档里会出现多次（英文与中文各一处），
+    而每一段都应当从空目录开始——执行方 MUST 为每段分配独立目录，否则后一段会
+    因为前一段留下的产物而失败（`--create` 对已存在的目标会明确拒绝）。
+
     Returns:
-        `([cd 序列], 命令行)` 的列表，按出现顺序
+        序列列表；每个序列是 `(cd 序列, 命令行)` 的列表，按出现顺序
     """
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    steps = []
+    sequences: list = []
+    current: list = []
     in_fence = False
     cwd = []
     for raw in readme.splitlines():
         stripped = raw.strip()
         if stripped.startswith("```"):
+            if in_fence and current:
+                sequences.append(current)
             in_fence = not in_fence
             cwd = []
+            current = []
             continue
         if not in_fence:
             continue
         if stripped.startswith("cd "):
             cwd.append(stripped[3:].strip())
         elif stripped.startswith(("zfc ", "zoo ")):
-            steps.append((list(cwd), stripped))
-    return steps
+            command = _strip_inline_comment(stripped)
+            if command:
+                current.append((list(cwd), command))
+    if current:
+        sequences.append(current)
+    return sequences
 
 
 def _implemented_options() -> set:
@@ -353,7 +383,18 @@ class TestDocsMatchImplementation:
 
     def test_readme_has_cli_examples(self):
         """前提：README 确实给出了脚手架示例，否则以下断言是空转."""
-        assert _readme_cli_steps(), "README 中找不到 zfc 示例"
+        assert _readme_cli_sequences(), "README 中找不到 zfc 示例"
+
+    def test_inline_comments_are_stripped_from_examples(self):
+        """示例按 shell 语义取值：行内注释 MUST 已被剥离.
+
+        否则 `zfc --create myapp  # 产出说明` 会把注释内容当成命令参数，
+        而它在终端里本来是合法命令——校验标准 MUST 与"照着敲"一致。
+        """
+        for sequence in _readme_cli_sequences():
+            for _, command in sequence:
+                assert "#" not in command, f"行内注释未被剥离：{command!r}"
+                assert "->" not in command, f"注释残留被当成参数：{command!r}"
 
     def test_documented_options_all_exist(self):
         """Scenario: 文档不示范不存在的选项.
@@ -363,8 +404,9 @@ class TestDocsMatchImplementation:
         """
         implemented = _implemented_options()
         documented = set()
-        for _, line in _readme_cli_steps():
-            documented.update(re.findall(r"(?<![\w-])--[A-Za-z][\w-]*", line))
+        for sequence in _readme_cli_sequences():
+            for _, line in sequence:
+                documented.update(re.findall(r"(?<![\w-])--[A-Za-z][\w-]*", line))
 
         assert documented, "README 的示例中未解析出任何选项"
         unknown = documented - implemented
@@ -374,14 +416,21 @@ class TestDocsMatchImplementation:
         """Scenario: 文档示例可被直接执行.
 
         按文档给出的 `cd` 顺序逐条执行，因此"文档里能跑"与"照着敲能跑"是同一件事。
+
+        **每个序列在自己的沙箱目录里执行**：文档里同一段示例会出现多次（英文与中文
+        各一处），而每段都应当从空目录开始——共用目录会让后一段撞上前一段留下的
+        产物，从而把"文档的正确性"误测成"重复执行的幂等性"。
         """
         runner = CliRunner()
         base = os.getcwd()
         try:
-            for cds, line in _readme_cli_steps():
-                os.chdir(os.path.join(base, *cds) if cds else base)
-                result = runner.invoke(zfc, line.split()[1:])
-                assert result.exit_code == 0, f"{line!r} 执行失败：{result.output}"
+            for index, sequence in enumerate(_readme_cli_sequences()):
+                sandbox = os.path.join(base, f"seq_{index}")
+                os.makedirs(sandbox, exist_ok=True)
+                for cds, line in sequence:
+                    os.chdir(os.path.join(sandbox, *cds) if cds else sandbox)
+                    result = runner.invoke(zfc, line.split()[1:])
+                    assert result.exit_code == 0, f"{line!r} 执行失败：{result.output}"
         finally:
             os.chdir(base)
 

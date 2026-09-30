@@ -32,6 +32,42 @@ class SafeStreamHandler(logging.StreamHandler):
             self.handleError(record)
 
 
+class IdentityFilter(logging.Filter):
+    """把当前运行标识写入日志记录的结构化字段.
+
+    字段名为 ``run_id`` / ``session_id``。它**不改变格式串**，因此既有的文本输出
+    一字不变，但记录上多了两个可被程序化提取的字段——例如按 ``run_id`` 过滤出
+    一次运行产生的全部日志。
+
+    取值来自**当前上下文**的运行标识（见 :mod:`zoo_framework.core.run_identity`）。
+    未绑定标识时两个字段为 ``None``，MUST NOT 编造值。
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        # 延迟导入：本模块在包导入早期被加载，而 run_identity 位于 core 包内，
+        # 顶层导入会卷入 core.__init__ 的导入顺序
+        from zoo_framework.core.run_identity import current_identity
+
+        identity = current_identity()
+        record.run_id = identity.run_id if identity is not None else None
+        record.session_id = identity.session_id if identity is not None else None
+        return True
+
+
+def _install_identity_filter() -> None:
+    """把标识过滤器挂到根日志器上.
+
+    幂等：重复导入或重复调用都不会挂第二个。``LogUtils`` 走的是根日志器，因此
+    过滤器挂在根上即可覆盖框架自身的全部日志。
+    """
+    root = logging.getLogger()
+    if not any(isinstance(existing, IdentityFilter) for existing in root.filters):
+        root.addFilter(IdentityFilter())
+
+
+_install_identity_filter()
+
+
 class LogUtils:
     @classmethod
     def _format_message(cls, message: str, cls_name: str) -> str:

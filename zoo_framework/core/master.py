@@ -260,13 +260,14 @@ class Master:
         LogUtils.info("✅ SVM Worker setup completed")
 
     def _create_waiter(self) -> None:
-        """创建 Waiter."""
-        from zoo_framework.core.waiter import WaiterFactory
-        from zoo_framework.params import WorkerParams
+        """创建 Waiter.
 
-        self.waiter = WaiterFactory.get_waiter(WorkerParams.WORKER_RUN_POLICY)
-        if self.waiter is None:
-            raise Exception("Master hasn't available waiter, the application can't start.")
+        调度器按**调度模型名**装配（模型名由 ``worker:mode`` 决定，未配置时由
+        ``worker:pool:enable`` 推导）；无法识别的模型名会被明确拒绝。
+        """
+        from zoo_framework.core.waiter import WaiterFactory
+
+        self.waiter = WaiterFactory.get_waiter()
 
         # 将 Worker 传递给 Waiter
         self.waiter.call_workers(list(self.worker_registry.get_all_workers().values()))

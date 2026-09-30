@@ -45,6 +45,28 @@ class StateMachineManager:
             return
         self._state_scope_map[scope] = StateScope()
 
+    def get_scope_identity(self, scope: str):
+        """查询状态作用域的归属运行标识.
+
+        归属由**首次写入**该作用域的那次运行确定（见 ``StateScope.set_state_node``）。
+        作用域不存在、或尚无带标识的写入时返回 None。
+
+        Args:
+            scope: 作用域名
+
+        Returns:
+            归属的 ``RunIdentity``；无归属时为 None
+        """
+        state_register = self._state_scope_map.get(scope)
+        if state_register is None:
+            return None
+        return state_register.owner_identity
+
+    def get_scope_session(self, scope: str) -> str | None:
+        """查询状态作用域的归属会话标识；无归属时为 None."""
+        identity = self.get_scope_identity(scope)
+        return identity.session_id if identity is not None else None
+
     def set_state(self, scope: str, key: str, value):
         """设置状态节点的值."""
         if self._state_scope_map.get(scope) is None:

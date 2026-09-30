@@ -120,7 +120,8 @@ class TestEventPriorityCalculator:
 
     def test_calculate_priority(self):
         """测试优先级计算"""
-        create_time = time.time()
+        # 基准 MUST 与实现的判定基准一致（单调时钟），否则等待时间会被 max(0,) 钳成 0
+        create_time = time.monotonic()
         priority = EventPriorityCalculator.calculate(
             priority=100,
             create_time=create_time,
@@ -131,7 +132,7 @@ class TestEventPriorityCalculator:
 
     def test_calculate_with_wait_time(self):
         """测试带等待时间的优先级计算"""
-        create_time = time.time() - 10  # 10秒前创建
+        create_time = time.monotonic() - 10  # 10秒前创建
         priority = EventPriorityCalculator.calculate(
             priority=100,
             create_time=create_time,

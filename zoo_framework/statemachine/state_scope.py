@@ -1,6 +1,7 @@
 import copy
 from typing import Any
 
+from zoo_framework.core.run_identity import RunIdentity, current_identity
 from zoo_framework.statemachine.state_index_factory import StateIndex, StateIndexFactory
 from zoo_framework.statemachine.state_node import StateNode
 from zoo_framework.statemachine.state_node_type import StateNodeType
@@ -29,6 +30,14 @@ class StateScope:
         """
         # P2 优化：使用工厂模式创建索引
         self._state_index: StateIndex = StateIndexFactory.create_index(index_type)
+        # 归属标识：**首个**写入者即所有者，之后不再改写（见 set_state_node）。
+        # 记整个 RunIdentity 而非只记会话，使"运行标识"也能在状态这一侧被查询。
+        self.owner_identity: RunIdentity | None = None
+
+    @property
+    def owner_session_id(self) -> str | None:
+        """归属会话标识；无归属时为 None."""
+        return self.owner_identity.session_id if self.owner_identity is not None else None
 
     def observe_state_node(self, key: str, effect: Any) -> None:
         """观察状态节点.
@@ -99,6 +108,13 @@ class StateScope:
             value: 节点值
             effect: 副作用列表
         """
+        # 归属标识在**首次写入**时确定：作用域的生命周期长于一次运行，若每次都改写
+        # 归属，"这是谁的会话状态"就失去意义。之后不再改写。
+        if self.owner_identity is None:
+            identity = current_identity()
+            if identity is not None:
+                self.owner_identity = identity
+
         # 1.节点拆分
         key_queue = key.split(".")
 

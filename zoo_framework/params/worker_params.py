@@ -27,7 +27,13 @@ class WorkerParams:
     # Worker 的默认延迟秒数，供未自行声明 delay_time 的 Worker 使用
     WORKER_DEFAULT_DELAY_TIME = ParamsPath(value="worker:default:delayTime", default=0)
 
+    # Worker 执行周期与相位的**全局默认**（秒）；未声明表示不启用周期语义
+    # （即按事件驱动处理）。周期与相位由 Worker 逐个声明，此处只是兜底默认值。
+    WORKER_PERIOD = ParamsPath(value="worker:period", default=None)
+    WORKER_PHASE = ParamsPath(value="worker:phase", default=None)
+
     # 按 Worker 名覆盖超时的配置路径前缀，实际键为
     # ``worker:override:<worker_name>:runTimeout``。
+    # 同样用于 ``:period`` / ``:phase`` / ``:runTimeout``。
     # 这不是配置项本身，而是拼装路径用的前缀，故不声明为 ParamsPath。
     WORKER_OVERRIDE_PREFIX = "worker:override"

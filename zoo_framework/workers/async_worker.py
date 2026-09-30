@@ -166,20 +166,21 @@ class AsyncWorker(BaseWorker, metaclass=ABCMeta):
 
     async def _execute_async(self, *args, **kwargs) -> Any:
         """内部异步执行."""
-        start_time = time.time()
+        # 耗时是区间量，MUST 用单调时钟——墙钟跳变会产生负的或用巨的耗时
+        start_time = time.monotonic()
 
         try:
             # 使用信号量限制并发
             async with self._get_semaphore():
                 result = await self.async_execute(*args, **kwargs)
 
-            duration = time.time() - start_time
+            duration = time.monotonic() - start_time
             LogUtils.info(f"✅ AsyncWorker '{self.name}' executed in {duration:.3f}s")
 
             return result
 
         except Exception as e:
-            duration = time.time() - start_time
+            duration = time.monotonic() - start_time
             LogUtils.error(f"❌ AsyncWorker '{self.name}' failed after {duration:.3f}s: {e}")
             raise
 

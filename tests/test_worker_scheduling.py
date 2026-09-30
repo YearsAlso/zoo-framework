@@ -12,13 +12,17 @@ sleep 收敛，避免出现"只有某个平台的 CI 才会红"的覆盖缺口�
 """
 
 import time
-from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
 from zoo_framework.constant import WaiterConstant, WorkerConstant
-from zoo_framework.core.waiter import SafeWaiter, StableWaiter, WaiterFactory
+from zoo_framework.core.waiter import WaiterFactory
 from zoo_framework.core.waiter.base_waiter import BaseWaiter
+from zoo_framework.core.waiter.scheduler_model import (
+    BACKPRESSURE_EXPAND,
+    BACKPRESSURE_QUEUE,
+    BACKPRESSURE_REJECT,
+)
 from zoo_framework.event import EventChannel
 from zoo_framework.event.event_channel_manager import EventChannelManager
 from zoo_framework.fifo import EventFIFO
@@ -55,16 +59,23 @@ def _tick_until(waiter, predicate, timeout: float = 2.0, interval: float = 0.01)
     return predicate()
 
 
-def _make_waiter(mode: str | None = None, pool_size: int = 4) -> BaseWaiter:
-    """构造一个指定模式的调度器（绕过配置，直接设定模式）."""
-    waiter = BaseWaiter()
-    if mode is not None:
-        waiter.worker_mode = mode
-        waiter.pool_enable = mode == WaiterConstant.WORKER_MODE_THREAD_POOL
-        waiter.pool_size = pool_size
-        if waiter.pool_enable:
-            waiter.resource_pool = ThreadPoolExecutor(max_workers=pool_size)
-    return waiter
+def _make_waiter(
+    mode: str | None = None,
+    pool_size: int = 4,
+    backpressure_policy: str | None = None,
+) -> BaseWaiter:
+    """构造一个指定模型的调度器（绕过配置，直接注入模型参数）.
+
+    Args:
+        mode: 调度模型名；None 表示由配置推导（与生产路径一致）
+        pool_size: 资源池尺寸
+        backpressure_policy: 池尺寸不足时的策略，默认 expand（与历史默认策略 simple 一致）
+    """
+    return BaseWaiter(
+        model_name=mode,
+        pool_size=pool_size,
+        backpressure_policy=backpressure_policy or BACKPRESSURE_EXPAND,
+    )
 
 
 class _RecordingWorker(BaseWorker):
@@ -366,7 +377,8 @@ class TestErrorIsolation:
         """Scenario: 非法调度项被忽略而非抛出."""
         waiter = _make_waiter(WaiterConstant.WORKER_MODE_THREAD_POOL)
         worker = _RecordingWorker("Alive", is_loop=True)
-        waiter.workers = [None, worker]
+        # 走受支持的入口：直接给 workers 赋值会绕过模型的 start，使 submit 拒绝派发
+        waiter.call_workers([None, worker])
 
         waiter.execute_service()
         assert _wait_until(lambda: worker.runs == 1)
@@ -480,13 +492,13 @@ class TestShutdown:
     def test_shutdown_reclaims_pool_threads(self):
         """Scenario: 停机后线程资源被回收."""
         waiter = _make_waiter(WaiterConstant.WORKER_MODE_THREAD_POOL)
-        pool = waiter.resource_pool
         worker = _RecordingWorker("Reclaim", is_loop=True)
         waiter.call_workers([worker])
         waiter.execute_service()
         assert _wait_until(lambda: worker.runs == 1)
 
-        threads = list(getattr(pool, "_threads", ()))
+        # 池由模型持有，且建池发生在 call_workers 内，故此处读取
+        threads = list(getattr(waiter.model._pool, "_threads", ()))
         assert threads, "资源池未创建工作线程"
         waiter.shutdown()
         assert all(not thread.is_alive() for thread in threads), "停机后工作线程仍在运行"
@@ -516,22 +528,38 @@ class TestShutdown:
 class TestModeValidation:
     """worker-scheduling: 未实现的调度模式 MUST NOT 被静默降级."""
 
-    def test_unknown_run_policy_is_rejected(self):
-        """Scenario: 无法识别的运行策略被明确拒绝."""
+    def test_unknown_model_name_is_rejected(self):
+        """Scenario: 无法识别的调度模型被明确拒绝."""
         with pytest.raises(ValueError):
             WaiterFactory.get_waiter("stabel")
 
     @pytest.mark.parametrize(
-        "policy",
+        "model_name",
+        [
+            WaiterConstant.WORKER_MODE_THREAD,
+            WaiterConstant.WORKER_MODE_THREAD_POOL,
+        ],
+    )
+    def test_implemented_models_are_supported(self, model_name):
+        """已实现的两种调度模型均可构造."""
+        assert WaiterFactory.get_waiter(model_name) is not None
+
+    @pytest.mark.parametrize(
+        "legacy_policy",
         [
             WorkerConstant.RUN_POLICY_SIMPLE,
             WorkerConstant.RUN_POLICY_STABLE,
             WorkerConstant.RUN_POLICY_SAFE,
         ],
     )
-    def test_known_policies_are_supported(self, policy):
-        """已实现的三种策略均可构造."""
-        assert WaiterFactory.get_waiter(policy) is not None
+    def test_legacy_policy_names_are_rejected_and_models_listed(self, legacy_policy):
+        """旧策略名 MUST 被拒绝，且错误信息列出可选模型名."""
+        with pytest.raises(ValueError) as exc:
+            WaiterFactory.get_waiter(legacy_policy)
+
+        message = str(exc.value)
+        assert WaiterConstant.WORKER_MODE_THREAD in message
+        assert WaiterConstant.WORKER_MODE_THREAD_POOL in message
 
     def test_unimplemented_mode_is_rejected(self):
         """Scenario: 请求未实现的调度模式被明确拒绝."""
@@ -554,18 +582,38 @@ class TestModeValidation:
         assert "未实现" in inspect.getsource(waiter_constant)
         assert "未实现" in inspect.getsource(worker_constant)
 
-    def test_safe_waiter_rejects_more_workers_than_pool_size(self):
-        """SafeWaiter 超出资源池尺寸时拒绝，而不是静默扩容."""
-        waiter = SafeWaiter()
-        waiter.pool_size = 1
+    def test_reject_policy_refuses_more_workers_than_pool_size(self):
+        """reject 背压策略：超出资源池尺寸时拒绝，而不是静默扩容（原 SafeWaiter 语义）."""
+        waiter = _make_waiter(
+            WaiterConstant.WORKER_MODE_THREAD_POOL,
+            pool_size=1,
+            backpressure_policy=BACKPRESSURE_REJECT,
+        )
         with pytest.raises(ValueError):
             waiter.call_workers([_RecordingWorker("A"), _RecordingWorker("B")])
 
-    def test_stable_waiter_keeps_configured_pool_size(self):
-        waiter = StableWaiter()
-        configured = waiter.pool_size
+    def test_queue_policy_keeps_configured_pool_size(self):
+        """queue 背压策略：池尺寸不被改写（原 StableWaiter 语义）."""
+        waiter = _make_waiter(
+            WaiterConstant.WORKER_MODE_THREAD_POOL,
+            pool_size=2,
+            backpressure_policy=BACKPRESSURE_QUEUE,
+        )
+        configured = waiter.model.pool_size
         waiter.call_workers([_RecordingWorker(f"W{i}") for i in range(configured + 3)])
-        assert waiter.pool_size == configured
+        assert waiter.model.pool_size == configured
+
+    def test_expand_policy_widens_effective_size_only(self):
+        """expand 背压策略：放宽**生效**尺寸但改写字面配置（原 SimpleWaiter 语义）."""
+        waiter = _make_waiter(
+            WaiterConstant.WORKER_MODE_THREAD_POOL,
+            pool_size=1,
+            backpressure_policy=BACKPRESSURE_EXPAND,
+        )
+        waiter.call_workers([_RecordingWorker(f"E{i}") for i in range(3)])
+
+        assert waiter.model.pool_size == 1
+        assert waiter.model.effective_pool_size > 1
 
 
 # =============================================================================

@@ -1,57 +1,139 @@
 """调度器基类。
 
-设计要点（对应 fix-worker-scheduling 的 A / B 组）：
+设计要点：
 
-- **登记先于派发**。若先提交任务再登记，瞬时完成的任务会在登记之前就触发注销，
-  在在飞表中留下一条永不清除的记录，使该 Worker 此后再不被派发。
-- **注销与上报由任务完成回调单点收口**。两种调度模式共用同一条收口路径，
-  因此线程模式的结果同样会被投递（此前线程模式的结果被直接丢弃）。
+- **模型无关的正确性逻辑不在本类内实现**，而是下沉到 ``WorkerDispatchCore``：
+  单一结算收口、超时观测与熔断、停机资源回收、运行期注册。
+- **并发原语与容器生命周期由调度模型承担**（``SchedulerModel``）。本类只负责
+  按配置装配模型、跑调度轮，并把派发与停机委托给模型。
+- **登记先于派发**（``core.begin`` 先于 ``model.submit``）。若先提交任务再登记，
+  瞬时完成的任务会在登记之前就触发注销，在在飞表中留下一条永不清除的记录，
+  使该 Worker 此后再不被派发。
 - **超时只做"观测 + 熔断"**。CPython 无法安全中断一个正在执行的线程，
   因此系统不声称已终止超时的 Worker，只记录、标记不健康并停止派发。
-- **停机是显式动作**。停止派发、回收线程资源、清空在飞表，且可重复调用。
+- **停机是显式动作**。停止派发、交由模型回收容器、清空在飞表，且可重复调用。
 """
 
 import contextlib
-import threading
-import time
-from concurrent.futures import ThreadPoolExecutor
 
 from zoo_framework.constant import WaiterConstant
 from zoo_framework.reactor.event_reactor_manager import EventReactorManager
 from zoo_framework.reactor.waiter_result_reactor import WaiterResultReactor
 from zoo_framework.utils import LogUtils
-from zoo_framework.workers import BaseWorker
+
+from .dispatch_core import WorkerDispatchCore
+from .scheduler_model import (
+    LEGACY_POLICY_TO_BACKPRESSURE,
+    SchedulerModel,
+    ThreadPerTaskModel,
+    ThreadPoolModel,
+)
 
 
 class BaseWaiter:
-    """基础的 waiter（调度器）。"""
+    """基础的 waiter（调度器）.
 
-    _lock = None
+    Attributes:
+        worker_mode: 生效的调度模型名
+        pool_enable: 是否使用资源池（由模型名推导）
+        model: 已装配的调度模型
+        core: 调度内核
+    """
 
-    def __init__(self):
+    def __init__(
+        self,
+        model_name: str | None = None,
+        pool_size: int | None = None,
+        backpressure_policy: str | None = None,
+    ):
+        """装配调度器.
+
+        Args:
+            model_name: 调度模型名（``worker:mode`` 的取值）；None 表示由配置推导
+            pool_size: 资源池尺寸；None 表示取 ``worker:pool:size``
+            backpressure_policy: 池尺寸不足时的策略；None 表示由 ``worker:runPolicy`` 推导
+
+        Raises:
+            NotImplementedError: 模型名对应的模式尚未实现
+            ValueError: 运行策略无法识别
+        """
         from zoo_framework.params import WorkerParams
 
-        # 获得模式
-        self.worker_mode, self.pool_enable = self.get_worker_mode(WorkerParams.WORKER_POOL_ENABLE)
-        # 获得资源池的大小
-        self.pool_size = WorkerParams.WORKER_POOL_SIZE
-        # 默认超时（<=0 表示不启用超时判定）
-        self.run_timeout = WorkerParams.WORKER_RUN_TIMEOUT
-        # 资源池初始化
-        self.resource_pool = None
+        configured_mode, self.pool_enable = self.get_worker_mode(WorkerParams.WORKER_POOL_ENABLE)
+        self.worker_mode = self.validate_worker_mode(model_name) if model_name else configured_mode
 
-        # TODO：将 worker 使用register的方式注册，并且属性和方法都可以通过register的方式注册
-        self.workers = []
-        # 在飞表：worker 名 -> {worker, run_time, run_timeout, container}
-        self.worker_props = {}
-        # 在飞表与熔断集合会被派发线程和任务完成回调并发访问
-        self._lock = threading.RLock()
-        # 已熔断（超时）的 worker 名，不再派发
-        self._broken: set = set()
-        # 停机标记
-        self._stopped = False
+        size = WorkerParams.WORKER_POOL_SIZE if pool_size is None else pool_size
+        policy = (
+            backpressure_policy
+            if backpressure_policy is not None
+            else self._resolve_backpressure_policy(WorkerParams.WORKER_RUN_POLICY)
+        )
+        # 显式传入的策略同样要校验：线程模式下该参数对模型无意义，但一个写错的取值
+        # 若被静默忽略，配置意图就悄悄失守了——MUST NOT 静默忽略
+        self._validate_backpressure_policy(policy)
+
+        self.model: SchedulerModel = self._build_model(self.worker_mode, size, policy)
+
+        # 模型无关的簿记与正确性逻辑全部由内核持有（单一所有者）
+        self.core = WorkerDispatchCore(default_run_timeout=WorkerParams.WORKER_RUN_TIMEOUT)
 
         self.register_handler()
+
+    # ------------------------------------------------------------------ 装配
+
+    @staticmethod
+    def _build_model(model_name: str, pool_size: int, backpressure_policy: str) -> SchedulerModel:
+        """按模型名装配具体模型."""
+        if model_name == WaiterConstant.WORKER_MODE_THREAD_POOL:
+            return ThreadPoolModel(pool_size=pool_size, backpressure_policy=backpressure_policy)
+        return ThreadPerTaskModel()
+
+    @staticmethod
+    def _resolve_backpressure_policy(policy: str) -> str:
+        """把 ``worker:runPolicy`` 的历史取值映射为背压策略.
+
+        Raises:
+            ValueError: 取值无法识别——MUST NOT 静默降级到某个默认策略
+        """
+        mapped = LEGACY_POLICY_TO_BACKPRESSURE.get(policy)
+        if mapped is None:
+            raise ValueError(
+                f"无法识别的运行策略 {policy!r}；可选 {list(LEGACY_POLICY_TO_BACKPRESSURE)}"
+            )
+        return mapped
+
+    @staticmethod
+    def _validate_backpressure_policy(policy: str) -> None:
+        """校验背压策略取值.
+
+        与配置路径共用同一套合法取值；未知取值 MUST 被明确拒绝并列出可选项，
+        MUST NOT 被静默忽略——即使当前模型（如线程派发模型）并不使用该参数。
+
+        Raises:
+            ValueError: 取值无法识别
+        """
+        allowed = sorted(set(LEGACY_POLICY_TO_BACKPRESSURE.values()))
+        if policy not in allowed:
+            raise ValueError(f"无法识别的背压策略 {policy!r}；可选 {allowed}")
+
+    # ------------------------------------------------------------------ 状态视图
+    # 调度列表与在飞表的状态归内核所有；此处只暴露**只读**视图，避免两处各存一份。
+    # 变更调度列表请用 call_workers / add_worker——直接赋值会绕过模型的 start，
+    # 使 submit 按"未启动即提交"的契约拒绝派发。
+
+    @property
+    def workers(self):
+        return self.core.workers
+
+    @property
+    def worker_props(self):
+        return self.core.worker_props
+
+    @property
+    def _broken(self):
+        return self.core.broken
+
+    # ------------------------------------------------------------------ 模式选择
 
     @staticmethod
     def validate_worker_mode(mode):
@@ -109,26 +191,18 @@ class BaseWaiter:
             WaiterConstant.WORKER_RESULT_TOPIC, WaiterResultReactor()
         )
 
-    def init_lock(self):
-        pass
+    # ------------------------------------------------------------------ 集结与注册
 
-    # 集结worker们
     def call_workers(self, worker_list: list):
-        """集结worker们。
+        """集结worker们，并按背压策略启动模型容器.
 
         Args:
             worker_list: 参与调度的 Worker 列表
         """
-        self.workers = list(worker_list)
-
-        # 生成池或者列表，这里使用线程池，如果使用进程池，需要考虑进程间通信，暂时不考虑
-        if (
-            self.worker_mode == WaiterConstant.WORKER_MODE_THREAD_POOL
-            and self.resource_pool is None
-        ):
-            self.resource_pool = ThreadPoolExecutor(
-                max_workers=self.pool_size, thread_name_prefix="zoo-worker"
-            )
+        self.core.set_workers(worker_list)
+        # 背压策略必须在建池之前生效：expand 会放宽尺寸，建池后再放宽已无意义
+        self.model.prepare_workers(self.core.workers)
+        self.model.start(self.core)
 
     def add_worker(self, worker):
         """把运行期新增的 Worker 纳入调度。
@@ -138,48 +212,46 @@ class BaseWaiter:
         Args:
             worker: 待加入调度的 Worker
         """
-        if worker is None:
-            return
-        with self._lock:
-            if worker not in self.workers:
-                self.workers.append(worker)
+        self.core.add_worker(worker)
 
     def __del__(self):
         # 释放阶段不做任何可能抛异常的清理：__del__ 抛出的异常只会打印到 stderr
         with contextlib.suppress(Exception):
             self.shutdown(wait=False)
 
-    # 执行服务
+    # ------------------------------------------------------------------ 调度轮
+
     def execute_service(self):
         """执行服务。
 
         本轮结束后仍保留在调度列表中的，只有声明循环且未被熔断的 Worker。
         """
-        if self._stopped:
+        if self.core.stopped:
             return
 
-        # 参与下次循环的worker
-        next_loop_workers = []
-        for worker in list(self.workers):
+        for worker in list(self.core.workers):
             # 非法调度项直接忽略，MUST NOT 因其抛出属性访问异常
             if worker is None:
                 continue
 
             # 超时判定先于在飞判定：判定为超时的 Worker 本轮即被熔断
-            self._reap_timeout(worker)
+            self.core.reap_timeout(worker)
 
-            if self._is_broken(worker):
+            if self.core.is_broken(worker):
                 continue
 
-            if worker.is_loop:
-                next_loop_workers.append(worker)
+            # 在飞判定先于周期排期：周期排期带副作用（推进序列），若对一个仍在执行的
+            # Worker 调用它，会把这次触发"消费掉"却不派发
+            if self.core.is_inflight(worker):
+                continue
 
-            if self._is_inflight(worker):
+            # 周期排期：未到点的周期 Worker 本轮跳过，但仍留在调度列表中
+            if not self.core.is_due(worker):
                 continue
 
             self._dispatch_worker(worker)
 
-        self.workers = next_loop_workers
+        self.core.workers = self.core.retain_looping(self.core.workers)
 
     def _dispatch_worker(self, worker):
         """派遣 worker。
@@ -189,152 +261,21 @@ class BaseWaiter:
         Args:
             worker: 待派发的 Worker
         """
-        handle = {
-            "worker": worker,
-            "run_time": time.monotonic(),
-            "run_timeout": self._resolve_run_timeout(worker),
-            "container": None,
-        }
-
-        with self._lock:
-            if worker.name in self.worker_props:
-                return
-            self.worker_props[worker.name] = handle
+        handle = self.core.begin(worker, self.core.resolve_run_timeout(worker))
+        if handle is None:
+            return
 
         try:
-            if self.worker_mode == WaiterConstant.WORKER_MODE_THREAD_POOL:
-                self._dispatch_to_pool(worker, handle)
-            else:
-                self._dispatch_to_thread(worker, handle)
+            self.model.submit(self.core, worker)
         except Exception as e:
             # 派发失败不得中断整轮调度；清掉登记以便下一轮重试
-            with self._lock:
-                self.worker_props.pop(worker.name, None)
+            self.core.abort(worker)
             LogUtils.error(f"Worker {worker.name} 派发失败: {e}", self.__class__.__name__)
 
-    def _dispatch_to_pool(self, worker, handle):
-        """资源池模式派发。"""
-        future = self.resource_pool.submit(self.worker_running, worker)
-        with self._lock:
-            handle["container"] = future
-        future.add_done_callback(lambda f, w=worker: self._on_future_done(w, f))
-
-    def _dispatch_to_thread(self, worker, handle):
-        """线程模式派发。
-
-        与资源池模式共用同一个完成收口，因此线程模式的结果同样会被投递。
-        """
-
-        def _run(w=worker):
-            try:
-                result = self.worker_running(w)
-            except Exception as e:
-                self._on_worker_done(w, error=e)
-            else:
-                self._on_worker_done(w, result=result)
-
-        thread = threading.Thread(target=_run, name=f"zoo-{worker.name}", daemon=True)
-        with self._lock:
-            handle["container"] = thread
-        thread.start()
-
-    def _on_future_done(self, worker, future):
-        """资源池模式下任务完成的收口。"""
-        try:
-            result = future.result()
-        except Exception as e:
-            self._on_worker_done(worker, error=e)
-        else:
-            self._on_worker_done(worker, result=result)
-
-    def _on_worker_done(self, worker, result=None, error=None):
-        """唯一的完成收口：注销在飞状态，并在成功时上报结果。
-
-        无论执行成功与否都必须注销；上报过程自身抛出的异常 MUST NOT 影响注销。
-
-        Args:
-            worker: 完成执行的 Worker
-            result: 执行结果；执行失败时为 None
-            error: 执行时抛出的异常；成功时为 None
-        """
-        with self._lock:
-            self.worker_props.pop(worker.name, None)
-
-        if error is not None:
-            LogUtils.error(f"Worker {worker.name} 执行失败: {error}", self.__class__.__name__)
-            return
-
-        if result is None:
-            return
-
-        try:
-            EventReactorManager().dispatch(result.topic, result)
-        except Exception as e:
-            LogUtils.error(f"Worker {worker.name} 结果上报失败: {e}", self.__class__.__name__)
-
-    def _resolve_run_timeout(self, worker):
-        """解析 Worker 的超时：自报 → 按 Worker 名覆盖 → 全局默认。
-
-        Args:
-            worker: 目标 Worker
-
-        Returns:
-            超时秒数；未声明时返回 None
-        """
-        from zoo_framework.core.params_factory import ParamsFactory
-        from zoo_framework.params import WorkerParams
-
-        timeout = worker.run_timeout
-        if timeout:
-            return timeout
-
-        override = ParamsFactory().get_params(
-            f"{WorkerParams.WORKER_OVERRIDE_PREFIX}:{worker.name}:runTimeout",
-            default_value=None,
-        )
-        if override:
-            return override
-
-        return self.run_timeout or None
-
-    def _reap_timeout(self, worker):
-        """超时判定与熔断。
-
-        只做观测与熔断：记录、标记为不健康、不再派发。MUST NOT 声称已终止仍在
-        执行的 Worker —— CPython 无法安全中断一个正在执行的线程。
-
-        Args:
-            worker: 目标 Worker
-        """
-        with self._lock:
-            handle = self.worker_props.get(worker.name)
-            if handle is None:
-                return
-            timeout = handle.get("run_timeout")
-            if not timeout or timeout <= 0:
-                return
-            elapsed = time.monotonic() - handle.get("run_time", 0)
-            if elapsed < timeout:
-                return
-            self._broken.add(worker.name)
-            self.worker_props.pop(worker.name, None)
-
-        LogUtils.error(
-            f"Worker {worker.name} 执行已超过 {timeout}s（实际 {elapsed:.3f}s），"
-            "标记为不健康并停止派发；注意：系统不会强制终止仍在执行的 Worker",
-            self.__class__.__name__,
-        )
-
-    def _is_inflight(self, worker) -> bool:
-        with self._lock:
-            return worker.name in self.worker_props
-
-    def _is_broken(self, worker) -> bool:
-        with self._lock:
-            return worker.name in self._broken
+    # ------------------------------------------------------------------ 停机
 
     def shutdown(self, wait: bool = True, timeout: float | None = None) -> None:
-        """停机：停止派发并回收调度占用的线程资源。
+        """停机：停止派发并交由模型回收容器。
 
         MUST 可重复调用。
 
@@ -342,73 +283,10 @@ class BaseWaiter:
             wait: 是否等待在飞任务结束
             timeout: 等待上限（秒）；None 表示不设上限
         """
-        with self._lock:
-            already_stopped = self._stopped
-            self._stopped = True
-
-        if already_stopped:
+        if not self.core.mark_stopped():
             return
 
         LogUtils.info("Waiter 停机中", self.__class__.__name__)
 
-        pool = self.resource_pool
-        self.resource_pool = None
-
-        if pool is not None:
-            # cancel_futures 只对尚未开始的任务生效；已开始的任务无法中断，只能等
-            pool.shutdown(wait=False, cancel_futures=True)
-            if wait:
-                self._join_pool_threads(pool, timeout)
-
-        with self._lock:
-            self.workers = []
-            self.worker_props.clear()
-
-    @staticmethod
-    def _join_pool_threads(pool, timeout: float | None) -> None:
-        """在给定上限内等待资源池的工作线程退出。
-
-        使用 ThreadPoolExecutor 的私有 ``_threads``：公开 API 未提供带超时的等待，
-        而停机 MUST NOT 无限期阻塞。
-        """
-        deadline = None if timeout is None else time.monotonic() + timeout
-        for thread in list(getattr(pool, "_threads", ())):
-            remaining = None if deadline is None else deadline - time.monotonic()
-            if remaining is not None and remaining <= 0:
-                LogUtils.warning(
-                    f"停机等待超时，仍有工作线程未退出（等待上限 {timeout}s）",
-                    BaseWaiter.__name__,
-                )
-                return
-            thread.join(remaining)
-
-    def register_worker(self, worker, worker_container):
-        """Register the worker to self.worker_props
-
-        Args:
-            worker: worker
-            worker_container: worker running thread or process
-        """
-        self.worker_props[worker.name] = {
-            "worker": worker,
-            "run_time": time.monotonic(),
-            "run_timeout": worker.run_timeout,
-            "container": worker_container,
-        }
-
-    def unregister_worker(self, worker):
-        with self._lock:
-            self.worker_props.pop(worker.name, None)
-
-    # 派遣worker
-    @staticmethod
-    def worker_running(worker):
-        """派遣worker。
-
-        Returns:
-            WorkerResult；worker 非法时返回 None
-        """
-        if not isinstance(worker, BaseWorker):
-            return None
-
-        return worker.run()
+        self.model.teardown(self.core, wait=wait, timeout=timeout)
+        self.core.clear()

@@ -38,6 +38,23 @@ class BaseWorker:
         return self._props.get("run_timeout")
 
     @property
+    def period(self):
+        """执行周期（秒）。
+
+        未声明时返回 None，表示按**事件驱动**处理（每一轮调度都视为到点）。
+        周期是逐个 Worker 的声明，MUST NOT 由进程或调度模型统一钉死。
+        """
+        return self._props.get("period")
+
+    @property
+    def phase(self):
+        """周期相位偏移（秒）；未声明时返回 0.0。
+
+        首次触发时刻相对排期基准存在该偏移，用于错开多个周期 Worker 的触发时刻。
+        """
+        return self._props.get("phase", 0.0)
+
+    @property
     def delay_time(self) -> float:
         """单次执行结束后的等待秒数；未声明时视为不等待。"""
         return self._props.get("delay_time") or 0

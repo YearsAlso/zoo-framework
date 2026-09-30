@@ -20,7 +20,10 @@ class WorkerConstant:
     # 已实现的运行模式集合，供校验使用
     IMPLEMENTED_RUN_MODES = (RUN_MODE_THREAD,)
 
-    # 运行策略（三种均已实现，由 WaiterFactory 提供对应调度器）
+    # 池尺寸不足时的策略（由 ThreadPoolModel 作为背压策略消费）：
+    #   simple → 扩容；stable → 排队；safe → 拒绝
+    # 历史沿革：三者曾是三个调度器类（SimpleWaiter / StableWaiter / SafeWaiter），
+    # 但其差异只在池尺寸语义、与并发原语和时间语义无关，故已降为模型的参数。
     RUN_POLICY_SAFE = "safe"
     RUN_POLICY_SIMPLE = "simple"
     RUN_POLICY_STABLE = "stable"
