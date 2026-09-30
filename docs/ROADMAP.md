@@ -287,7 +287,7 @@ zoo_cloud/         # 云服务
 传统框架                    Zoo Framework
 ─────────────────────────────────────────────────
 Thread Pool        →       🦁 Worker (动物)
-Mutex/Lock         →       🏠 Cage (笼子)
+Shared Objects     →       🏠 Cage (ScopedContainer)
 Thread Manager     →       👨‍🌾 Master (饲养员)
 Event Bus          →       🍎 Event (食物)
 Queue              →       🥘 FIFO (喂食器)
@@ -308,7 +308,6 @@ Queue              →       🥘 FIFO (喂食器)
 
 ```
 Level 1: 简单使用 (5分钟上手)
-  @cage
   class MyWorker(BaseWorker):
       def _execute(self):
           print("Hello")

@@ -12,7 +12,7 @@ Zoo Framework 采用**动物园隐喻**设计：
 |----------|----------|------|
 | 👨‍🌾 园长 | Master | 管理整个动物园 |
 | 🦁 动物 | Worker | 执行任务的基本单元 |
-| 🏠 笼子 | Cage | 保护 Worker，提供线程安全 |
+| 🏠 笼子 | ScopedContainer | 按作用域持有共享实例 |
 | 🍎 食物 | Event | Worker 之间通信的载体 |
 | 🥘 饲养员队列 | FIFO | 管理事件的有序处理 |
 
@@ -25,24 +25,24 @@ graph TB
     subgraph "🎪 Zoo Framework"
         M[👨‍🌾 Master<br/>园长] -->|调度| W[🍽️ Waiter<br/>饲养员]
         W -->|分发任务| Wr[👷 Workers<br/>动物群]
-        
+
         subgraph Workers
             Wr1[🦁 Worker 1]
             Wr2[🐒 Worker 2]
             Wr3[🐘 Worker 3]
         end
-        
+
         Wr1 -->|住在| C1[🏠 Cage 1]
         Wr2 -->|住在| C2[🏠 Cage 2]
         Wr3 -->|住在| C3[🏠 Cage 3]
-        
+
         M -->|管理| SM[🔄 StateMachine<br/>状态机]
         M -->|监控| SVM[📊 SVM<br/>状态向量机]
         M -->|加载| PM[🔌 Plugin<br/>插件系统]
-        
+
         E[📢 Event<br/>事件] -->|排队| F[📊 FIFO<br/>饲养员队列]
         F -->|分发| Wr
-        
+
         SM -.->|状态变更| Wr
         SVM -.->|健康检查| Wr
     end
@@ -68,13 +68,13 @@ classDiagram
         +shutdown()
         +get_health_report()
     }
-    
+
     class MasterConfig {
         +str config_path
         +bool enable_svm
         +int svm_check_interval
     }
-    
+
     Master --> MasterConfig
     Master --> WorkerRegistry
     Master --> SVMWorker
@@ -97,25 +97,25 @@ classDiagram
         +bool is_loop
         +float delay_time
         +str name
-        +_execute()* 
+        +_execute()*
         +_destroy(result)
         +stop()
     }
-    
+
     class EventWorker {
         +handle_event(event)
     }
-    
+
     class StateMachineWorker {
         +setup_state_machine()
         +persist_state()
     }
-    
+
     class AsyncWorker {
-        +async_execute()* 
+        +async_execute()*
         +run_in_background()
     }
-    
+
     BaseWorker <|-- EventWorker
     BaseWorker <|-- StateMachineWorker
     BaseWorker <|-- AsyncWorker
@@ -131,35 +131,63 @@ classDiagram
 
 ### 3. 🏠 Cage - 笼子
 
-**职责**：提供线程安全和生命周期管理
+**对应组件**：`ScopedContainer`（`zoo_framework/core/container/`）
+**职责**：按**作用域**持有共享实例——"跨 Worker 复用同一个对象"这件事的显式载体
+
+三种作用域：进程级（全进程唯一）、会话级（每会话一个）、原型级（每次新建，不缓存）。
 
 ```mermaid
 classDiagram
-    class cage {
-        <<decorator>>
-        +protect(worker)
-        +monitor(worker)
+    class ScopedContainer {
+        +register(target, scope_kind, thread_safety)
+        +resolve(target, scope)
+        +exclusive(target, scope)
+        +release(scope)
+        +replace(target, scope, ...)
+        +reset()
     }
-    
-    class ThreadSafeDict {
-        +get(key)
-        +set(key, value)
-        +delete(key)
+
+    class Scope {
+        <<handle>>
+        +process()
+        +session(session_id)
+        +prototype()
     }
-    
-    class SafeCage {
-        +RLock lock
-        +isolate()
+
+    class Registration {
+        +name
+        +scope_kind
+        +thread_safety
+        +on_release
     }
-    
-    cage --> ThreadSafeDict
-    cage --> SafeCage
+
+    class ThreadSafety {
+        <<declaration>>
+        +INSTANCE_GUARANTEED
+        +CONTAINER_SERIALIZED
+        +SINGLE_THREAD
+    }
+
+    ScopedContainer --> Scope
+    ScopedContainer --> Registration
+    Registration --> ThreadSafety
 ```
 
-**保护机制**：
-- 线程锁（RLock/Lock）
-- 自动异常处理
-- 资源清理
+**它保证什么**：解析以作用域为界（同作用域内同一注册项解析到同一实例、不同会话解析到不同
+实例）；标识是**模块 + 限定名**（同名但定义位置不同的类不会串号）；解析**保留类型契约**
+（容器不替换类，`isinstance` / `issubclass` 照常可用）；线程安全归属**必须显式声明**；生命
+周期可显式释放（`release` 幂等，对每个实例只触发一次 `on_release`）；测试可 `replace` 注入
+假实现、`reset` 回到初始状态。
+
+**它不保证什么**——这条比上面那条更值得记住：**容器不是线程安全装饰器**。它不替实例加锁，
+只按你**声明**的归属行事——`SINGLE_THREAD` 的项会被拒绝跨线程取用，`CONTAINER_SERIALIZED`
+的项必须经 `exclusive()` 串行取用，而 `INSTANCE_GUARANTEED` 说的是"实例自己负责"。真正的
+互斥仍来自 `ThreadSafeDict`、`RLock` 或实例自身。**声明必须如实**：把无锁的可变对象填成
+`INSTANCE_GUARANTEED`，等于把一个未验证的安全假设写进代码。
+
+> ⚠️ `@cage` 装饰器**已删除**。它过去声称"把类变成单例"，实际做的是**替换类**——`issubclass`
+> / `isinstance` 双双失效（曾造成一次 P0），且两个同名类会按裸类名互相覆盖。框架内部的进程级
+> 共享现由容器承担（`process_scoped` 装饰器，**不**替换类）。
 
 ### 4. 🔄 StateMachine - 状态机
 
@@ -178,7 +206,7 @@ classDiagram
         +load_state_machines()
         +get_state_machines()
     }
-    
+
     class StateScope {
         +StateIndex _state_index
         +register_node(key, value)
@@ -188,22 +216,22 @@ classDiagram
         +observe_state_node(key, effect)
         +unobserve_state_node(key, effect)
     }
-    
+
     class StateIndex {
         <<interface>>
         +get(key)
         +set(key, value)
         +remove(key)
     }
-    
+
     class ThreadSafeDictIndex {
         +ThreadSafeDict _index
     }
-    
+
     class HierarchicalIndex {
         +dict _root
     }
-    
+
     StateMachineManager --> StateScope
     StateScope --> StateIndex
     StateIndex <|.. ThreadSafeDictIndex
@@ -222,10 +250,10 @@ sequenceDiagram
     participant F as 📊 FIFO
     participant R as 📢 Reactor
     participant C as 📬 Consumer
-    
+
     P->>F: push(event)
     F->>F: sort by priority
-    
+
     loop Polling
         R->>F: pop()
         F-->>R: event
@@ -253,30 +281,30 @@ classDiagram
         +save()
         +mark_dirty()
     }
-    
+
     class PersistenceStrategy {
         <<interface>>
         +save(data, filepath)
         +load(filepath)
         +validate(filepath)
     }
-    
+
     class PicklePersistenceStrategy {
         +save(data, filepath)
         +load(filepath)
     }
-    
+
     class BackupManager {
         +create_backup(filepath)
         +restore_backup(filepath)
         +cleanup_old_backups()
     }
-    
+
     class FileChecksumValidator {
         +calculate_checksum(filepath)
         +verify_checksum(filepath, expected)
     }
-    
+
     PersistenceScheduler --> PersistenceStrategy
     PersistenceScheduler --> BackupManager
     PersistenceScheduler --> FileChecksumValidator
@@ -301,28 +329,28 @@ classDiagram
         +activate()
         +deactivate()
     }
-    
+
     class PluginManager {
         +register(plugin)
         +unregister(plugin)
         +get_plugin(name)
         +load_from_path(path)
     }
-    
+
     class WorkerDelayManager {
         +set_delay(worker, delay)
         +set_delay_strategy(strategy)
     }
-    
+
     class DelayStrategy {
         <<interface>>
         +calculate_delay(attempt)
     }
-    
+
     class FixedDelay
     class ExponentialDelay
     class AdaptiveDelay
-    
+
     PluginManager --> Plugin
     PluginManager --> WorkerDelayManager
     WorkerDelayManager --> DelayStrategy
@@ -346,7 +374,7 @@ classDiagram
         +start_monitoring()
         +stop_monitoring()
     }
-    
+
     class WorkerMetrics {
         +int execute_count
         +int error_count
@@ -371,27 +399,27 @@ classDiagram
 sequenceDiagram
     participant M as 👨‍🌾 Master
     participant W as 🍽️ Waiter
-    participant C as 🏠 Cage
+    participant C as 🏠 Cage (ScopedContainer)
     participant Wr as 👷 Worker
-    
+
     M->>W: call_workers(workers)
-    
+
     loop Main Loop
         W->>C: enter()
         C->>C: 🔒 acquire lock
         C->>Wr: _execute()
-        
+
         alt Success
             Wr-->>C: result
         else Error
             Wr-->>C: exception
             C->>C: handle exception
         end
-        
+
         C->>C: 🔓 release lock
         C->>C: leave()
     end
-    
+
     Wr->>Wr: _destroy(result)
 ```
 
@@ -403,10 +431,10 @@ sequenceDiagram
     participant E as 📢 EventReactor
     participant F as 📊 FIFO
     participant Ch as 📡 ChannelManager
-    
+
     Wr->>E: dispatch(topic, content, channel)
     E->>Ch: can_handle_event(reactor_name, event)
-    
+
     alt Channel Valid
         Ch-->>E: True
         E->>F: push(event)
@@ -428,19 +456,24 @@ sequenceDiagram
 | 组件 | 线程安全机制 | 说明 |
 |------|-------------|------|
 | ThreadSafeDict | RLock | 线程安全字典 |
-| Cage | RLock | Worker 保护 |
+| ScopedContainer | 按注册项的锁 + `ThreadSafety` 声明 | 按作用域持有共享实例；**不替实例加锁** |
 | StateScope | StateIndex | 状态隔离 |
 | PersistenceScheduler | RLock | 文件操作安全 |
 
 ### 最佳实践
 
 ```python
-# ✅ 使用 Cage 装饰器保护 Worker
-from zoo_framework.core.aop import cage
-
-@cage
+# ✅ Worker 以类的形式注册——不要给它加任何"替换类"的装饰器
 class MyWorker(BaseWorker):
     pass
+
+
+# ✅ 跨 Worker 复用同一个对象：交给容器，并把作用域与线程安全归属写清
+from zoo_framework.core.container import ScopeKind, ThreadSafety
+
+container.register(
+    MyClient, scope_kind=ScopeKind.SESSION, thread_safety=ThreadSafety.INSTANCE_GUARANTEED
+)
 
 # ✅ 使用 ThreadSafeDict 存储共享数据
 from zoo_framework.utils.thread_safe_dict import ThreadSafeDict

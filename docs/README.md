@@ -32,7 +32,7 @@
 graph TB
     subgraph 🎪 Zoo Framework
         M[👨‍🌾 Master 园长] -->|管理| W[🦁 Worker 动物]
-        M -->|管理| C[🏠 Cage 笼子]
+        M -->|管理| C[🏠 Cage 笼子<br/>= ScopedContainer]
         M -->|管理| F[🥘 FIFO 饲养员队列]
         W -->|住在| C
         W -->|监听| E[🍎 Event 食物]
@@ -161,14 +161,17 @@ Worker 是执行业务逻辑的基本单元。
 ```python
 from zoo_framework.workers import BaseWorker
 
+
 class MyWorker(BaseWorker):
     def __init__(self):
-        super().__init__({
-            "is_loop": True,    # 循环执行（属性，读取时不要加括号）
-            "delay_time": 1.0,  # 单次执行结束后的等待秒数
-            "name": "MyWorker",
-            # "run_timeout": 30,  # 可选：执行超时（观测 + 熔断，不强制终止）
-        })
+        super().__init__(
+            {
+                "is_loop": True,  # 循环执行（属性，读取时不要加括号）
+                "delay_time": 1.0,  # 单次执行结束后的等待秒数
+                "name": "MyWorker",
+                # "run_timeout": 30,  # 可选：执行超时（观测 + 熔断，不强制终止）
+            }
+        )
 
     def _execute(self):
         print("执行业务逻辑")
@@ -179,21 +182,43 @@ class MyWorker(BaseWorker):
 
 ### 🏠 Cage - 笼子
 
-`@cage` 是一个**单例工厂**：按类名缓存实例，重复调用返回同一个对象。
-它**不是**线程安全装饰器 —— 线程安全由 `ThreadSafeDict` 等具体组件各自保证。
+笼子对应 **`ScopedContainer`**：按**作用域**持有共享实例的容器。
+
+作用域有三种，解析时以**显式句柄**传入（没有"不传即进程级"的默认值——那会静默破坏会话隔离）：
+
+| 作用域 | 含义 |
+|---|---|
+| `ScopeKind.PROCESS` | 全进程唯一，跨会话同一实例 |
+| `ScopeKind.SESSION` | 每个会话一个（会话边界由 `RunIdentity.session_id` 承载） |
+| `ScopeKind.PROTOTYPE` | 每次解析都新建，不缓存 |
 
 ```python
-from zoo_framework.core.aop import cage
+from zoo_framework.core.container import Scope, ScopeKind, ScopedContainer, ThreadSafety
 
-@cage  # 装饰后 MyService 变成工厂函数，不是类
-class MyService:
-    pass
-
-MyService() is MyService()   # True
+container = ScopedContainer()
+container.register(
+    MyService, scope_kind=ScopeKind.PROCESS, thread_safety=ThreadSafety.INSTANCE_GUARANTEED
+)  # 必填，无隐式默认
+service = container.resolve(MyService, Scope.process())
 ```
 
-⚠️ **`@cage` 不能用于 Worker**：`WorkerRegistry` 用 `issubclass` 校验契约，
-装饰后拿到的是工厂函数，注册会抛 `TypeError: issubclass() arg 1 must be a class`。
+容器的语义边界值得先记住四条：**解析以作用域为界**（同作用域内同一注册项得到同一实例，
+不同会话作用域得到不同实例）；**注册项标识是模块 + 限定名**（不是裸类名，故同名但定义位置
+不同的类不会串号）；**解析保留类型契约**（`isinstance` / `issubclass` 照常可用——它不替换类）；
+**线程安全归属必须显式声明**（`INSTANCE_GUARANTEED` / `CONTAINER_SERIALIZED` / `SINGLE_THREAD`，
+未声明即拒绝注册，因为隐式默认一个安全假设正是缺陷的温床）。
+
+生命期由 `release(scope)` 显式结束（幂等，对每个实例只触发一次声明的销毁钩子），测试可用
+`replace(target, scope, ...)` 注入假实现、用 `reset()` 回到初始状态。
+
+> ⚠️ **`@cage` 装饰器已删除**（不再从 `zoo_framework.core.aop` / `zoo_framework.core` 导出）。
+> 它过去用"把类替换成工厂函数"提供单例，后果是 `issubclass` / `isinstance` 双双失效，且两个
+> 同名类会按裸类名互相覆盖。框架内部的进程级共享现由容器承担（`process_scoped` 装饰器，
+> **不**替换类）。
+
+> ⚠️ **Worker 必须以类的形式注册**：`WorkerRegistry` 用 `issubclass` 校验契约，传入函数或实例
+> 会抛 `TypeError: issubclass() arg 1 must be a class`。这条约束与 `@cage` 无关，删除它之后
+> 依然成立。
 
 ---
 
