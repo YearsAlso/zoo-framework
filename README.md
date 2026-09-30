@@ -136,6 +136,17 @@ python src/main.py
 > `TypeError: issubclass() arg 1 must be a class`. `@cage` is a singleton factory for
 > *service* classes, not a thread-safety wrapper.
 
+<!--
+演示图占位（demo image placeholder）—— 产出图片后，删掉下面这行图片引用前的注释标记即可。
+
+  1. 录制：Windows 用 ScreenToGif；macOS / Linux 用 asciinema + agg
+  2. 内容：`zfc --create myapp && cd myapp && python src/main.py`，录 10–15 秒，
+     展示 Worker 每轮被派发与日志持续输出
+  3. 存放：`docs/assets/demo.gif`
+  4. 若动图不便，也可只截一张架构图 —— 下一节的 Mermaid 图可直接在 GitHub 上截图复用
+-->
+<!-- ![Quick Start demo](docs/assets/demo.gif) -->
+
 ### How it runs
 
 ```
@@ -152,6 +163,20 @@ Workers execute **concurrently** within a round and are never dispatched twice a
 same time. `Master.shutdown()` stops dispatch first, then cancels the scheduling task,
 stops the event loop, stops monitoring, and finally unregisters every Worker — which is
 where the state machine's last save happens.
+
+How the pieces connect:
+
+```mermaid
+flowchart TB
+    cfg["config.json"] --> pf["ParamsFactory<br/>resolved once, at first import"]
+    m["Master"] --> pf
+    m --> wr["WorkerRegistry<br/>module-level singleton"]
+    m -->|"worker:mode"| w["Waiter<br/>ThreadPerTaskModel / ThreadPoolModel"]
+    w -->|"dispatch, once per round"| wk["Worker._execute()"]
+    wk --> set["WorkerDispatchCore.settle()<br/>single settlement point:<br/>unregister in-flight, report result"]
+    set --> pipe["Event pipeline<br/>EventChannel → EventFIFO → Reactor"]
+    m --> sm["StateMachineWorker<br/>periodic save, atomic replace + rolling backup"]
+```
 
 ### Features
 
@@ -466,6 +491,17 @@ python src/main.py
 > `issubclass` 校验契约，注册会抛 `TypeError: issubclass() arg 1 must be a class`。
 > `@cage` 是给**服务类**用的单例工厂，不是线程安全包装器。
 
+<!--
+演示图占位 —— 产出图片后，删掉下面这行图片引用前的注释标记即可。
+
+  1. 录制：Windows 用 ScreenToGif；macOS / Linux 用 asciinema + agg
+  2. 内容：`zfc --create myapp && cd myapp && python src/main.py`，录 10–15 秒，
+     展示 Worker 每轮被派发与日志持续输出
+  3. 存放：`docs/assets/demo.gif`
+  4. 若动图不便，也可只截一张架构图 —— 下一节的 Mermaid 图可直接在 GitHub 上截图复用
+-->
+<!-- ![快速开始演示](docs/assets/demo.gif) -->
+
 ### 运行方式
 
 ```
@@ -481,6 +517,20 @@ Master.run()
 同一轮里多个 Worker **并发**执行；同一个 Worker 永远不会被同时派发两次。
 `Master.shutdown()` 先停止派发，再取消调度任务、停事件循环、停监控，最后注销全部
 Worker —— 状态机的最后一次落盘就发生在这条链路的末尾。
+
+各部件的连接关系：
+
+```mermaid
+flowchart TB
+    cfg["config.json"] --> pf["ParamsFactory<br/>首次导入时解析一次"]
+    m["Master"] --> pf
+    m --> wr["WorkerRegistry<br/>模块级单例"]
+    m -->|"worker:mode"| w["Waiter<br/>ThreadPerTaskModel / ThreadPoolModel"]
+    w -->|"每轮派发一次"| wk["Worker._execute()"]
+    wk --> set["WorkerDispatchCore.settle()<br/>单一结算收口：<br/>注销在飞 + 上报结果"]
+    set --> pipe["事件管道<br/>EventChannel → EventFIFO → Reactor"]
+    m --> sm["StateMachineWorker<br/>周期落盘：原子替换 + 滚动备份"]
+```
 
 ### 核心特性
 
