@@ -12,6 +12,9 @@ class EventChannelRegister:
     _instance = None
 
     # 事件通道字典
+    # 【已知欠债】类属性即进程级共享状态，且属**尚未收编**的容器外载体：容器只持有本类的
+    # **实例**，够不到这个类属性，故 tests/conftest.py 必须单独复位它。依据见
+    # specs/scoped-container 的「框架自身的进程级共享 MUST 被显式归类」。
     _channel_map: ThreadSafeDict = ThreadSafeDict()
 
     @classmethod

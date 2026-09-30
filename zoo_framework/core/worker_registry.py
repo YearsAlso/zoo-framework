@@ -251,6 +251,12 @@ def register_worker(name: str | None = None, metadata: dict | None = None):
 
 
 # 全局注册表
+#
+# 【已知欠债】这是**模块级隐式全局单例**、且持有进程级共享的 Worker 状态。按
+# specs/scoped-container 的「框架自身的进程级共享 MUST 被显式归类」，它属于**尚未收编**
+# 的容器外载体（同类的还有 EventReactorManager.reactor_map 与 EventChannelRegister._channel_map
+# 两个类属性）。基线把它记为已知欠债、MUST NOT 被表述为已由容器归类。
+# 收编它需要一个独立变更，且**类属性与实例的收编方式不同**（类属性没有实例身份）。
 _global_registry: WorkerRegistry | None = None
 
 
