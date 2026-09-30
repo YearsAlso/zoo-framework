@@ -1,0 +1,36 @@
+# 代码所有者 / Code owners
+#
+# 本仓库目前由一位维护者负责，本文件为协作预留：当出现共同维护者时，
+# 在对应路径后追加 GitHub 用户名即可。
+# This repository currently has a single maintainer. This file exists so that
+# co-maintainers can be added per path when they appear.
+#
+# 语法：<路径模式>  <@用户名 或 邮箱>
+# Syntax: <path pattern>  <@username or email>
+
+# 默认所有者 —— 未单独列出的路径全部归此
+# Default owner — everything not listed below
+*                                   @YearsAlso
+
+# 运行时核心：调度、生命周期、Worker、事件管道、状态机
+# Runtime core: scheduling, lifecycle, workers, event pipeline, state machine
+/zoo_framework/core/                @YearsAlso
+/zoo_framework/workers/             @YearsAlso
+/zoo_framework/event/               @YearsAlso
+/zoo_framework/fifo/                @YearsAlso
+/zoo_framework/reactor/             @YearsAlso
+/zoo_framework/statemachine/        @YearsAlso
+
+# 行为规范：openspec/specs/ 是行为的权威声明，改动此处需格外谨慎
+# Behaviour specs: openspec/specs/ is the authoritative statement of behaviour
+/openspec/specs/                    @YearsAlso
+/openspec/changes/                  @YearsAlso
+
+# 默认配置的取值与别名兼容
+# Default configuration values and alias compatibility
+/zoo_framework/params/              @YearsAlso
+
+# 构建、发布与质量门禁
+# Build, release and quality gates
+/.github/workflows/                 @YearsAlso
+/pyproject.toml                     @YearsAlso
