@@ -25,8 +25,12 @@ repos:
       - id: debug-statements
 
   # Ruff - Python 代码格式化和 linting (P0)
+  # rev 必须与项目实际使用的 ruff 对齐：此前钉在 v0.1.14（2024-01），
+  # 该版本不认识 pyproject.toml 里的 target-version = "py313"，
+  # 直接 "Failed to parse pyproject.toml" 而失败——即 ruff 钩子对本仓库
+  # 从来跑不起来。CI 装的是 ruff>=0.1.0 且不锁版本，故本地与 CI 也一直不一致。
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.14
+    rev: v0.16.9
     hooks:
       # 运行 linter
       - id: ruff
@@ -55,9 +59,15 @@ repos:
         exclude: ^(tests/|test/|example/)
 
   # 安全扫描
+  # 与 CI 对齐：quality.yml 跑的是 `bandit -r zoo_framework -c .bandit.yaml`
+  # （.bandit.yaml 里 skips: [B101]，并排除 tests/ test/ example/）。
+  # 此前钩子写的是 `-c pyproject.toml`——而 pyproject.toml 里并没有 [tool.bandit] 段，
+  # 于是 B101 未跳过；又因为没有范围过滤，pre-commit 会把测试文件也交给 bandit，
+  # 结果是每个用例里的 assert 都算一条 B101，钩子必然失败。
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.6
     hooks:
       - id: bandit
-        args: ["-c", "pyproject.toml"]
+        files: ^zoo_framework/
+        args: ["-c", ".bandit.yaml"]
         additional_dependencies: ["bandit[toml]"]
