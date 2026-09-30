@@ -38,12 +38,14 @@ class Registration:
         scope_kind: 所属作用域种类
         thread_safety: 线程安全归属声明
         explicit_name: 标识是否为显式指定（而非由类推导）
+        on_release: 释放该实例时调用的销毁钩子；签名 ``(instance) -> None``
     """
 
     __slots__ = (
         "explicit_name",
         "factory",
         "name",
+        "on_release",
         "registered_type",
         "scope_kind",
         "thread_safety",
@@ -57,6 +59,7 @@ class Registration:
         scope_kind: str,
         thread_safety: str,
         explicit_name: bool = False,
+        on_release: Callable[[Any], None] | None = None,
     ):
         self.name = name
         self.registered_type = registered_type
@@ -64,6 +67,7 @@ class Registration:
         self.scope_kind = scope_kind
         self.thread_safety = thread_safety
         self.explicit_name = explicit_name
+        self.on_release = on_release
 
     def create(self) -> Any:
         """按注册时给出的方式构造一个实例."""

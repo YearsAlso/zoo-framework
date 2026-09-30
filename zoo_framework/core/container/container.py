@@ -14,9 +14,12 @@
 - 用户在工厂里再次调用容器（同线程）不会自锁——锁是可重入的。
 """
 
+import contextlib
 import threading
 from collections.abc import Callable
 from typing import Any
+
+from zoo_framework.utils import LogUtils
 
 from .registration import Registration, qualified_name
 from .scope import Scope, ScopeKind
@@ -71,6 +74,10 @@ class ScopedContainer:
         self._registrations: dict[str, Registration] = {}
         self._instances: dict[tuple, Any] = {}
         self._creation_locks: dict[tuple, threading.Lock] = {}
+        # "由容器保证串行"的项：按注册项划分的互斥锁；可重入，允许实例方法内再次进入
+        self._exclusion_locks: dict[str, threading.RLock] = {}
+        # "仅限单线程"的项：首次解析所在线程，作为该注册项的绑定线程
+        self._thread_owners: dict[str, int] = {}
 
     # ------------------------------------------------------------------ 注册
 
@@ -83,6 +90,7 @@ class ScopedContainer:
         name: str | None = None,
         factory: Callable[[], Any] | None = None,
         instance: Any = None,
+        on_release: Callable[[Any], None] | None = None,
     ) -> str:
         """登记一个注册项.
 
@@ -95,6 +103,9 @@ class ScopedContainer:
             name: 显式注册名，覆盖由类推导的标识
             factory: 自定义构造函数；缺省为调用 target 本身
             instance: 预先构造好的实例；仅进程级作用域可接受（见下）
+            on_release: 释放该实例时调用的销毁钩子，签名 ``(instance) -> None``；
+                作用域释放时**每个实例只触发一次**。不做引用计数——跨 Worker 时"谁持有
+                谁释放"不确定，而"每会话一个/每设备一个"的匹配对象是作用域归属
 
         Returns:
             该注册项的标识
@@ -147,6 +158,7 @@ class ScopedContainer:
             scope_kind=scope_kind,
             thread_safety=thread_safety,
             explicit_name=name is not None,
+            on_release=on_release,
         )
 
         with self._lock:
@@ -180,6 +192,7 @@ class ScopedContainer:
             and existing.factory == candidate.factory
             and existing.scope_kind == candidate.scope_kind
             and existing.thread_safety == candidate.thread_safety
+            and existing.on_release is candidate.on_release
         )
 
     # ------------------------------------------------------------------ 解析
@@ -199,12 +212,40 @@ class ScopedContainer:
 
         Raises:
             LookupError: 该标识未注册
-            ValueError: 作用域句柄与注册项的作用域不相容
+            ValueError: 作用域句柄与注册项的作用域不相容；或线程安全归属不允许本次取用
+                （"由容器保证串行"的项须经 ``exclusive`` 取用；"仅限单线程"的项不得
+                被绑定线程以外的线程取用）
         """
-        if not isinstance(scope, Scope):
-            raise TypeError(f"作用域必须是 Scope 句柄，收到 {scope!r}")
-
+        self._check_scope_handle(scope)
         registration = self._require(target)
+        self._guard_access(registration)
+        return self._resolve_instance(registration, scope)
+
+    @contextlib.contextmanager
+    def exclusive(self, target: type | str, scope: Scope):
+        """独占取用：在 ``with`` 块内对该注册项的访问被串行化.
+
+        用于声明为 ``ThreadSafety.CONTAINER_SERIALIZED`` 的项——这类项自身不加锁，
+        "串行" 由容器提供。返回的仍是**真实实例**（不是代理），因此类型契约不受影响。
+
+        锁按注册项划分且可重入，故实例方法内部再次进入同一项不会自锁。
+
+        Args:
+            target: 注册时给出的类，或其标识
+            scope: 作用域句柄
+
+        Yields:
+            该作用域内的实例
+        """
+        registration = self._require(target)
+        with self._exclusion_lock(registration.name):
+            yield self._resolve_instance(registration, scope)
+
+    def _resolve_instance(self, registration: Registration, scope: Scope) -> Any:
+        """实际解析：校验作用域相容性并命中/建立缓存.
+
+        调用方须已完成作用域句柄类型校验与线程安全归属校验。
+        """
         self._check_scope_compatibility(registration, scope)
 
         # 原型级不缓存：每次解析都新建，作用域句柄在这里只是"允许解析"的凭据
@@ -225,11 +266,113 @@ class ScopedContainer:
             if cached is not _MISSING:
                 return cached
 
+            # 构造失败时不留下任何痕迹：实例只在成功之后才入缓存，故"半构造实例"不会
+            # 被后续解析拿到，也不会在释放时被当成已建立实例处理
             instance = registration.create()
 
             with self._lock:
                 self._instances[store_key] = instance
             return instance
+
+    @staticmethod
+    def _check_scope_handle(scope: Any) -> None:
+        """校验作用域句柄的类型."""
+        if not isinstance(scope, Scope):
+            raise TypeError(f"作用域必须是 Scope 句柄，收到 {scope!r}")
+
+    def _guard_access(self, registration: Registration) -> None:
+        """按线程安全归属放行或拒绝本次取用.
+
+        声明不是装饰性的：写下"由容器保证串行"却仍能用 ``resolve`` 直接取走实例，
+        这条保证就是空的；写下"仅限单线程"却允许任意线程取用，同样是空的。
+        """
+        if registration.thread_safety == ThreadSafety.CONTAINER_SERIALIZED:
+            raise ValueError(
+                f"注册项 {registration.name!r} 声明为"
+                f"{ThreadSafety.CONTAINER_SERIALIZED!r}（由容器保证串行），"
+                f"须经 exclusive() 取用，不得直接 resolve()"
+            )
+        if registration.thread_safety == ThreadSafety.SINGLE_THREAD:
+            self._claim_thread(registration)
+
+    # ------------------------------------------------------------------ 释放
+
+    def release(self, scope: Scope) -> list[str]:
+        """释放该作用域内的全部实例，并触发各注册项声明的销毁钩子.
+
+        只释放**属于该句柄**的实例：释放会话作用域不会动进程级项（它本就是全进程共享
+        的），释放进程级句柄也不会动会话级项。
+
+        幂等：第二次起该作用域已无实例，既不触发钩子也不抛异常。某个钩子抛异常不会
+        阻断其余实例的释放——否则会因一个钩子而泄漏其余实例——该异常被记录。
+
+        Args:
+            scope: 作用域句柄
+
+        Returns:
+            本次释放的实例标识（按缓存顺序）
+        """
+        self._check_scope_handle(scope)
+        subject = scope.cache_key
+        if subject is None:
+            # 原型级不缓存，没有可释放的实例
+            return []
+
+        with self._lock:
+            victims = [
+                (key, instance)
+                for key, instance in self._instances.items()
+                if key[: len(subject)] == subject
+            ]
+            # 先摘除再跑钩子：钩子里若再次解析同一项，拿到的是新实例而不是待销毁的那个
+            for key, _ in victims:
+                del self._instances[key]
+            registrations = dict(self._registrations)
+
+        released = []
+        for key, instance in victims:
+            name = key[-1]
+            released.append(name)
+            registration = registrations.get(name)
+            self._run_release_hook(
+                name, registration.on_release if registration is not None else None, instance
+            )
+        return released
+
+    @staticmethod
+    def _run_release_hook(name: str, hook, instance: Any) -> None:
+        """调用销毁钩子；失败只记录，不打断其余实例的释放."""
+        if hook is None:
+            return
+        try:
+            hook(instance)
+        except Exception as e:
+            LogUtils.error(
+                f"释放 {name!r} 的销毁钩子抛出异常，已跳过: {e}", ScopedContainer.__name__
+            )
+
+    def _claim_thread(self, registration: Registration) -> None:
+        """把"仅限单线程"的注册项绑定到首次取用它的线程.
+
+        之后从其他线程取用 MUST NOT 静默返回实例。spec 允许"拒绝或显式告警"，本实现
+        取**拒绝**：既然声明了这条约束，越界使用就应当当场失败——若某注册项确实需要
+        跨线程，那它属于"实例自身保证"或"由容器保证串行"，应当去改声明，而不是放宽检查。
+        """
+        current = threading.get_ident()
+        with self._lock:
+            owner = self._thread_owners.get(registration.name)
+            if owner is None:
+                self._thread_owners[registration.name] = current
+                return
+        if owner != current:
+            raise ValueError(
+                f"注册项 {registration.name!r} 声明为 {ThreadSafety.SINGLE_THREAD!r}"
+                f"（仅限单线程），其绑定线程为 {owner}，当前线程 {current} 不得取用；"
+                f"如需跨线程共享，请改声明为 {ThreadSafety.INSTANCE_GUARANTEED!r} "
+                f"或 {ThreadSafety.CONTAINER_SERIALIZED!r}"
+            )
+
+    # ------------------------------------------------------------------ 内部工具
 
     def _require(self, target: type | str) -> Registration:
         """取出注册项；未注册则明确失败并列出已知标识."""
@@ -276,12 +419,42 @@ class ScopedContainer:
                 self._creation_locks[store_key] = lock
             return lock
 
+    def _exclusion_lock(self, name: str) -> threading.RLock:
+        """取该注册项的独占访问锁（按需创建）.
+
+        按注册项划分而非按缓存键划分：同一声明下的各个作用域实例各自串行，互不干扰。
+        """
+        with self._lock:
+            lock = self._exclusion_locks.get(name)
+            if lock is None:
+                lock = threading.RLock()
+                self._exclusion_locks[name] = lock
+            return lock
+
     # ------------------------------------------------------------------ 查询
 
     def registered(self) -> list[str]:
         """当前已注册的标识（排序后）."""
         with self._lock:
             return sorted(self._registrations)
+
+    def live_names(self, scope: Scope) -> list[str]:
+        """该作用域当前保有的实例标识（排序后）.
+
+        用途之一是核对释放确实生效：释放后应为空。原型级不缓存，故恒为空。
+
+        Args:
+            scope: 作用域句柄
+
+        Returns:
+            该句柄下已建立实例的注册项标识
+        """
+        self._check_scope_handle(scope)
+        subject = scope.cache_key
+        if subject is None:
+            return []
+        with self._lock:
+            return sorted(key[-1] for key in self._instances if key[: len(subject)] == subject)
 
     def get_registration(self, target: type | str) -> Registration:
         """取注册项本身（供诊断与迁移期核对）.
