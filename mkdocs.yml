@@ -1,0 +1,103 @@
+# MkDocs 配置 —— 文档站构建
+#
+# 用途：.github/workflows/docs.yml 在 mkdocs.yml 存在时才会执行 `mkdocs build`，
+# 并把产物 site/ 上传为 GitHub Pages 工件。此前本文件缺失，该工作流每次都在
+# “上传 site/” 一步失败。
+#
+# 本地预览：
+#   uv run --no-project --with mkdocs-material mkdocs serve
+# 本地构建：
+#   uv run --no-project --with mkdocs-material mkdocs build
+#
+# 必须带 --no-project：否则 uv 会连项目自身一起安装，进而尝试从源码编译 gevent
+# （本机无对应 wheel 时会失败）。构建文档站不需要项目运行时依赖。
+
+site_name: Zoo Framework
+site_description: 后台任务编排框架 —— 调度 Worker、投递事件、持久化状态
+site_url: https://yearsalso.github.io/zoo-framework/
+repo_url: https://github.com/YearsAlso/zoo-framework
+repo_name: YearsAlso/zoo-framework
+# 文档改动一律走 dev 分支（见 CONTRIBUTING.md 的分支规范），
+# 因此“编辑此页”指向 dev 而不是默认分支 main。
+edit_uri: edit/dev/docs/
+
+docs_dir: docs
+site_dir: site
+
+theme:
+  name: material
+  language: zh
+  logo: https://mxstorage.oss-cn-beijing.aliyuncs.com/oss-accesslog/zf-main-logo.png
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: 切换到深色模式
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: 切换到浅色模式
+  features:
+    - navigation.instant
+    - navigation.top
+    - navigation.tracking
+    - toc.follow
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+
+nav:
+  # docs/README.md 作为站点首页 —— MkDocs 把目录下的 README.md 视作 index.md，
+  # 两者只能存在其一；这里用 README.md，避免出现第二份重复的索引页。
+  - 首页: README.md
+  - 指南:
+      - 开发环境搭建: DEVELOPMENT.md
+      - 贡献指南: CONTRIBUTING.md
+      - 调试指南: DEBUGGING.md
+  - 设计与实现:
+      - 架构设计: ARCHITECTURE.md
+      - 目录结构: structure.md
+      - API 参考: API_REFERENCE.md
+  - 性能与决策:
+      - 性能基准说明: benchmark.md
+      - 优化方案: OPTIMIZATION_PLAN.md
+  - 规划:
+      - 路线图: ROADMAP.md
+      - 商业计划: BUSINESS_PLAN.md
+
+plugins:
+  - search:
+      lang:
+        - zh
+        - en
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  # 让文档里的 ```mermaid 代码块渲染成图（docs/README.md 等使用）
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+
+# 不启用 --strict：docs/ 下多数文档是按 GitHub 仓库内相对路径写的
+# （例如 ../bench/DECISION.md、.github/PULL_REQUEST_TEMPLATE.md），
+# 这些链接在站点上不存在。构建仍会给出告警但不失败。
+# 若要改为严格模式，需先把这些链接改写为绝对 GitHub URL。
+strict: false
