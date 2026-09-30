@@ -210,6 +210,10 @@ Language conventions:
   section in one language, change its counterpart. Unequal halves are the most common
   defect in this file.
 
+Check it rather than remember it: `grep -in "<the term you changed>" README.md` should hit
+both halves — one hit means you edited one half only. **Use `-i`**: a lowercase pattern misses
+the capitalised English half, so the check silently passes while the halves differ.
+
 #### One gotcha when editing docs
 
 `ruff format` also normalises the **Python code blocks inside Markdown files**. If a commit
@@ -466,6 +470,10 @@ openspec validate --strict              # 每个改动都要过这道门
 - **注释、docstring 与 `docs/` 用中文书写。** 请保持一致。
 - **`README.md` 是中英双语，两半必须保持平行** —— 你改了其中一种语言的一节，就要改对应的
   另一半。两半不对等是这份文件最常见的缺陷。
+
+不要靠记，靠检查：`grep -in "<你改动的那个词>" README.md` 应当命中两半 —— 只命中一半就说明
+你只改了半边。**注意用 `-i`**：小写模式会漏掉英文半里首字母大写的写法，于是检查**静默通过**，
+而两半其实并不一致。
 
 #### 改文档时的一个坑
 
