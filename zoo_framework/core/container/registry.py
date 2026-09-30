@@ -106,7 +106,12 @@ def process_scoped(
             return obj
 
         cls.__init__ = _guarded_init
-        cls.__new__ = staticmethod(_delegating_new)
+        # 这一行同时受两个工具约束，而它们要求相反：mypy 判直赋值类型不符（typeshed 把
+        # `__new__` 标成重载函数），改成 setattr(cls, "__new__", ...) 又会被 ruff 的 B010
+        # （不要用 setattr 传常量属性名）拦下。两者无法同时满足，故保留直赋值并加**定向**
+        # ignore——这是"可解释的例外"，不是掩盖可修问题：它压制的是两个工具的对立，不是
+        # 一处本可修好的不匹配。
+        cls.__new__ = staticmethod(_delegating_new)  # type: ignore[assignment]
         register_process_instance(
             cls, thread_safety=thread_safety, factory=_build, on_release=on_release
         )

@@ -137,6 +137,9 @@ class ScopedContainer:
         if factory is not None and instance is not None:
             raise ValueError(f"注册 {key!r} 同时给出了 factory 与 instance，二者只能取其一")
 
+        # 显式声明：三条分支分别给 _Constant / 工厂 / 类，若交给 mypy 从首条分支推断，
+        # 变量会被钉成 `_Constant`，后两条反而成了类型错误。
+        product: Callable[[], Any]
         if instance is not None:
             # 预先构造的实例只可能是"一个"实例：会话级要的是每会话一个、原型级要的是
             # 每次一个，两者都与单实例相悖。静默共享会串会话，故明确拒绝。
@@ -486,10 +489,15 @@ class ScopedContainer:
             raise ValueError(
                 f"替换 {registration.name!r} 同时给出了 factory 与 instance，二者只能取其一"
             )
-        if factory is None and instance is None:
+        # 用 if/elif 而非三元表达式：后者让 mypy 只能看见 `Callable | None`，无法用上面
+        # 那处检查把它收窄；显式分支才让它看到"此处必非 None"。
+        product: Callable[[], Any]
+        if instance is not None:
+            product = _Constant(instance)
+        elif factory is not None:
+            product = factory
+        else:
             raise ValueError(f"替换 {registration.name!r} 须给出 factory 或 instance")
-
-        product = _Constant(instance) if instance is not None else factory
         with self._lock:
             self._overrides[self._override_key(registration, scope)] = product
             if registration.scope_kind != ScopeKind.PROTOTYPE:
