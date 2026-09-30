@@ -14,7 +14,7 @@ import sys
 import pytest
 from click.testing import CliRunner
 
-from zoo_framework.__main__ import create_func, zfc
+from zoo_framework.cli import create_func, zfc
 from zoo_framework.workers import BaseWorker
 
 
@@ -45,7 +45,7 @@ def scaffold(tmp_path, monkeypatch):
 
 
 def _add_worker(name="my_task"):
-    from zoo_framework.__main__ import worker_func
+    from zoo_framework.cli import worker_func
 
     worker_func(name)
 

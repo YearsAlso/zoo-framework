@@ -297,7 +297,7 @@ class TestCliWorkerDirResolution:
 
     def test_resolves_into_src_when_present(self, tmp_path, in_dir):
         """Scenario: 工作目录下存在源码目录时产出到其中."""
-        from zoo_framework.__main__ import resolve_worker_dir
+        from zoo_framework.cli import resolve_worker_dir
 
         project = tmp_path / "demo"
         (project / "src").mkdir(parents=True)
@@ -307,7 +307,7 @@ class TestCliWorkerDirResolution:
 
     def test_resolves_to_workers_when_src_absent(self, tmp_path, in_dir):
         """Scenario: 工作目录下不存在源码目录时产出到当前目录."""
-        from zoo_framework.__main__ import resolve_worker_dir
+        from zoo_framework.cli import resolve_worker_dir
 
         plain = tmp_path / "plain"
         plain.mkdir()
@@ -321,7 +321,7 @@ class TestCliWorkerDirResolution:
         历史判据是 `sys.argv[0].endswith("/src")`，它对可执行入口、模块方式与脚本方式
         都不会成立；本用例冻结"判定与启动路径无关"这一性质。
         """
-        from zoo_framework.__main__ import resolve_worker_dir
+        from zoo_framework.cli import resolve_worker_dir
 
         project = tmp_path / "demo2"
         (project / "src").mkdir(parents=True)
@@ -331,7 +331,7 @@ class TestCliWorkerDirResolution:
         for argv0 in (
             r"C:\Python313\Scripts\zfc.exe",
             "/usr/local/bin/zfc",
-            "zoo_framework/__main__.py",
+            "zoo_framework/cli/__init__.py",
             "/opt/app/src",
         ):
             monkeypatch.setattr(sys, "argv", [argv0])
@@ -341,7 +341,7 @@ class TestCliWorkerDirResolution:
 
     def test_worker_func_creates_directory_and_file(self, tmp_path, in_dir):
         """Scenario: 产出目录不存在时被创建，文件被成功写入."""
-        from zoo_framework.__main__ import worker_func
+        from zoo_framework.cli import worker_func
 
         project = tmp_path / "demo3"
         project.mkdir()
@@ -354,7 +354,7 @@ class TestCliWorkerDirResolution:
 
     def test_worker_func_targets_src_inside_scaffolded_project(self, tmp_path, in_dir):
         """脚手架项目内新增 Worker 落在 src/workers 下."""
-        from zoo_framework.__main__ import create_func, worker_func
+        from zoo_framework.cli import create_func, worker_func
 
         project = tmp_path / "demo4"
         project.mkdir()
@@ -368,7 +368,7 @@ class TestCliWorkerDirResolution:
 
     def test_generated_files_are_utf8(self, tmp_path, in_dir):
         """脚手架的产物一律为 UTF-8（跨平台可读）."""
-        from zoo_framework.__main__ import create_func
+        from zoo_framework.cli import create_func
 
         project = tmp_path / "demo5"
         project.mkdir()
