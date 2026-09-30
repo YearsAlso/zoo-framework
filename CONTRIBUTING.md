@@ -210,6 +210,14 @@ Language conventions:
   section in one language, change its counterpart. Unequal halves are the most common
   defect in this file.
 
+#### One gotcha when editing docs
+
+`ruff format` also normalises the **Python code blocks inside Markdown files**. If a commit
+touches a `.md` file containing a Python fence, the `ruff-format` hook rewrites that block
+and the commit aborts with `files were modified by this hook`; re-add the file and commit
+again. Accept the rewrite — it is formatting-only, and the fenced code stays valid (checked
+with `ast.parse`). Both `README.md` and this file were normalised that way.
+
 ### Pull requests
 
 Use the [PR template](.github/PULL_REQUEST_TEMPLATE.md): what changed, whether tests were
@@ -453,6 +461,14 @@ openspec validate --strict              # 每个改动都要过这道门
 - **注释、docstring 与 `docs/` 用中文书写。** 请保持一致。
 - **`README.md` 是中英双语，两半必须保持平行** —— 你改了其中一种语言的一节，就要改对应的
   另一半。两半不对等是这份文件最常见的缺陷。
+
+#### 改文档时的一个坑
+
+`ruff format` 也会归一 **Markdown 文件里内嵌的 Python 代码块**。如果一次提交改到的
+`.md` 里含 Python 代码块，`ruff-format` 钩子会重写该块，提交会以
+`files were modified by this hook` 中止，你需要重新 `git add` 再提交一次。请接受这次
+重写：它只改格式，代码块语义不变（已用 `ast.parse` 验证）。本仓库的 `README.md` 与本文
+都被这样归一过。
 
 ### PR 流程
 
