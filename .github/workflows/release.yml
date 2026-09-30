@@ -44,19 +44,19 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      
+
       - name: 确定发布类型
         id: check
         run: |
           # 现在的触发类型统一为 push
           TRIGGER_TYPE="push"
           TARGET_BRANCH="${{ github.ref_name }}"
-          
+
           echo "触发类型: $TRIGGER_TYPE"
           echo "目标分支: $TARGET_BRANCH"
           echo "trigger_type=$TRIGGER_TYPE" >> $GITHUB_OUTPUT
           echo "branch=$TARGET_BRANCH" >> $GITHUB_OUTPUT
-          
+
           if [ "$TARGET_BRANCH" == "dev" ]; then
             echo "🧪 检测到 dev 分支更新"
             echo "should_release=true" >> $GITHUB_OUTPUT
@@ -80,17 +80,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-      
+
       - name: Run tests
         run: pytest --cov=zoo_framework --cov-report=xml --cov-fail-under=30
 
@@ -102,20 +102,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-      
+
       - name: Run Ruff
         run: ruff check zoo_framework
-      
+
       - name: Run MyPy
         run: mypy zoo_framework
         continue-on-error: true
@@ -126,7 +126,7 @@ jobs:
     needs: [determine-release, test, quality]
     if: needs.determine-release.outputs.should_release == 'true'
     runs-on: ubuntu-latest
-    
+
     # 修改为始终使用 pypi 环境，统一发布到正式 PyPI
     environment:
       name: pypi
@@ -135,24 +135,24 @@ jobs:
     permissions:
       contents: write
       id-token: write
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install build toml
-      
+
       # 获取当前版本
       - name: Get current version
         id: current_version
@@ -168,10 +168,10 @@ jobs:
             echo "❌ 无法找到版本信息"
             exit 1
           fi
-          
+
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           echo "当前版本: $CURRENT_VERSION"
-      
+
       # 计算新版本
       - name: Calculate new version
         id: calc_version
@@ -180,17 +180,17 @@ jobs:
           VERSION_TYPE="${{ needs.determine-release.outputs.version_type }}"
           RELEASE_TYPE="${{ needs.determine-release.outputs.release_type }}"
           TRIGGER_TYPE="${{ needs.determine-release.outputs.trigger_type }}"
-          
+
           echo "当前版本: $CURRENT_VERSION"
           echo "版本类型: $VERSION_TYPE"
           echo "发布类型: $RELEASE_TYPE"
           echo "触发类型: $TRIGGER_TYPE"
-          
+
           # 解析版本号
           MAJOR=$(echo $CURRENT_VERSION | cut -d. -f1)
           MINOR=$(echo $CURRENT_VERSION | cut -d. -f2)
           PATCH=$(echo $CURRENT_VERSION | cut -d. -f3 | cut -d- -f1)  # 去掉 -beta 后缀
-          
+
           if [ "$VERSION_TYPE" == "minor" ]; then
             # minor 自增: 0.1.0 → 0.2.0
             MINOR=$((MINOR + 1))
@@ -204,83 +204,90 @@ jobs:
               NEW_VERSION="${NEW_VERSION}-beta"
             fi
           fi
-          
+
           echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
           echo "新版本: $NEW_VERSION"
-      
+
       # 更新版本号
       - name: Update version
         id: update_version
-        continue-on-error: true
         run: |
           NEW_VERSION="${{ steps.calc_version.outputs.new_version }}"
-          
+
           # 配置 git
           git config --global user.name 'github-actions[bot]'
           git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-          
+
           # 更新 .env 文件
           if [ -f ".env" ]; then
             sed -i "s/^VERSION=.*/VERSION=$NEW_VERSION/" .env
             git add .env
           fi
-          
+
           # 更新 pyproject.toml
           if [ -f "pyproject.toml" ]; then
             sed -i "s/version = \"${{ steps.current_version.outputs.version }}\"/version = \"$NEW_VERSION\"/" pyproject.toml
             git add pyproject.toml
           fi
-          
+
           # 更新 setup.py
           if [ -f "setup.py" ]; then
             sed -i "s/version='${{ steps.current_version.outputs.version }}'/version='$NEW_VERSION'/" setup.py
             git add setup.py
           fi
-          
+
           # 更新 __init__.py
+          # 按"键"匹配而非按"值"：原模式内嵌了旧版本号，值一旦漂移，sed 会静默变成
+          # no-op 而步骤仍报 success。本仓库已确认该缺陷——__init__.py 写着 0.1.1-beta
+          # 而另两处是 0.5.3-beta，那条 sed 从未生效，发出的包会对自己的版本撒谎。
+          # 用 POSIX 字符类 [[:space:]]：\s 是 GNU 扩展（未在 BSD 上实测），BSD sed 上
+          # 会退化为字面量 s，于是又变成静默 no-op。
           if [ -f "zoo_framework/__init__.py" ]; then
-            sed -i "s/__version__ = \"${{ steps.current_version.outputs.version }}\"/__version__ = \"$NEW_VERSION\"/" zoo_framework/__init__.py
+            sed -i "s/^\([[:space:]]*\)__version__ = \".*\"/\1__version__ = \"$NEW_VERSION\"/" zoo_framework/__init__.py
             git add zoo_framework/__init__.py
           fi
-          
+
           # 提交更改
           git commit -m "chore(release): bump version to $NEW_VERSION [skip ci]"
-          
+
           # 如果是push触发，直接推送
           if [[ "${{ needs.determine-release.outputs.trigger_type }}" == "push" ]]; then
             echo "📤 直接推送版本更新到 dev 分支"
-            # 尝试推送，如果失败（因为分支保护）则打印警告但不让整个流程失败
+            # 回写失败必须让作业失败。此前这里是"警告但不退出"，而它并不成立：
+            # 回写失败 => 版本号永不前进 => 每次算出的新版本相同 => Publish to PyPI
+            # 上传同一版本 => "400 File already exists"。可见失败发生在 PyPI、真因是
+            # 分支保护拒绝回写——相隔三步且方向相反，故必须就地失败并就地说明。
             if git push; then
               echo "✅ 版本号已回写到仓库"
             else
-              echo "⚠️ 无法推送到受保护的分支。请手动更新仓库中的版本号到 $NEW_VERSION。"
-              echo "这不会影响本次 PyPI 发布，但在下一次发布前请确保代码库版本一致。"
-              # 我们不退出，允许后续发布步骤继续进行
+              echo "::error::无法把版本号回写到受保护分支，本次发布已中止。请手动把仓库版本号更新到 $NEW_VERSION，或在分支保护规则里允许该工作流回写。"
+              exit 1
             fi
           else
             echo "⏳ PR合并触发，等待后续步骤"
           fi
-      
+
       # 创建 Git tag
       - name: Create Git Tag
-        continue-on-error: true
         run: |
           NEW_VERSION="${{ steps.calc_version.outputs.new_version }}"
           BRANCH="${{ needs.determine-release.outputs.branch }}"
-          
+
           # 创建 tag
           git tag -a "v$NEW_VERSION" -m "Release v$NEW_VERSION"
-          # 尝试推送 Tag，同样如果失败允许继续
+          # Tag 推送同样不得吞。只修版本回写而放过 Tag，会出现"包发出去了、tag
+          # 没动"的不一致——那比现在这种"一致地失败（什么都没发出）"更难排查。
           if git push origin "v$NEW_VERSION"; then
-             echo "✅ Tag v$NEW_VERSION 已创建"
+            echo "✅ Tag v$NEW_VERSION 已创建"
           else
-             echo "⚠️ 无法推送 Tag。可能是权限不足。"
+            echo "::error::无法推送 Tag v$NEW_VERSION（权限不足或 tag 已存在）。本次发布已中止。"
+            exit 1
           fi
 
       # 构建包
       - name: Build package
         run: python -m build
-      
+
       # 发不到 PyPI
       # 无论 release_type 是 stable 还是 beta，都发布到正式 PyPI
       # Beta 版本会自动被标记为预发布版本（因为版本号带 -beta 后缀）
@@ -288,24 +295,24 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
-      
+
       # 生成 Changelog
       - name: Generate Changelog
         id: changelog
         run: |
           # 获取上一个 tag
           LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
-          
+
           if [ -z "$LAST_TAG" ]; then
             CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges | head -20)
           else
             CHANGELOG=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s (%h)" --no-merges | head -20)
           fi
-          
+
           echo "changelog<<EOF" >> $GITHUB_OUTPUT
           echo "$CHANGELOG" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-      
+
       # 创建 GitHub Release
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
@@ -314,21 +321,21 @@ jobs:
           name: Release v${{ steps.calc_version.outputs.new_version }}
           body: |
             ## 🎉 Release v${{ steps.calc_version.outputs.new_version }}
-            
+
             **类型:** ${{ needs.determine-release.outputs.release_type == 'beta' && '🧪 测试版本' || '🚀 正式版本' }}
             **分支:** ${{ needs.determine-release.outputs.branch }}
             **触发方式:** ${{ needs.determine-release.outputs.trigger_type == 'push' && '直接推送' || 'PR合并' }}
             **版本自增:** ${{ needs.determine-release.outputs.version_type }}
-            
+
             ### 📋 变更记录
             ${{ steps.changelog.outputs.changelog }}
-            
+
             ### 📦 安装
-            
+
             ```bash
             pip install zoo-framework==${{ steps.calc_version.outputs.new_version }}
             ```
-            
+
             ### 📚 文档
             - [开发文档](https://github.com/${{ github.repository }}/blob/main/docs/README.md)
             - [API 参考](https://github.com/${{ github.repository }}/blob/main/docs/API_REFERENCE.md)
@@ -339,7 +346,7 @@ jobs:
           prerelease: ${{ needs.determine-release.outputs.release_type == 'beta' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
+
       # 发送通知
       - name: Notify Success
         run: |
@@ -348,4 +355,3 @@ jobs:
           echo "类型: ${{ needs.determine-release.outputs.release_type }}"
           echo "触发: ${{ needs.determine-release.outputs.trigger_type }}"
           echo "PyPI: https://pypi.org/project/zoo-framework/${{ steps.calc_version.outputs.new_version }}/"
-
