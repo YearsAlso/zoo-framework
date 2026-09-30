@@ -133,10 +133,10 @@ python src/main.py
 
 > **A Worker must be registered as a *class*.** `WorkerRegistry` validates with
 > `issubclass`, so a function or an instance is rejected with
-> `TypeError: issubclass() arg 1 must be a class`. The requirement is unchanged — what
-> changed is that the old `@cage` decorator, which replaced the class with a factory
-> function and tripped exactly this check, has been **removed**. Process-level sharing is
-> now declared through the container instead.
+> `TypeError: issubclass() arg 1 must be a class`. This holds **independently of `@cage`**:
+> *any* wrapper that replaces the class with a factory function fails the same way, and the
+> rule still stands now that `@cage` is **removed**. Process-level sharing is declared
+> through the container instead.
 
 <!--
 演示图占位（demo image placeholder）—— 产出图片后，删掉下面这行图片引用前的注释标记即可。
@@ -490,8 +490,8 @@ python src/main.py
 ```
 
 > **Worker 必须以「类」的形式注册。** `WorkerRegistry` 用 `issubclass` 校验契约，传函数或
-> 实例会被拒绝并抛 `TypeError: issubclass() arg 1 must be a class`。这个要求没有变 —— 变的
-> 是旧的 `@cage` 装饰器**已被删除**：它把类替换成工厂函数，正好踩中这条校验。进程级共享
+> 实例会被拒绝并抛 `TypeError: issubclass() arg 1 must be a class`。这条约束**与 `@cage`
+> 无关**：任何把类换成工厂函数的包装都一样失败，`@cage` **删除后它依然成立**。进程级共享
 > 现在改由容器声明。
 
 <!--
