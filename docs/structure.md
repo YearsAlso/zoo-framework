@@ -121,8 +121,10 @@ axis is the *mechanism*, and there are three of them:
 A list of carriers written here would go stale — which is precisely why there is none. Two
 **checkable** sources take its place:
 
-- **In-tree anchors**: `grep -rn "已知欠债" zoo_framework/` marks every carrier currently
-  recorded as known debt in the spec baseline.
+- **In-tree anchors**: `grep -rn "【已知欠债】" zoo_framework/` marks every carrier currently
+  recorded as known debt in the spec baseline. Grep the **bracketed** form: the bare phrase also
+  occurs in a prose sentence, so matching it without the brackets reports one more hit than there
+  are carriers.
 - **The test helpers that actually reset them**: `tests/conftest.py`'s `_reset_registries()`,
   `tests/test_scaffold_cli_contract.py`'s scaffold cleanup, and `tests/test_config_resolution.py`'s
   `config` fixture. Their value over annotations is that they exist **independently of them** —
@@ -257,8 +259,9 @@ Master.run               asyncio 任务每秒循环一次 waiter.execute_service
 
 在这里列出载体清单就会过期 —— 这正是本节不列的原因。取代它的是两个**可核对**的来源：
 
-- **代码内锚点**：`grep -rn "已知欠债" zoo_framework/` 标出当前在规范基线里被记为已知欠债的
-  每一处载体。
+- **代码内锚点**：`grep -rn "【已知欠债】" zoo_framework/` 标出当前在规范基线里被记为已知欠债
+  的每一处载体。请用**带括号**的写法：裸短语在正文句子里也出现过一次，不带括号匹配会比载体数
+  多报一条。
 - **真正执行复位的测试辅助**：`tests/conftest.py` 的 `_reset_registries()`、
   `tests/test_scaffold_cli_contract.py` 的脚手架清理、以及 `tests/test_config_resolution.py`
   的 `config` fixture。它们相对于标注的价值在于**先于标注存在** —— 复位是行为，注释不是。
