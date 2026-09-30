@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from .event_priorities import EventPriorities
 from .event_reactor_req import EventReactorReq
 from .event_retry_strategy import EventRetryStrategy
@@ -26,10 +28,10 @@ class EventReactor:
         # 完成后的回调
         self.done_callback = None
 
-    def set_done_callback(self, callback: callable):
+    def set_done_callback(self, callback: Callable):
         self.done_callback = callback
 
-    def set_success_callback(self, callback: callable):
+    def set_success_callback(self, callback: Callable):
         self.success_callback = callback
 
     def set_retry_strategy(self, retry_strategy: EventRetryStrategy, retry_times=0):

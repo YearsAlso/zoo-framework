@@ -39,13 +39,13 @@
 
 ## 2. 修复类型检查的执行路径
 
-- [x] 2.1 删除仓库根的空 `__init__.py`；验证：`grep -rn "^from zoo import\|^import zoo$" zoo_framework/ tests/ example/` 无结果，且 `python -m build` 后 `twine check dist/*` 通过。**[前提确认]**：该文件仍在且仍被跟踪（0 字节，日期 2023-07-01），是 `mypy` 因模块名映射冲突而中止的直接原因（实测报 `Source file found twice under different module names`）。**已完成**：`git rm __init__.py`（从索引与磁盘一并移除）。`import zoo` 引用检索 **无结果 ✓**。**一项未验**：`twine check` 未能执行——本地 `.venv` 无 `twine`（`ModuleNotFoundError: No module named 'twine'`）；该项须在装有 `.[dev]` 的环境执行，故此验证**待补**，不记为通过
+- [x] 2.1 删除仓库根的空 `__init__.py`；验证：`grep -rn "^from zoo import\|^import zoo$" zoo_framework/ tests/ example/` 无结果，且 `python -m build` 后 `twine check dist/*` 通过。**[前提确认]**：该文件仍在且仍被跟踪（0 字节，日期 2023-07-01），是 `mypy` 因模块名映射冲突而中止的直接原因（实测报 `Source file found twice under different module names`）。**已完成**：`git rm __init__.py`（从索引与磁盘一并移除）。`import zoo` 引用检索 **无结果 ✓**。**构建验证已完成**：装上 `hatchling` 后 `python -m build --no-isolation --outdir <干净目录>` 产出 `zoo_framework-0.5.3b0.tar.gz` 与 `.whl`，对新产物 `twine check` **两项均 PASSED ✓**。**这次验证躲过了一个假通过，值得记下**：第一次直接跑 `twine check dist/*` 也报 PASSED，但 `dist/` 里是 **2023 年的旧产物**（`0.0.0` / `0.4.2` / `0.5.1`），而当时 `python -m build` **因缺 `hatchling` 已失败**——即那次"通过"验证的是**旧文件**，与本次改动无关。故改为构建到**干净目录**再校验，避免旧产物把假通过喂进来。这也说明"命令返回 PASSED"与"验证了本次改动"是两件事
 - [x] 2.2 从仓库根执行类型检查，确认不再因模块名映射冲突而中止；验证：输出中出现被检查文件数汇总，且不含 `errors prevented further checking`。**已完成**：裸跑 `mypy zoo_framework`（**不带** `--explicit-package-bases`）现输出 `Found 82 errors in 30 files (checked 94 source files)`，且 `found twice` / `errors prevented further checking` 命中 **0 处** ✓ —— 说明那个 flag 此前只是绕过手段，删根 `__init__.py` 才是正解（与 design D1 一致）
 - [x] 2.3 确认被检查文件数覆盖框架包全部源文件；验证：报告的文件数等于 `find zoo_framework -name "*.py" | wc -l`。**已完成**：mypy 报 **94**，`find` 计数 **94** ✓ 相等
 
 ## 3. 清零类型错误
 
-- [ ] 3.1 修复归类为"真实缺陷"的错误（~51 条）；验证：该类别归零，且相关回归用例仍通过
+- [ ] 3.1 修复归类为"真实缺陷"的错误（~51 条）；验证：该类别归零，且相关回归用例仍通过。**进行中（第一批已提交）**：82 → **68** errors。已清零三类：`valid-type` 6→0（`builtins.callable` 当类型用、`list[X] or None` 这种非法注解）、`no-redef` 6→0（`event_channel_manager` 各分支重复声明 `reactors`）、`attr-defined` 2→0（`threading._active` 改为 `getattr`，不加 ignore）。**一处值得单记**：修 `get_channel_reactors` 的返回类型时（`list[EventReactor] or None` → `| None`）**暴露了一个真实缺陷**——原注解因 `or` 短路求值实际等价于 `list[...]`，于是 mypy 看不见 `None`；改正后 `event_worker.py` 立刻报出两条（对可能为 `None` 的返回值直接 `len()`／迭代）。该处原以 `len(reactors) == 0` 写得，`None` 会抛 `TypeError` 而被上面的 `except` 兜成"查询响应器失败"——**既是用异常做控制流，又把"无匹配"错报成"查询失败"**；改为 `if not reactors:` 后两者同义、路径也统一。**这正是类型门禁的价值：一个非法注解一直在掩盖下游的 None 处理缺口**。回归 660 passed；`ruff check/format zoo_framework` 均通过
 - [ ] 3.2 为归类为"注解缺失"的错误补充类型注解（17 条）；验证：该类别归零，且 `pytest -q` 仍全绿
 - [ ] 3.3 **[改写]** 处理 `ignore_missing_imports`：原表写"处理第三方存根缺失"，但该分类**实测恒为空**（被配置抑制）。改写为——**为框架实际使用的依赖（click / jinja2 / gevent / pyyaml / python-dotenv）补存根，然后把 `ignore_missing_imports` 从全局收窄为按模块**；验证：全局为 false（或按模块列出例外），且 mypy 仍零错误、退出码 0。**若收窄后发现代价远超收益，须把"保持全局忽略"作为显式决定记录下来**，而不是默默不动
 - [ ] 3.4 审查本次新增的每一处 `# type: ignore` 与 `cast`；验证：`grep -rn "type: ignore\|cast(" zoo_framework/` 的每一处都有相邻注释说明原因，且没有一处是用于压制本可修复的类型不匹配（逐条核对并记录）。**注**：当前基线里已有 1 条 `unused-ignore`，说明**存在多余的 ignore**，属本任务范围

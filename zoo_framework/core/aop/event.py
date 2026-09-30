@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 from zoo_framework.event.event_channel_manager import EventChannelManager
 from zoo_framework.reactor import EventReactor
 from zoo_framework.reactor.event_retry_strategy import EventRetryStrategy
@@ -29,7 +31,7 @@ def event(
     success_callback=None,
 ):
     # 内部装饰器函数，接收被装饰的目标函数
-    def _event(func: callable):
+    def _event(func: Callable):
         # 创建一个事件反应器实例，并设置相关属性
         reactor = EventReactor(func.__name__)
         reactor.set_event_callback(func)  # 设置事件回调函数为目标函数

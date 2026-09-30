@@ -21,7 +21,9 @@ class ZooThread(threading.Thread):
         # returns id of the respective thread
         if hasattr(self, "_thread_id"):
             return self._thread_id
-        for id, thread in threading._active.items():
+        # `_active` 是 CPython 的私有实现细节（typeshed 未声明），故经 getattr 取，
+        # 而不是加 type: ignore——后者会把这个事实藏起来。
+        for id, thread in getattr(threading, "_active", {}).items():
             if thread is self:
                 return id
         return None

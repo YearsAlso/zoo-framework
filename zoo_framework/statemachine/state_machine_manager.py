@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import Any
 
 from zoo_framework.core.container import ThreadSafety, process_scoped
@@ -112,7 +113,7 @@ class StateMachineManager:
         """获取状态机."""
         return self._state_scope_map
 
-    def observe_state(self, scope: str, key: str, effect: callable):
+    def observe_state(self, scope: str, key: str, effect: Callable):
         """观察状态节点."""
         if self._state_scope_map.get(scope) is None:
             self.create_scope(scope)
@@ -120,7 +121,7 @@ class StateMachineManager:
         state_register: StateScope = self._state_scope_map[scope]
         state_register.observe_state_node(key, effect)
 
-    def unobserve_state(self, scope: str, key: str, effect: callable):
+    def unobserve_state(self, scope: str, key: str, effect: Callable):
         """移除状态节点观察者 - 修复内存泄漏.
 
         Args:

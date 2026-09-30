@@ -65,7 +65,11 @@ class EventWorker(BaseWorker):
                     channel.push_dead_letter(event_node, reason=f"查询响应器失败: {e}")
                     continue
                 # 如果这里为空，需要查看node 是否有重试次数，如果有重试次数，需要重新放入队列
-                if len(reactors) == 0:
+                # `not reactors` 同时覆盖 None 与 []：get_channel_reactors 的返回类型是
+                # `list[EventReactor] | None`，None 表示"没有匹配的响应器"，与空列表同义。
+                # （此处原先写 len(reactors) == 0，靠 None 触发 TypeError 被上面的 except
+                # 兜住——那是用异常做控制流，且把"无匹配"错报成"查询响应器失败"。）
+                if not reactors:
                     self._requeue_or_dead_letter(channel, event_node, reason="没有匹配的响应器")
                     continue
                 for reactor in reactors:
