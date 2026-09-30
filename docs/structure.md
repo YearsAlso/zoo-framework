@@ -105,26 +105,32 @@ earlier one's values). That is why
 first. Importing a params class before constructing `Master` freezes the defaults instead.
 `ParamsFactory()` with a missing path returns early and leaves the config empty, silently.
 
-**Three kinds of state outlive a test, and only one of them is in the container.** Clearing
-one is not enough to isolate a test case — the split is deliberate and is **not** unified by
-the container change:
+**State that outlives a test is not centrally managed — and this section deliberately contains
+no inventory of it.** Clearing one carrier is not enough to isolate a test case. The useful
+axis is the *mechanism*, and there are three of them:
 
-1. **The container's process-level instances** — the event reactor manager, the channel
-   register, the state machine manager, and the other managers migrated off `@cage`. They are
-   *declared* process-level in `core/container/`, so `framework_container().reset()` reclaims
-   them (along with any replacements and single-thread bindings).
-2. **Class-level registries** — `EventReactorManager.reactor_map` and
-   `EventChannelRegister._channel_map`. These are **class attributes**, not instance state, so
-   the container's reset does not take them; they need resetting separately. `@event` writes
-   here at import time.
-3. **Process-level state outside the container** — `WorkerRegistry`'s instance cache and the
-   channel-listener configuration. These never went through the container and still have their
-   own reset paths.
+1. **The container's process-level instances** — the managers declared process-level in
+   `core/container/`, so `framework_container().reset()` reclaims them (along with any
+   replacements and single-thread bindings).
+2. **Class attributes on those managers** — state living on the class rather than on an
+   instance, e.g. `EventReactorManager.reactor_map` and `EventChannelRegister._channel_map`;
+   the container's reset does not reach it. `@event` writes here at import time.
+3. **Module-level globals and registries** — everything else, e.g. `WorkerRegistry`'s instance
+   cache, the channel-manager singleton, and the `@configure` / params registries.
 
-`tests/conftest.py`'s `_reset_registries()` resets all three and its docstring is the
-authoritative enumeration. `EventWorker` is a concrete example of (3): it must remain one
-instance *per Worker*, so its docstring records why declaring it process-level would move that
-ownership out of `WorkerRegistry`.
+A list of carriers written here would go stale — which is precisely why there is none. Two
+**checkable** sources take its place:
+
+- **In-tree anchors**: `grep -rn "已知欠债" zoo_framework/` marks every carrier currently
+  recorded as known debt in the spec baseline.
+- **The test helpers that actually reset them**: `tests/conftest.py`'s `_reset_registries()`,
+  `tests/test_scaffold_cli_contract.py`'s scaffold cleanup, and `tests/test_config_resolution.py`'s
+  `config` fixture. Their value over annotations is that they exist **independently of them** —
+  resetting is a behaviour, a comment is not.
+
+`EventWorker` is a concrete example of (3): it must remain one instance *per Worker*, so its
+docstring records why declaring it process-level would move that ownership out of
+`WorkerRegistry`.
 
 **`process_scoped` registers without replacing the class, and CPython imposes three
 consequences.** Read this before changing how the framework declares its own process-level
@@ -239,18 +245,24 @@ Master.run               asyncio 任务每秒循环一次 waiter.execute_service
 好让 `ParamsFactory` 先读完 `config.json`。在构造 `Master` 之前导入某个 params 类，会把
 默认值**冻结**下来。`ParamsFactory()` 在路径缺失时会提前返回，并**静默**留下空配置。
 
-**有三类状态会活过单个用例，其中只有一类在容器里。** 只清掉一类不足以隔离用例 —— 这个划分是
-刻意的，容器变更**没有**把它统一：
+**会活过单个用例的状态不是集中管理的 —— 本节刻意不含它的清单。** 只清掉一处不足以隔离用例。
+有用的区分轴是**机制**，共三种：
 
-1. **容器的进程级实例** —— 事件反应器管理器、通道注册器、状态机管理器，以及其余从 `@cage`
-   迁出的管理器。它们在 `core/container/` 里被**声明**为进程级，因此
+1. **容器的进程级实例** —— 在 `core/container/` 里被**声明**为进程级的那些管理器，因此
    `framework_container().reset()` 会回收它们（顺带清掉替换与单线程绑定）。
-2. **类级注册表** —— `EventReactorManager.reactor_map` 与 `EventChannelRegister._channel_map`。
-   它们是**类属性**而非实例状态，容器复位带不走，需单独复位。`@event` 在导入时写入这里。
-3. **容器之外的进程级状态** —— `WorkerRegistry` 的实例缓存与通道监听配置。它们从不走容器，
-   现在也不走，各有各的复位方式。
+2. **这些管理器上的类属性** —— 住在类而非实例上的状态，例如 `EventReactorManager.reactor_map`
+   与 `EventChannelRegister._channel_map`；容器复位够不到它。`@event` 在导入时写入这里。
+3. **模块级全局与注册表** —— 其余的，例如 `WorkerRegistry` 的实例缓存、通道管理器单例，以及
+   `@configure` 与 params 的注册表。
 
-`tests/conftest.py` 的 `_reset_registries()` 三类都复位，其 docstring 是权威清单。
+在这里列出载体清单就会过期 —— 这正是本节不列的原因。取代它的是两个**可核对**的来源：
+
+- **代码内锚点**：`grep -rn "已知欠债" zoo_framework/` 标出当前在规范基线里被记为已知欠债的
+  每一处载体。
+- **真正执行复位的测试辅助**：`tests/conftest.py` 的 `_reset_registries()`、
+  `tests/test_scaffold_cli_contract.py` 的脚手架清理、以及 `tests/test_config_resolution.py`
+  的 `config` fixture。它们相对于标注的价值在于**先于标注存在** —— 复位是行为，注释不是。
+
 `EventWorker` 是第 3 类的具体例子：它必须保持「每个 Worker 一个实例」，其 docstring 记录了
 为什么把它声明为进程级会把这份归属从 `WorkerRegistry` 挪走。
 
