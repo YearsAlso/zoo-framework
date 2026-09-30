@@ -50,7 +50,7 @@ class EventChannel:
         """获取事件队列大小."""
         return self._event_fifo.size()
 
-    def pop_value(self) -> EventNode:
+    def pop_value(self) -> EventNode | None:
         """从事件队列中弹出事件."""
         return self._event_fifo.pop_value()
 

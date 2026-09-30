@@ -1,9 +1,13 @@
 import time
+from typing import TYPE_CHECKING
 
 from zoo_framework.constant import WaiterConstant
 from zoo_framework.utils import LogUtils
 
 from .worker_result import WorkerResult
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class BaseWorker:
@@ -16,7 +20,10 @@ class BaseWorker:
     def __init__(self, props: dict):
         self._props = props
         self.state: dict = {}
-        self._destroy_func = None
+        # 注解为 Callable | None 而非让它被推断成 None：`__del__` 里那处真值判定正是
+        # "它可能被赋成可调用对象"的证据。**但现状是全仓库没有任何地方给它赋值**，
+        # 故那条销毁路径目前恒不执行——这是独立于类型的问题，已记为发现，见任务表 3.1。
+        self._destroy_func: Callable | None = None
         self._on_create()
         self.num = 1
 

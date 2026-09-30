@@ -19,11 +19,9 @@ class EventChannelRegister:
 
     @classmethod
     def register(cls, channel_name):
-        channel = cls.get_channel(channel_name)
-        if channel is None:
-            channel = EventChannel(channel_name)
-            cls._channel_map[channel_name] = channel
-        return channel
+        # get_channel 在未命中时就地创建再返回，故**不会**返回 None——原先的 None 分支
+        # 因此是死代码（类型检查已证），已删。register 与 get_channel 现为同一语义。
+        return cls.get_channel(channel_name)
 
     @classmethod
     def unregister(cls, channel_name):

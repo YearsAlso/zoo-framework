@@ -117,14 +117,14 @@ class StateNode:
         """获取状态节点的值."""
         return self._value
 
-    def add_effect(self, effect: types.FunctionType) -> None:
+    def add_effect(self, effect: types.FunctionType | None) -> None:
         """添加状态节点的副作用."""
         if effect is None:
             return
         if isinstance(effect, types.FunctionType) and effect not in self._effect_list:
             self._effect_list.append(effect)
 
-    def remove_effect(self, effect: types.FunctionType) -> None:
+    def remove_effect(self, effect: types.FunctionType | None) -> None:
         """移除状态节点的副作用 - 修复内存泄漏.
 
         Args:

@@ -39,16 +39,16 @@ class EventWorker(BaseWorker):
         g_queue = []
         # TODO：获得除去失败事件通道的所有事件通道
         for channel_name in channel_names:
+            # get_channel 的实现在未命中时会就地创建再返回，故它**不会**返回 None；
+            # 原先那处 `if channel is None: continue` 因此是死分支（类型检查已证），已删。
             channel: EventChannel = self.eventChannelManager.get_channel(channel_name)
-            if channel is None:
-                continue
             # 获得所有的事件通道
             # 本轮只消费开始时就已在队列中的事件：回队的事件留到下一轮再处理，
             # 否则重试额度会在同一次消费循环里被瞬间耗尽，重试形同虚设。
             pending = channel.size()
             while pending > 0:
                 pending -= 1
-                event_node: EventNode = channel.pop_value()
+                event_node: EventNode | None = channel.pop_value()
                 # size() 与 pop_value() 之间存在空档：并发生产者可能在此期间取走元素。
                 # 取出为空表示本轮已无事件，必须结束循环——对 None 调用任何方法都会抛异常。
                 if event_node is None:

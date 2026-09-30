@@ -84,8 +84,8 @@ class EventChannelManager:
         # 获得所有的事件反应器
         # 并且将事件放入事件队列
         if channel is None:
+            # `raise` 之后的 `return None` 是死语句（类型检查已证），已删。
             raise Exception("channel not found")
-            return None
 
         # 获得事件响应策略
         reactors: list[EventReactor]
