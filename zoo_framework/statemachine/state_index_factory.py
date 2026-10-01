@@ -93,7 +93,7 @@ class HierarchicalIndex(StateIndex):
 
     def __init__(self):
         self._root: dict = {}
-        self._cache: dict = {}
+        self._cache: dict[str, StateNode] = {}
 
     def _split_key(self, key: str) -> list[str]:
         """分割 key."""
@@ -196,7 +196,7 @@ class StateIndexFactory:
     P2 优化：工厂模式创建索引
     """
 
-    _index_types: dict[str, type] = {
+    _index_types: dict[str, type[StateIndex]] = {
         "dict": ThreadSafeDictIndex,
         "hierarchical": HierarchicalIndex,
     }
