@@ -2,7 +2,22 @@
 
 [English](#english) | [中文](#中文)
 
-本文是 [`bench/`](https://github.com/YearsAlso/zoo-framework/tree/dev/bench) 这份测量的**导读**。
+## 两个仓库的分工（先读这段）
+
+本仓库里有两处与性能测量相关的东西，**定位不同、寿命不同，不要混用**：
+
+| | `bench/`（本仓库） | [`zoo-bench`](https://github.com/YearsAlso/zoo-bench)（独立仓库） |
+|---|---|---|
+| 是什么 | `adopt-rust-core` 那次可行性论证的**一次性证据** | **长期维护**的基准 harness |
+| 回答什么 | "要不要把派发核心换成 Rust？" → **no-go** | "相对各对照方案，本框架快不快、在哪些档位输" |
+| 寿命 | 结论已归档，**只读** | 逐版本发布，持续更新 |
+| 数据 | Windows 本机实测（Linux 数字因 WSL2 不可用） | 原生 Linux CI（`ubuntu-latest`），公开原始数据 |
+| 线上 | — | [线上报告](https://yearsalso.github.io/zoo-bench/) |
+
+**要引用性能数字，用 zoo-bench 的报告**（它是维护中的、可复现的、也公开了不利档位的那一份）；
+`bench/` 的价值在于"为什么否掉了 Rust"这个决策本身。
+
+下文是 `bench/` 这份测量的**导读**。
 权威依据是 [`bench/DECISION.md`](https://github.com/YearsAlso/zoo-framework/blob/dev/bench/DECISION.md)
 （结论与依据）与 [`bench/README.md`](https://github.com/YearsAlso/zoo-framework/blob/dev/bench/README.md)
 （复现步骤与适用边界）；本文只做提炼，如果两者不一致，以那两份为准。

@@ -295,6 +295,14 @@ dispatch and the wake-up back to the scheduler. It is therefore negligible for
 millisecond-scale work and dominant for sub-100 µs work — pick your task granularity
 accordingly. `bench/DECISION.md` has the breakdown and the cross-platform caveats.
 
+> **On the numbers above.** They are one-off evidence from the `adopt-rust-core` study,
+> measured on Windows only — do not compare them against Linux runs.
+> The **maintained, version-by-version benchmark** lives in the separate
+> [`zoo-bench`](https://github.com/YearsAlso/zoo-bench) repo:
+> [live report](https://yearsalso.github.io/zoo-bench/). It runs on native Linux CI, compares
+> against hand-written baselines and the standard-library concurrency models, publishes its
+> raw data, and reports the tiers where the framework **loses**.
+
 ### Built for AI-agent-generated code
 
 The extension surface is deliberately narrow, so generated code is short, verifiable,
@@ -643,6 +651,12 @@ Windows / Python 3.13 实测，负载为代表性任务（JSON 编解码 + 字�
 框架自身开销约为**每任务 100–220 µs**，主要来自线程派发与调度线程的唤醒。因此它对
 毫秒级任务是可忽略的，对 100 µs 以下的任务则占主导 —— 任务粒度请据此选择。
 拆解与跨平台说明见 `bench/DECISION.md`。
+
+> **关于上面这张表**：它是 `adopt-rust-core` 那次研究留下的**一次性证据**，只在 Windows 上测过
+> —— **不要拿它跟 Linux 的数字对比**。
+> **逐版本维护的基准**在独立仓库 [`zoo-bench`](https://github.com/YearsAlso/zoo-bench)：
+> [线上报告](https://yearsalso.github.io/zoo-bench/)。它跑在原生 Linux CI 上，与手写基线及
+> 标准库并发模型横向对照，公开原始数据，并且**如实列出本框架输掉的档位**。
 
 ### 面向 AI Agent 的代码生成
 
