@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://mxstorage.oss-cn-beijing.aliyuncs.com/oss-accesslog/zf-main-logo.png" alt="Zoo Framework Logo" width="400"/>
+<img src="https://raw.githubusercontent.com/YearsAlso/zoo-framework/dev/docs/assets/logo.png" alt="Zoo Framework Logo" width="400"/>
 
 # 🎪 Zoo Framework
 
