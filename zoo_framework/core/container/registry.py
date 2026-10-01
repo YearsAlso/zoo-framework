@@ -86,8 +86,13 @@ def process_scoped(
     """
 
     def decorate(cls: type) -> type:
+        # 下面这组操作就是"动态改写类"本身（本模块的立身之本）：先捕获原始的
+        # `__new__` / `__init__`，再换成转发版本。静态检查无法为它建模——读 `cls.__init__`
+        # 会被判"不健全"，`original_new(cls)` 也落在 typeshed 的重载之外。故用**定向
+        # ignore**（各带错误码）并写明原因，而不是退化成 cast 把它盖住：ignore 至少把
+        # "这里绕过了检查"摆在明面上。
         original_new = cls.__new__
-        original_init = cls.__init__
+        original_init = cls.__init__  # type: ignore[misc]
 
         def _guarded_init(self, *args, **kwargs):
             if getattr(self, "_scoped_ready", False):
@@ -101,11 +106,11 @@ def process_scoped(
             return process_instance(cls)
 
         def _build():
-            obj = original_new(cls)
+            obj = original_new(cls)  # type: ignore[call-overload]
             _guarded_init(obj)
             return obj
 
-        cls.__init__ = _guarded_init
+        cls.__init__ = _guarded_init  # type: ignore[misc]
         # 这一行同时受两个工具约束，而它们要求相反：mypy 判直赋值类型不符（typeshed 把
         # `__new__` 标成重载函数），改成 setattr(cls, "__new__", ...) 又会被 ruff 的 B010
         # （不要用 setattr 传常量属性名）拦下。两者无法同时满足，故保留直赋值并加**定向**

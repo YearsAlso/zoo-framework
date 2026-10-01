@@ -4,7 +4,7 @@ P1 任务：将 StateMachineWorker 中的持久化逻辑移到独立的调度器
 """
 
 import os
-import pickle
+import pickle  # nosec B403 — 本框架的持久化格式就是 pickle，且读取的是自己写出的文件
 import shutil
 import threading
 from abc import ABC, abstractmethod
@@ -62,7 +62,7 @@ class PicklePersistenceStrategy(PersistenceStrategy):
         """使用 Pickle 加载数据."""
         try:
             with open(filepath, "rb") as f:
-                return pickle.load(f)
+                return pickle.load(f)  # nosec B301 — 见文件头的 pickle 说明
         except Exception as e:
             LogUtils.error(f"❌ Pickle load failed: {e}")
             return None
@@ -75,7 +75,7 @@ class PicklePersistenceStrategy(PersistenceStrategy):
                 if not content:
                     return False
                 f.seek(0)
-                pickle.load(f)
+                pickle.load(f)  # nosec B301 — 见文件头的 pickle 说明
                 return True
         except Exception:
             return False
@@ -99,7 +99,10 @@ class FileChecksumValidator:
         """
         import hashlib
 
-        hash_md5 = hashlib.md5()
+        # 显式声明"非安全用途"：此处 md5 只做文件**完整性**校验（检测截断/损坏），
+        # 不用于任何安全目的。`usedforsecurity=False` 正是这个语义的官方表达，
+        # 比压制告警准确——bandit 的 B324 也据此放行。
+        hash_md5 = hashlib.md5(usedforsecurity=False)
         with open(filepath, "rb") as f:
             for chunk in iter(lambda: f.read(4096), b""):
                 hash_md5.update(chunk)
@@ -304,7 +307,9 @@ class PersistenceScheduler:
         self._file_lock = threading.RLock()
         self._data: Any | None = None
         self._dirty = False  # 数据是否被修改
-        self._last_save_time = 0
+        # 标注为 float：初值 0 会让 mypy 把它推断成 int，而实际赋值来自
+        # datetime.timestamp()（float）。
+        self._last_save_time: float = 0
         self._running = False
         self._scheduler_thread: threading.Thread | None = None
 

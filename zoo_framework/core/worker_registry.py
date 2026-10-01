@@ -3,12 +3,39 @@
 P2 优化：重构 Worker 注册，支持更灵活的注册方式
 """
 
+import inspect
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any
 
 from zoo_framework.utils import LogUtils
 from zoo_framework.workers import BaseWorker
+
+
+def _requires_constructor_args(cls: type) -> bool:
+    """该类是否**必须**带参构造——延迟实例化（无参调用）的前提是否成立.
+
+    延迟实例化路径会 `cls()` 无参调用，故"可无参构造"是它的隐含前提。原先这个前提
+    无人校验：注册一个必须带参的类（`BaseWorker` 本身就是）会一路通过注册，
+    直到第一次实例化才抛 `TypeError`。此处把隐含前提变成**注册期可校验**的条件。
+    """
+    try:
+        # 读 `cls.__init__` 会被判"不健全"（子类的 __init__ 可能与基类签名不兼容）——
+        # 而本函数**正是**要检查各家签名，故这个不健全是它要处理的对象而非要避免的。
+        parameters = inspect.signature(cls.__init__).parameters  # type: ignore[misc]
+    except (TypeError, ValueError):  # 内建/无法取签名者，按下不拦
+        return False
+    return any(
+        parameter.default is inspect.Parameter.empty
+        and parameter.kind
+        in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.KEYWORD_ONLY,
+        )
+        for name, parameter in parameters.items()
+        if name != "self"
+    )
 
 
 class WorkerRegistration(ABC):
@@ -63,6 +90,14 @@ class WorkerRegistry:
         """
         if not issubclass(worker_class, BaseWorker):
             raise TypeError(f"Must inherit from BaseWorker: {worker_class}")
+
+        # 延迟实例化会无参调用该类，故在此拒绝"必须带参构造"的类——否则这个错误会推迟到
+        # 第一次实例化时才以 TypeError 暴露（BaseWorker 本身就是这种类）。
+        if _requires_constructor_args(worker_class):
+            raise TypeError(
+                f"{worker_class} 需要构造参数，无法延迟实例化；"
+                f"请改用 register_instance 或 register_factory"
+            )
 
         self._worker_classes[name] = worker_class
         self._worker_metadata[name] = metadata or {}
@@ -124,7 +159,9 @@ class WorkerRegistry:
 
         # 3. 检查是否有类（延迟实例化）
         if name in self._worker_classes:
-            instance = self._worker_classes[name]()
+            # mypy 看不到 register_class 里的注册期校验，故此处仍需定向 ignore —— 它压制的
+            # 是一条**已在注册期强制**的前提，不是未经验证的假设。
+            instance = self._worker_classes[name]()  # type: ignore[call-arg]
             self._worker_instances[name] = instance
             return instance
 

@@ -12,7 +12,7 @@ from .log_utils import SafeStreamHandler
 # 尝试导入 structlog，如果不可用则回退到标准库
 # 运行时安装: pip install structlog
 try:
-    import structlog  # type: ignore
+    import structlog
 except Exception:
     structlog = None
     STRUCTLOG_AVAILABLE = False
