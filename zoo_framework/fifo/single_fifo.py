@@ -1,7 +1,9 @@
+from typing import Any
+
 from .base_fifo import BaseFIFO
 
 
-class SingleFIFO(BaseFIFO):
+class SingleFIFO(BaseFIFO[Any]):
     """单一值队列：同一个值只入队一次，并记录其位置.
 
     注意：`index_list` 目前仍是**类属性**（跨实例共享），本次未改动，

@@ -4,7 +4,7 @@ from .base_fifo import BaseFIFO
 from .node import EventNode
 
 
-class EventFIFO(BaseFIFO):
+class EventFIFO(BaseFIFO[EventNode]):
     """事件队列."""
 
     def push_value(self, value):
@@ -30,7 +30,7 @@ class EventFIFO(BaseFIFO):
         node = EventNode(topic=topic, content=content, channel_name=provider_name)
         super().push_value(node)
 
-    def get_top(self):
+    def get_top(self) -> EventNode | None:
         """获取事件队列的第一个事件."""
         if self.size() > 0:
             return self._fifo[0]

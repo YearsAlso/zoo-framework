@@ -54,8 +54,8 @@ class EventChannel:
         """从事件队列中弹出事件."""
         return self._event_fifo.pop_value()
 
-    def get_top(self) -> EventNode:
-        """获取事件队列的第一个事件."""
+    def get_top(self) -> EventNode | None:
+        """获取事件队列的第一个事件；队列为空时为 None."""
         return self._event_fifo.get_top()
 
     def push_event(self, event: EventNode):
