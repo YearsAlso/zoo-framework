@@ -27,7 +27,7 @@ site_dir: site
 theme:
   name: material
   language: zh
-  logo: https://mxstorage.oss-cn-beijing.aliyuncs.com/oss-accesslog/zf-main-logo.png
+  logo: assets/logo.png
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
