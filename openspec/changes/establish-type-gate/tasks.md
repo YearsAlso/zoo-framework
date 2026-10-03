@@ -81,6 +81,14 @@
   - **`core/container/registry.py` 三条（本变更自己的代码）**：捕获并改写 `__new__`/`__init__` 的动态技法**本就不在静态检查的建模范围内** → 三处**定向 ignore**（各带错误码）＋一段共享说明。**刻意不退化成 cast**：ignore 至少把"这里绕过了检查"摆在明面上，cast 会把它盖住。
   - 另修掉一处**多余的** `type: ignore`（`structured_log.py:15`，即 3.4 那条 `unused-ignore` 的来源）。
 **剩余 9 条的构成**：6 条 `no-any-return`（另有 `Any` 来源，与 `ThreadSafeDict` 无关：`state_effect` / `plugin` / `base_fifo` / `state_index_factory` ×2 / `event_channel`）＋ 2 条 `state_scope` 的 Optional 赋值 ＋ **1 条即已记录的 `master.py:288`（`change_waiter` 恒抛异常）**——最后这条**不靠猜修**，到门禁阶段须以"显式 ignore + 指向记录"处置，而不是替作者决定语义
+
+**第十至十三批（已提交）→ 零错误达成**：mypy `Success: no issues found in 94 source files`（起点 82）。
+- 第十批：`StateEffect` 的构造形参补注解（`_effect_list` 那条的同族：未标注形参 ⇒ 属性成 `Any`）。
+- 第十一批：`WorkerDelayManager.exponential_backoff` 的 `delay` 显式标注 —— 定位靠 **`reveal_type`**（两个操作数分别是 float/int，唯独乘积落到 Any），并**实测排除了**"`__init__` 缺 `-> None`"这个先验假设。
+- 第十二批：`HierarchicalIndex._cache` / `StateIndexFactory._index_types` 补类型参数（**逐处应用后立刻量到 7→5**；同样的改动在"一次性打包"那批里看起来像"没用"，正是打包混淆了结果）。
+- 第十三批：**`BaseFIFO` 泛型化**（`_fifo` 是裸 `list` ⇒ `Any`）。**不能收窄成 `list[EventNode]`**——`DelayFIFO` 存的是 `DelayFIFONode`（非其子类）。同时给 `EventFIFO.get_top` / `EventChannel.get_top` 补如实的 `EventNode | None`。**泛型化立刻暴露一个真实缺陷**：`DelayFIFO.get_expire_values` 以 `node.is_expire(current_time)` 调用，而 `DelayFIFONode.is_expire()` **不收参数**（设计上由节点自己读单调时钟，且被 `test_execution_time.py` 多处直接覆盖）⇒ 裁判明确"方法对、调用点错"，运行期会抛 TypeError，只因该方法无调用者而从未暴露。已修。**披露**：改该方法时我把"附近只有这一个方法"当成事实（实际有名字相近的另一个），编辑孤立了方法体、**一度制造语法错误使测试无法收集**；按 HEAD 核对后修复。
+- **末批：3 条"已记录的缺陷"以带锚点的 ignore 收口**（`state_scope` 的 `add_child(None)`、`master.py` 的 `change_waiter`），并在注释里写明**为何不猜修**（改语义属他人决定）。**踩到的坑**：`# type: ignore[...]` 之后**不能再跟任何文字**（锚点也不行），否则 mypy 判"Invalid type: ignore comment"，ignore 失效、错误数反升（3→6）；锚点必须写在**前一行注释**里。
+- [x] 3.1 / [x] 3.2 至此**实际完成**：全仓库零类型错误，且剩余的两处 ignore 各自指向一条**保持可见的**已记录缺陷（而非静默修复或删除）
 - [ ] 3.2 为归类为"注解缺失"的错误补充类型注解（17 条）；验证：该类别归零，且 `pytest -q` 仍全绿。**进行中（第一批已提交）**：`var-annotated` 7→0（含模块级字典、类属性字典、`set()` 局部共 6 处）。**一处反向的教训值得单记**：`core/aop/validation.py` 的 `params_validate_map` 我一开始标成 `dict[str, list]`（"更精确"），结果 mypy 立刻报出 `validation_params` 里那处 `isinstance(valid_values, list)` 防护为 **unreachable**——即**一个更精确的注解制造了一个新错误**。原因是该注解断言"值恒为 list"，而**那处防护的存在本身就是该不变量不成立的证据**（其文档也写明会返回 False 的"类型不正确"情形）。故改为**裸 `dict`**（≡ `dict[Any, Any]`）：既消掉 `var-annotated`，又让防护保持可达，**零行为改动、零新增错误**。通则：**当代码里有针对某类型的防护时，不要用注解把该类型收窄到防护失效**——防护是作者对不变量的反证
 - [ ] 3.3 **[改写]** 处理 `ignore_missing_imports`：原表写"处理第三方存根缺失"，但该分类**实测恒为空**（被配置抑制）。改写为——**为框架实际使用的依赖（click / jinja2 / gevent / pyyaml / python-dotenv）补存根，然后把 `ignore_missing_imports` 从全局收窄为按模块**；验证：全局为 false（或按模块列出例外），且 mypy 仍零错误、退出码 0。**若收窄后发现代价远超收益，须把"保持全局忽略"作为显式决定记录下来**，而不是默默不动
 - [ ] 3.4 审查本次新增的每一处 `# type: ignore` 与 `cast`；验证：`grep -rn "type: ignore\|cast(" zoo_framework/` 的每一处都有相邻注释说明原因，且没有一处是用于压制本可修复的类型不匹配（逐条核对并记录）。**注**：当前基线里已有 1 条 `unused-ignore`，说明**存在多余的 ignore**，属本任务范围

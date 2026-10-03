@@ -171,8 +171,14 @@ class StateScope:
         #  3. 设置树型结构
         current_key = key_queue[0]
         for i in range(1, len(key_queue)):
-            node: StateNode = self.get_state_node(current_key)
-            children_node: StateNode = self.get_state_node(f"{current_key}.{key_queue[i]}")
+            # 【已知缺陷】下面两处窄注解**不成立**：实测该路径确实可能取到 None（我一度改成
+            # 断言，测试立刻转红，证明"上面的循环已注册过节点"这条前提**不总成立**），而原代码
+            # 会把 None 传给 `add_child` —— 即**往树上挂一个 None 子节点**；本循环的
+            # `current_key` 也从不推进，两者同属这处待定的语义问题。**故不猜修**（改语义属他人
+            # 决定，见 openspec/changes/establish-type-gate/tasks.md 3.1 的记录），只用带锚点的
+            # ignore 收口：缺陷保持可见，而不是被静默改掉或删掉。
+            node: StateNode = self.get_state_node(current_key)  # type: ignore[assignment]
+            children_node: StateNode = self.get_state_node(f"{current_key}.{key_queue[i]}")  # type: ignore[assignment]
 
             # 一种key不能重复添加
             node.add_child(children_node)

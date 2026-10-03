@@ -285,7 +285,12 @@ class Master:
         """
         if self.waiter is not None:
             raise Exception("Waiter already exists, cannot change")
-        self.waiter = waiter
+        # 【已知缺陷】下面这行**不可达**：`__init__` 必设 `self.waiter`，故上面的守卫恒真、
+        # 赋值永远执行不到 —— 即 `change_waiter` **永远无法完成它的职责**（且全仓库零调用点、
+        # 无任何文档承诺它）。"是该允许替换、还是该保留这条守卫"属未定的语义问题，**故不猜修**
+        # （见 openspec/changes/establish-type-gate/tasks.md 3.1 的记录）；用带锚点的 ignore
+        # 收口，让缺陷保持可见，而不是被静默改掉。
+        self.waiter = waiter  # type: ignore[unreachable]
 
     def register_worker(self, name: str, worker_class: type, metadata: dict | None = None) -> None:
         """注册 Worker.
