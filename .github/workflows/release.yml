@@ -278,10 +278,11 @@ jobs:
       - name: Run Ruff
         run: ruff check zoo_framework
 
-      # 与独立的 quality.yml 对齐：mypy 不卡门禁
+      # 与独立的 quality.yml 对齐：mypy 在两边都是硬门禁 —— quality.yml 那侧的
+      # continue-on-error 已由变更 establish-type-gate 的 4.1 移除，此处随之移除
+      # （原先的注释写着"mypy 不卡门禁"，那个前提已经不存在了）。
       - name: Run MyPy
         run: mypy zoo_framework
-        continue-on-error: true
 
   release:
     name: 🚀 发布
