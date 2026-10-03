@@ -43,7 +43,8 @@ Three caveats about the tree:
 ```
 zoo_framework/
 ├── __init__.py            __version__
-├── __main__.py            the zfc / zoo CLI: scaffolding (--create) and worker adding (--worker)
+├── __main__.py            forwarding stub for `python -m zoo_framework`; the CLI lives in cli/
+├── cli/                   the zfc CLI: click options + error presentation (__init__.py), file output (scaffold.py)
 ├── core/                  lifecycle and scheduling
 ├── workers/               the execution units
 ├── event/ + fifo/ + reactor/    the event pipeline
@@ -54,7 +55,7 @@ zoo_framework/
 ├── utils/                 log, file, datetime, thread-safe dict, command helpers
 ├── conf/                  log configuration
 ├── plugin/                the whole plugin system, in one module
-└── templates/             scaffold templates consumed by the CLI (*.pyt)
+└── templates/             scaffold template text as module-level strings (string.Template)
 ```
 
 | Path | Responsibility |
@@ -77,7 +78,8 @@ zoo_framework/
 | `params/` | One schema class per concern (`worker` / `event` / `log` / `stateMachine`) |
 | `constant/` | `waiter_constant.py` (implemented modes, result topic) and `worker_constant.py` (run policies, kinds) |
 | `plugin/` | `Plugin` ABC, `PluginManager` (registration, dependency ordering, `load_from_path`), delay strategies |
-| `templates/` | `main.pyt` / `thread.pyt`, rendered by `__main__.py` when scaffolding |
+| `cli/` | The `zfc` CLI. `__init__.py` parses options and presents errors; `scaffold.py` produces the files. **Dev-time only** — the framework does not import it at runtime |
+| `templates/` | Scaffold template text as module-level strings (`string.Template`, no Jinja2), including the markers `zfc --worker` uses to wire a new Worker into the entry point |
 
 ### Boot and data flow
 
@@ -188,7 +190,8 @@ zoo-framework/
 ```
 zoo_framework/
 ├── __init__.py            __version__
-├── __main__.py            zfc / zoo CLI：脚手架（--create）与新增 Worker（--worker）
+├── __main__.py            `python -m zoo_framework` 的转发入口；命令行实现在 cli/
+├── cli/                   zfc CLI：click 选项与错误呈现（__init__.py）、脚手架产出（scaffold.py）
 ├── core/                  生命周期与调度
 ├── workers/               执行单元
 ├── event/ + fifo/ + reactor/    事件管道
@@ -199,7 +202,7 @@ zoo_framework/
 ├── utils/                 日志、文件、日期时间、线程安全字典、命令执行辅助
 ├── conf/                  日志配置
 ├── plugin/                整个插件系统，集中在一个模块
-└── templates/             CLI 消费的脚手架模板（*.pyt）
+└── templates/             脚手架模板文本（模块级字符串，string.Template 渲染）
 ```
 
 | 路径 | 职责 |
@@ -222,7 +225,8 @@ zoo_framework/
 | `params/` | 一个关注点一个 schema 类（`worker` / `event` / `log` / `stateMachine`） |
 | `constant/` | `waiter_constant.py`（已实现的模式、结果主题）与 `worker_constant.py`（运行策略、Worker 类别） |
 | `plugin/` | `Plugin` 抽象基类、`PluginManager`（注册、依赖排序、`load_from_path`）、延迟策略 |
-| `templates/` | `main.pyt` / `thread.pyt`，脚手架时由 `__main__.py` 渲染 |
+| `cli/` | zfc 命令行。`__init__.py` 解析选项并呈现错误，`scaffold.py` 负责产出文件。**只在开发期使用** —— 框架运行时不导入它 |
+| `templates/` | 脚手架模板文本（模块级字符串，`string.Template` 渲染，不用 Jinja2），含 `zfc --worker` 用来把新 Worker 接入入口的插入点标记 |
 
 ### 启动与数据流
 

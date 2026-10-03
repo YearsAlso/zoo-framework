@@ -77,11 +77,17 @@
 | [v0.5.2-beta](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.5.2-beta) | 预发布 | 2026-02-19 | 同上 |
 | [v0.5.1-beta](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.5.1-beta) | 预发布 | 2026-02-18 | 同上 |
 
-> **版本号一致性提示。** 当前分支（`dev`）的 `pyproject.toml` 声明的是 `0.5.3-beta`，
-> 而 GitHub 上最新的已发布版本是 `v0.6.0`；另有 `0.6.1-beta` 与 `0.7.0` 的版本号提交
-> 位于尚未合并的分支上（`origin/fix/release`、`refactor/cli-package`）。
-> 版本号同时存在于 `pyproject.toml`、`.env` 与 `zoo_framework/__init__.py` 三处，
-> 修改时需一并更新。发布新版本前请先核对这三处与上方标签的对应关系。
+> **版本号一致性提示。** `dev` 上的三处版本声明（`pyproject.toml` / `.env` /
+> `zoo_framework/__init__.py`）现在一致为 **`0.7.0`**；但仓库里最新的标签与发布是
+> **`v0.7.1-beta`**（2026-09-30 由发布工作流创建，带 `0.7.1b0` 的 whl 与 tar.gz），
+> 最新的稳定版仍是 `v0.6.0`。也就是说**声明值落后于最新标签**。
+>
+> 由此有一个下次发布就会踩到的点：工作流的版本算术从声明值出发（`dev` 走 patch 自增），
+> 从 `0.7.0` 算出的正是 **`0.7.1-beta`** —— 与已有标签同名（若 PyPI 上 `0.7.1b0`
+> 也已存在，上传会以 400 失败）。发布前请先把三处声明推过该版本。
+>
+> 三处必须一起改：版本号同时存在于 `pyproject.toml`、`.env` 与
+> `zoo_framework/__init__.py`，少改一处就会出现「发出的包对自己的版本撒谎」。
 
 ---
 
