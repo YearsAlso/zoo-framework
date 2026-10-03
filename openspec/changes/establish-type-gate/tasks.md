@@ -98,7 +98,7 @@
 
 ## 4. 建立类型门禁
 
-- [ ] 4.1 移除 `.github/workflows/quality.yml` 中 mypy 步骤的 `continue-on-error`；验证：临时插入一个类型错误 → 本地类型检查返回非零 → 撤销后返回零
+- [x] 4.1 移除 `.github/workflows/quality.yml` 中 mypy 步骤的 `continue-on-error`；验证：临时插入一个类型错误 → 本地类型检查返回非零 → 撤销后返回零。**已完成，且这一步挡下了一次会红 CI 的放行**：动手前先按"CI 从 `.[dev]` 装的是**最新** mypy、本地却一直用钉住的 1.7.1"复核，实测把本地 mypy 升到 **2.4.0**（= CI 那版）后**多出 1 条 1.7.1 看不见的错误**：`state_machine_manager.py:34` 把 `dict[Any, Any]` 赋给声明为 `ThreadSafeDict[str, StateScope]` 的属性。**即：若不加这一步复核就开门禁，本地零错误、CI 直接转红**——这正是"本地验证通过"与"CI 会通过"是两件事的又一例证。修法取**类型诚实**的最小改动（`ThreadSafeDict(state_machine)` 包一层）：原先直接存 `dict` 会让后续 `has_key()` 在运行期抛 `AttributeError`（`dict` 无此方法），包一层后声明类型在**每条路径**上都为真。**顺带查实一个更重的缺陷并只做记录、不猜修**：`ThreadSafeDict` **不是** `dict` 子类（实测 `isinstance(ThreadSafeDict(), dict) is False`），而落盘的就是 `ThreadSafeDict` —— 故对本框架自己写出的文件该守卫**恒假**，状态**从未真正恢复**，`_local_store_loaded` 却置 True 并挡住后续重试；已在方法 docstring 加 `【已知缺陷】` 锚点，语义决定留待他人。验证（实测）：注入 `x: int = "not an int"` → `Found 1 error`、**退出码 1** → 删除探针后 `Success: no issues found in 94 source files`、**退出码 0**（且 `--no-incremental` 冷缓存复核亦为 0）✓
 - [ ] 4.2 移除 `.github/workflows/release.yml` 中 mypy 步骤的 `continue-on-error`，并确认发布作业依赖质量检查的结果；验证：release.yml 中发布作业的 `needs` 链包含质量检查作业。**注意**：`release.yml` 当前由**并行会话**在改（"不吞"修复），改动前须与其确认，避免两人改同一文件；实测该文件里 mypy 那处 `continue-on-error: true`（原 121 行）**仍在**，正是本任务的目标
 - [ ] 4.3 按 design D3 在 `[tool.mypy.overrides]` 中对 `zoo_framework/utils/` 开启 `disallow_untyped_defs`；验证：该模块中缺注解的函数被报告为类型错误
 - [ ] 4.4 确认开启单模块严格模式后其他模块的检查结论不变；验证：对比开启前后在其余模块上的错误数，二者一致（均为零）

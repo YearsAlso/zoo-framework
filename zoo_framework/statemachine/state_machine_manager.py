@@ -29,9 +29,22 @@ class StateMachineManager:
         return self._local_store_loaded
 
     def load_state_machines(self, state_machine=None):
-        """加载状态机."""
+        """加载状态机.
+
+        【已知缺陷】对本框架自己写出的文件，本方法**实际什么都没加载**：落盘的是
+        `get_state_machines()` 返回的 `ThreadSafeDict`（见 state_machine_work.py 的
+        `pickle.dump(deepcopy(...))`），而 `ThreadSafeDict` **不是** `dict` 的子类
+        （实测 `isinstance(ThreadSafeDict(), dict) is False`），于是下面的守卫恒假、
+        赋值从不执行，`_local_store_loaded` 却被置为 True —— 即**状态从未真正恢复**，
+        且"已加载"的假象会阻止后续重试。属确定的语义缺陷，但"该合并还是该替换、
+        与进程级单例身份如何交互"是未定的语义问题，**故不猜修**（见
+        openspec/changes/establish-type-gate/tasks.md 3.1 的记录）。
+        此行本身只做类型上的收口：入参若是普通 `dict`，包成 `ThreadSafeDict` 再存，
+        使声明类型 `ThreadSafeDict[str, StateScope]` 在**每条路径上都为真**——原先直接
+        赋 `dict` 会让后续 `has_key()` 调用在运行期炸掉（`dict` 无此方法）。
+        """
         if state_machine is not None and isinstance(state_machine, dict):
-            self._state_scope_map = state_machine
+            self._state_scope_map = ThreadSafeDict(state_machine)
         self._local_store_loaded = True
 
     def get_and_create_scope(self, scope: str):

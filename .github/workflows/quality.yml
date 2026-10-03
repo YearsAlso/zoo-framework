@@ -46,10 +46,9 @@ jobs:
             python -m pylint zoo_framework --exit-zero
           fi
 
-      # MyPy 类型检查
+      # MyPy 类型检查（门禁：0 error 已达成，故不再 continue-on-error）
       - name: Run MyPy type check
         run: mypy zoo_framework --show-error-codes
-        continue-on-error: true  # 暂时允许失败，直到所有类型注解完善
 
   security:
     name: Security Scan
