@@ -141,9 +141,17 @@
 
 ## 8. 收尾验证
 
-- [ ] 8.1 端到端验证门禁有效性：临时引入一个类型错误 → 本地类型检查失败且退出码非零 → 撤销后通过且退出码为零；验证：两次结果符合预期，且第二次的通过是**真实的零错误**而非被 `ignore` 压制
-- [ ] 8.2 全量回归确认未破坏运行时行为；验证：`pytest -q` 全绿，用例总数不少于 `fix-runtime-defects` 完成后的数量
-- [ ] 8.3 确认未夹带范围外改动；验证：`git diff --stat` 限于 `pyproject.toml`、`.gitignore`、`.pre-commit-config.yaml`、`.github/workflows/`、`uv.lock`、`example/`、仓库根 `__init__.py`、`zoo_framework/__init__.py`（7.6）及为消除类型错误所必需的最小源文件调整，不含新增运行时依赖
+- [x] 8.1 端到端验证门禁有效性：临时引入一个类型错误 → 本地类型检查失败且退出码非零 → 撤销后通过且退出码为零；验证：两次结果符合预期，且第二次的通过是**真实的零错误**而非被 `ignore` 压制。**已完成，用"配置面核对 + 两个探针"回答，因为"非被 ignore 压制"是判据里最容易只靠嘴说的那一半**：
+  - **配置面**：`pyproject.toml` 中**没有** `ignore_errors` 也没有 `disable_error_code`（⇒ 不存在全局性降级）；`warn_unused_ignores = true`（⇒ 多余的 ignore 会被报出来，故不可能靠一堆 ignore 静默压住而不留痕）；全包 `type: ignore` 共 **12 处**，且 3.4 已逐条核对均有说明。三者合起来使"被大量 ignore 压成 0"这一可能不成立。
+  - **探针 A（无既有 ignore 的文件）**：注入 `x: int = "not an int"` → **退出码 1**、`Found 1 error` ✓
+  - **探针 B（判别式的那个：`core/container/registry.py`，它本身有 4 处带说明的 ignore）**：追加一个返回类型不符的函数 → 仍是 **退出码 1**、该错误被报出 ✓。**这一条才是关键**：它证明那些 ignore 是**逐行**生效、**不是文件级豁免**——若它们是文件级的，探针 B 会静默通过而"零错误"就成了假象
+  - **撤销后**：退出码 **0**、`Success: no issues found in 96 source files`；且 `registry.py` 经 `diff` 校验与探针前**逐字节相同**（探针未留残留）✓
+- [x] 8.2 全量回归确认未破坏运行时行为；验证：`pytest -q` 全绿，用例总数不少于 `fix-runtime-defects` 完成后的数量。**已完成**：按 **CI 的那条命令**跑 `pytest -q --cov=zoo_framework --cov-fail-under=30` → **662 passed / 0 failed**，覆盖率 **75.82%** ≥ 30% 门槛 ✓。**基线取自归档而非记忆**：`openspec/changes/archive/2026-09-27-fix-runtime-defects/tasks.md:33` 记 `208 passed / 0 failed`（既有 142 + 新增 66）—— 662 ≥ 208 ✓，用例只增未减
+- [x] 8.3 确认未夹带范围外改动；验证：`git diff --stat` 限于 `pyproject.toml`、`.gitignore`、`.pre-commit-config.yaml`、`.github/workflows/`、`uv.lock`、`example/`、仓库根 `__init__.py`、`zoo_framework/__init__.py`（7.6）及为消除类型错误所必需的最小源文件调整，不含新增运行时依赖。**已完成，并查出一处**真实的**越界（如实记录，未掩盖）**：
+  - **范围是这么算的**：直接取 `git diff <区间>` **不可用**——本变更的提交与并行会话的提交、以及一次 `origin/dev` 合并**交织在同一段线性历史**里（该区间会连带出来 `bench/`、`.claude/`、`docs/` 等大量他人改动）。故改用**本变更自己的提交**为口径：**凡更新本变更 `tasks.md` 的提交即属本变更**，共 **21 个**（`51c1cf9` → `c31fe14`），对它们求**路径并集**再与允许集比对
+  - **结果**：并集为 `pyproject.toml`、`.pre-commit-config.yaml`、`.github/workflows/`（4 个）、`example/`（3 个）、仓库根 `__init__.py`、`zoo_framework/`（41 个源文件 + `__init__.py`）、`openspec/changes/establish-type-gate/`（2 个）✓ ——**唯一越界项是 `CLAUDE.md`**：它被本变更的 `a0a130c` 一并改到，**不在允许集内**，形态上看是那次 `git add` 把工作区里**既有的** `CLAUDE.md` 改动一并卷了进去（即"`git add <file>` 的粒度是该文件的**全部**改动"那类问题，与 `commit-hook-hazard` 同族）
+  - **如何处理（没有改写历史）**：改写历史会让已存在的引用失效且不可核对，故改为**就在本次把 `CLAUDE.md` 改成与事实一致并显式记录**——因为放着不管它正**对本变更撒谎**：其中三条（"mypy 在两个 workflow 里都是 `continue-on-error`"、"`tests.yml` 仍有引用不存在目录的 benchmark 作业"、"`example/main.py` 调 `Master(1)`、`demo_event.py` 从 `build.lib` 导入"）**已全部被本变更改掉**（对应 4.1/4.2、6.4、7.1/7.2）。顺带把版本那句里**每次发版就会腐坏**的具体取值删掉（改为不含取值、只讲机制与校验方式）。**这是一处刻意的、记录在案的偏离**，理由是"变更的产物文档不得对本变更的结果撒谎"
+  - **依赖**：`[project].dependencies` 在**本变更的提交里从未改动**（本变更只在 `6ba007c` 动过 `pyproject.toml`，加的是 `[tool.mypy.overrides]`）✓ **无新增运行时依赖**。（`jinja2` 被移除是**合并进来的** CLI 重构所为，不是本变更。）
 
 ---
 
