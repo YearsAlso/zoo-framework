@@ -34,13 +34,16 @@ class StructuredLogUtils:
 
     _instance: "StructuredLogUtils | None" = None
     _initialized = False
+    # 声明为 Any：structlog 可用时是 BoundLogger，不可用时是标准库 Logger，
+    # 两条路径的共同点只有"有 debug/info/... 方法"，任何具体类型都会把另一条路径排除掉。
+    _logger: Any = None
 
-    def __new__(cls):
+    def __new__(cls) -> "StructuredLogUtils":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self):
+    def __init__(self) -> None:
         if self._initialized:
             return
 
@@ -89,7 +92,7 @@ class StructuredLogUtils:
         logging.basicConfig(level=logging.INFO, handlers=[handler])
         self._logger = logging.getLogger("zoo_framework")
 
-    def bind(self, **context) -> "StructuredLogUtils":
+    def bind(self, **context: Any) -> "StructuredLogUtils":
         """绑定上下文变量.
 
         使用示例：
@@ -110,7 +113,7 @@ class StructuredLogUtils:
             self._logger = self._logger.bind(**context)
         return self
 
-    def unbind(self, *keys) -> "StructuredLogUtils":
+    def unbind(self, *keys: str) -> "StructuredLogUtils":
         """解绑上下文变量.
 
         Args:
@@ -122,27 +125,27 @@ class StructuredLogUtils:
             self._logger = self._logger.unbind(*keys)
         return self
 
-    def debug(self, event: str, **kwargs) -> None:
+    def debug(self, event: str, **kwargs: Any) -> None:
         """DEBUG 级别日志."""
         self._log("debug", event, **kwargs)
 
-    def info(self, event: str, **kwargs) -> None:
+    def info(self, event: str, **kwargs: Any) -> None:
         """INFO 级别日志."""
         self._log("info", event, **kwargs)
 
-    def warning(self, event: str, **kwargs) -> None:
+    def warning(self, event: str, **kwargs: Any) -> None:
         """WARNING 级别日志."""
         self._log("warning", event, **kwargs)
 
-    def error(self, event: str, **kwargs) -> None:
+    def error(self, event: str, **kwargs: Any) -> None:
         """ERROR 级别日志."""
         self._log("error", event, **kwargs)
 
-    def exception(self, event: str, **kwargs) -> None:
+    def exception(self, event: str, **kwargs: Any) -> None:
         """EXCEPTION 级别日志（包含异常信息）."""
         self._log("exception", event, **kwargs)
 
-    def _log(self, level: str, event: str, **kwargs) -> None:
+    def _log(self, level: str, event: str, **kwargs: Any) -> None:
         """内部日志方法."""
         # 添加 emoji 标记
         emoji_map = {"debug": "🐛", "info": "ℹ️", "warning": "⚠️", "error": "❌", "exception": "💥"}
@@ -167,7 +170,7 @@ class StructuredLogUtils:
             extra = " ".join([f"{k}={v}" for k, v in log_data.items() if k != "event"])
             logger_method(f"{log_data.get('emoji', '')} {event} | {extra}")
 
-    def metric(self, name: str, value: float, unit: str = "", **tags) -> None:
+    def metric(self, name: str, value: float, unit: str = "", **tags: Any) -> None:
         """记录指标.
 
         P2: 可观测性 - 自动记录性能指标
@@ -206,28 +209,28 @@ def get_logger(name: str | None = None) -> StructuredLogUtils:
 class LogUtilsCompatibility:
     """兼容旧版 LogUtils 接口."""
 
-    _logger = None
+    _logger: StructuredLogUtils | None = None
 
     @classmethod
-    def _get_logger(cls):
+    def _get_logger(cls) -> StructuredLogUtils:
         if cls._logger is None:
             cls._logger = StructuredLogUtils()
         return cls._logger
 
     @classmethod
-    def debug(cls, clazz, msg):
+    def debug(cls, clazz: Any, msg: Any) -> None:
         cls._get_logger().debug(
             str(msg), class_name=clazz.__name__ if hasattr(clazz, "__name__") else str(clazz)
         )
 
     @classmethod
-    def info(cls, clazz, msg):
+    def info(cls, clazz: Any, msg: Any) -> None:
         cls._get_logger().info(
             str(msg), class_name=clazz.__name__ if hasattr(clazz, "__name__") else str(clazz)
         )
 
     @classmethod
-    def error(cls, clazz, msg):
+    def error(cls, clazz: Any, msg: Any) -> None:
         cls._get_logger().error(
             str(msg), class_name=clazz.__name__ if hasattr(clazz, "__name__") else str(clazz)
         )

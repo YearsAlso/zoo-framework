@@ -14,7 +14,7 @@ class SafeStreamHandler(logging.StreamHandler):
     语义边界：字形可能被降级（emoji 会变成代表其码位的转义序列），但**不会丢行**。
     """
 
-    def emit(self, record):
+    def emit(self, record: logging.LogRecord) -> None:
         try:
             message = self.format(record)
             stream = self.stream
@@ -74,28 +74,28 @@ class LogUtils:
         return f"{cls_name} - {message}"
 
     @classmethod
-    def debug(cls, message: str, cls_name: str | None = None):
+    def debug(cls, message: str, cls_name: str | None = None) -> None:
         if cls_name is None:
             cls_name = cls.__name__
         message = cls._format_message(message, cls_name)
         logging.debug(message)
 
     @classmethod
-    def info(cls, message: str, cls_name: str | None = None):
+    def info(cls, message: str, cls_name: str | None = None) -> None:
         if cls_name is None:
             cls_name = cls.__name__
         message = cls._format_message(message, cls_name)
         logging.info(message)
 
     @classmethod
-    def warning(cls, message: str, cls_name: str | None = None):
+    def warning(cls, message: str, cls_name: str | None = None) -> None:
         if cls_name is None:
             cls_name = cls.__name__
         message = cls._format_message(message, cls_name)
         logging.warning(message)
 
     @classmethod
-    def error(cls, message: str, cls_name: str | None = None):
+    def error(cls, message: str, cls_name: str | None = None) -> None:
         if cls_name is None:
             cls_name = cls.__name__
         message = cls._format_message(message, cls_name)
