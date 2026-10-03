@@ -128,8 +128,12 @@
 
 ## 7. 示例与仓库卫生
 
-- [ ] 7.1 按 design D9 修正 `example/main.py` 构造框架对象的方式（当前以整数调用，实测抛 `AttributeError`）；验证：按示例自身声明的方式运行该入口不再抛异常
-- [ ] 7.2 按 design D9 修正 `example/event/demo_event.py` 从 `build.lib` 导入的问题；验证：`grep -rn "build\.lib" example/ zoo_framework/` 无结果，且该模块可被成功导入
+- [x] 7.1 按 design D9 修正 `example/main.py` 构造框架对象的方式（当前以整数调用，实测抛 `AttributeError`）；验证：按示例自身声明的方式运行该入口不再抛异常。**已完成，但实测表明"原表写的那个错误并不是真正拦住入口的那个"**——这与本变更反复出现的同一形态一致，值得单独记：
+  - 原表指的 `Master(1)` 确已修正为 `Master()`（现签名是 `Master(config: MasterConfig | None = None)`），顺带删掉未使用的 `asyncio` 导入并对导入排序。
+  - **但入口仍抛异常，且抛出点在原表从未提及的文件里**：`example/threads/demo_thread.py:30` 的 `self.is_loop = True` → `AttributeError: property 'is_loop' of 'DemoThread' object has no setter`。根因是 `BaseWorker.is_loop` 已是**只读 property、以 `_props` 为唯一真源**，其类 docstring 明写"子类 MUST NOT 用实例属性遮蔽它们"——即该写法**违反基类已写明的契约**，正确位置是 `_props` 字典。已把 `"is_loop"` 改为在 `_props` 中声明 `True` 并删掉那行赋值（原代码先传 `False` 再赋 `True`，是 `is_loop` 还是普通属性时的遗留）。
+  - **验证（实测）**：在 `example/` 目录下运行 `python main.py` → 依次输出 `Master started, zoo is open!` 与各 Worker 的 start/stop，**无异常**（`run_forever` 按设计常驻，故用 timeout 终止）✓；`demo_event.py` 同批验证见 7.2。
+  - **另记一条不修的现象**：该次运行里 **`DemoThread` 从未出现**——`@worker(count=20)` 注册进的是**旧的** `WorkerRegister`，而 `Master` 从 `WorkerRegistry` 调度（两者并存，见 CLAUDE.md）。即**这个示例 Worker 实际是惰性的**。一个"worker 从不运行"的示例具有误导性，但把示例改到当前注册路径属**语义/API 决定**，不在此顺手改，故只记录。**（补记一条通用的坑）**：提交时 `ruff --fix` 把 `import threads` 当作**未使用导入**删掉了——但它其实是**副作用导入**（`demo_thread.py` 的 `@worker(count=20)` 在**导入时**才注册示例 Worker），删掉就等于**静默改变了示例的行为**，而"没用到的导入"这个判据从**静态**看完全成立、看不出副作用。已恢复该行并加 `# noqa: F401` + 就地说明。**通则：`F401` 只看得见"这个名字有没有被引用"，看不见"导入有没有副作用"** —— 对 `__init__.py`、以及在导入期注册/改全局状态的模块，这条自动修复会悄悄改变行为
+- [x] 7.2 按 design D9 修正 `example/event/demo_event.py` 从 `build.lib` 导入的问题；验证：`grep -rn "build\.lib" example/ zoo_framework/` 无结果，且该模块可被成功导入。**已完成**：`from build.lib.zoo_framework import event` → `from zoo_framework.core import event`（`event` 确实由 `zoo_framework.core` 导出，经其 `__all__` 核对 ✓）。验证：检索 `build\.lib` **无结果** ✓；该模块**导入成功** ✓（**一处自查**：第一次验证时我的探针 `print` 里带了 ✓，在 Windows GBK 控制台上自己抛了 `UnicodeEncodeError`——那是**我探针的问题、不是被验代码的问题**；因报错发生在 import 之后，导入本身是成功的，但仍改用纯 ASCII 输出重跑了一次以取得干净证据）
 - [x] 7.3 补齐 `.gitignore`，覆盖字节码缓存、构建输出与虚拟环境三类路径。**[已完成（他处）]**：`__pycache__` / `venv` / `.venv` / `build/` / `dist/` / `/site/` 均已存在 ✓
 - [x] 7.4 把已被误跟踪的构建产物、字节码缓存与虚拟环境从版本控制索引中移除并保留磁盘文件。**[已完成（他处）]**：`git ls-files | grep -E '^(venv|build)/|__pycache__|\.pyc$'` 返回 **0** ✓
 - [x] 7.5 清理只剩字节码的 `test/` 目录索引条目。**[已完成（他处）]**：`git ls-files test/` 返回 **0** ✓

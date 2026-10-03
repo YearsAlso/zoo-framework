@@ -1,4 +1,4 @@
-from build.lib.zoo_framework import event
+from zoo_framework.core import event
 from zoo_framework.utils import LogUtils
 
 
