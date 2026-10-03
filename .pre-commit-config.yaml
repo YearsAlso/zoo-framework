@@ -43,25 +43,33 @@ repos:
       # 运行 formatter
       - id: ruff-format
 
-  # MyPy - 类型检查 (P0，但本地不卡提交)
+  # MyPy - 类型检查 (P0，与 CI 同为硬门禁)
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.7.1
     hooks:
-      # 置于 manual 阶段，与 CI 对齐：quality.yml 里 mypy 是 continue-on-error，
-      # 本地也不应让它拦住提交。两个原因都是既有的、与具体改动无关：
-      #   1) 原先的 additional_dependencies: [types-all] 已装不上——types-all 依赖的
-      #      types-pkg-resources 已从 PyPI 移除，导致钩子环境无法创建、连提交都做不了。
-      #      本仓库实际只用到 click/jinja2/gevent/pyyaml/dotenv 的存根，且已传
-      #      --ignore-missing-imports，故直接去掉该 additional_dependencies。
-      #   2) 仓库根目录有一个被 git 跟踪的空 __init__.py，使仓库根成为名为 zoo 的包，
-      #      mypy 报 "Source file found twice under different module names" 直接无法启动；
-      #      修好它之后仍有 81 个既有错误（31 个文件）。在该问题被单独修掉前，mypy
-      #      无法作为门禁，故不放默认阶段。
-      # 需要时显式运行：pre-commit run --hook-stage manual mypy --all-files
+      # 与 CI 逐字对齐：quality.yml 跑的是 `mypy zoo_framework --show-error-codes`。
+      # 另三点与命令本身无关，是既有事实的收口：
+      #   1) 原先的 additional_dependencies: [types-all] 装不上——types-all 依赖的
+      #      types-pkg-resources 已从 PyPI 移除，钩子环境根本创建不出来。本仓库只用到
+      #      click/jinja2/gevent/pyyaml/dotenv 的存根，且 pyproject.toml 已全局设
+      #      ignore_missing_imports = true，故去掉该 additional_dependencies，也**不再**显式
+      #      传 --ignore-missing-imports —— CI 的命令行没有它，配置文件已覆盖同等语义。
+      #   2) 曾置于 manual 阶段，理由是根目录那个被跟踪的空 __init__.py 让 mypy 直接报
+      #      "Source file found twice under different module names" 无法启动，修好它之后仍有
+      #      82 个既有错误。两条都已在本变更内解决，故恢复到默认阶段 —— 否则会出现
+      #      "CI 门禁开着、本地门禁关着"，正是本变更要消除的分叉。
+      #      （rev 仍钉 1.7.1 而 CI 从 [dev] 装最新版，这一差异**保留**：实测两版对合并后的树
+      #      均为零错误；升级 mypy 会一并解掉三处 noqa 变通，属依赖变更、不在本变更范围。）
+      #   3) files: ^zoo_framework/ 使**文件集**与 CI 的 `mypy zoo_framework` 直接对应：
+      #      `pre-commit run --all-files` 的默认范围是"仓库里所有 Python 文件"，比 CI 宽——
+      #      会把 bench/ 和仓库根那几个维护脚本一并送去检查。用**正向** `files:` 而不是不断
+      #      加长的 exclude，是因为前者字面上就是"CI 检查什么"，仓库新增目录时也不会失效。
+      #      **对齐范围 ≠ 修好**：bench/ 里确有陈旧属性访问的真错误（scheduler-model-seam
+      #      之后 bench 脚本没跟上，如 BaseWaiter 的 pool_size / resource_pool），它们**仍未
+      #      处理**，只是 CI 本来也不检查 bench/（它是测量与决策区，非产品代码）。
       - id: mypy
-        stages: [manual]
-        args: [--ignore-missing-imports, --show-error-codes]
-        exclude: ^(tests/|test/|example/)
+        files: ^zoo_framework/
+        args: [--show-error-codes]
 
   # 安全扫描
   # 与 CI 对齐：quality.yml 跑的是 `bandit -r zoo_framework -c .bandit.yaml`
