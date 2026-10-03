@@ -11,7 +11,7 @@ on:
 
 jobs:
   test:
-    name: Python 3.13 on ${{ matrix.os }}
+    name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -23,10 +23,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.13
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
@@ -48,36 +48,15 @@ jobs:
       - name: Upload HTML coverage report
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report-${{ matrix.os }}-py3.13
+          name: coverage-report-${{ matrix.os }}-py${{ matrix.python-version }}
           path: htmlcov/
         if: always()
 
-  # 性能测试
-  benchmark:
-    name: Performance Benchmark
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-          pip install pytest-benchmark
-
-      - name: Run benchmarks
-        run: pytest tests/benchmarks/ --benchmark-only --benchmark-json output.json
-        continue-on-error: true
-
-      - name: Upload benchmark results
-        uses: actions/upload-artifact@v4
-        with:
-          name: benchmark-results
-          path: output.json
-        if: always()
+  # 说明：此处原有一个 `benchmark` 作业，已删除（变更 establish-type-gate 6.4）。
+  # 它 `run: pytest tests/benchmarks/ ...`，而 **`tests/benchmarks/` 自始至终不存在**
+  # （全仓库也没有任何 pytest-benchmark 用例、`benchmark` marker 也未配置），
+  # 且该步骤带 `continue-on-error: true`，故它从未门禁过任何东西。
+  # **不要把它与仓库根真实的 `bench/` 混淆**：后者是 `adopt-rust-core` 的独立测量脚本
+  # （Rust/PyO3 探针与对比脚本），不是 pytest 基准，也不在 CI 中运行。
+  # 未改用法是"加目录存在性条件"：`hashFiles()` 在**作业级** `if:` 上求值时尚未 checkout、
+  # 工作区为空，条件恒假、作业恒跳过——那只是把死作业换成"永远跳过的作业"，不如删除诚实。

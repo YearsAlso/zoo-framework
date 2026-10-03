@@ -1,5 +1,5 @@
 import copy
-import pickle
+import pickle  # nosec B403 — 与 core/persistence_scheduler.py 同因：本框架的持久化格式就是 pickle，读的是自己写出的文件
 import threading
 
 from zoo_framework.statemachine.state_machine_manager import StateMachineManager
@@ -73,7 +73,7 @@ class StateMachineWorker(BaseWorker):
 
                         # 重新定位到文件开头
                         f.seek(0)
-                        unpickler = pickle.Unpickler(f)
+                        unpickler = pickle.Unpickler(f)  # nosec B301 — 见文件头 import pickle 处的说明
                         state_machines = unpickler.load()
 
                         LogUtils.info(f"✅ State machines loaded: {len(state_machines)} states")
@@ -193,7 +193,7 @@ class StateMachineWorker(BaseWorker):
 
         try:
             with open(latest_backup, "rb") as f:
-                state_machines = pickle.load(f)
+                state_machines = pickle.load(f)  # nosec B301 — 见文件头 import pickle 处的说明
                 LogUtils.info(f"✅ State machines restored from backup: {latest_backup}")
                 state_machine_manager.load_state_machines(state_machines)
         except Exception as e:
