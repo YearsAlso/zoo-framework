@@ -27,13 +27,14 @@ concurrency:
   cancel-in-progress: false
 
 on:
+  # 分支推送与 tag 推送都触发；**路径过滤刻意不写在这里**。
+  # 原因（实测）：把 branches / paths / tags 三者放进同一个 push 下会让过滤互相干扰 ——
+  # 本文件曾这样写，结果一次同时触及 pyproject.toml 与 release.yml 的推送**没有触发**本
+  # 工作流（同一时刻另一条不触碰这些路径的推送反而触发了旧版）。注意本地 actionlint 只验
+  # schema，验不到这种语义交互。
+  # 等价过滤改在 decide 作业内做（见「与旧版 paths: 等价的相关性判定」）。
   push:
     branches: [dev, main]
-    paths:
-      - 'zoo_framework/**'
-      - 'pyproject.toml'
-      - '.env'
-      - '.github/workflows/release.yml'
     tags:
       - 'v*'
 
@@ -72,21 +73,37 @@ jobs:
               exit 1 ;;
           esac
 
-          # 判定这次推送是否"只改了三处版本声明"——那正是 bump PR 刚被合并的样子。
-          # 这个判定同时是自环防护：bump 合并后不会再开出一个新的 bump PR。
-          ACTION="bump"
+          # 与旧版 `paths:` 等价的相关性判定（paths 已从触发条件移到此处，理由见文件头）：
+          # 本次推送若未触及发布相关路径，则不进入任何动作。
+          ACTION="none"
           if git diff --name-only "$BEFORE_SHA" "$AFTER_SHA" > /tmp/changed.txt 2>/dev/null; then
             if [ -s /tmp/changed.txt ]; then
-              ACTION="tag"
+              RELEVANT=0
               while IFS= read -r f; do
                 case "$f" in
-                  pyproject.toml|.env|zoo_framework/__init__.py) ;;
-                  *) ACTION="bump" ;;
+                  zoo_framework/*|pyproject.toml|.env|.github/workflows/release.yml) RELEVANT=1 ;;
                 esac
               done < /tmp/changed.txt
+
+              if [ "$RELEVANT" = "1" ]; then
+                # 判定是否"只改了三处版本声明"——那正是 bump PR 刚被合并的样子。
+                # 这个判定同时是自环防护：bump 合并后不会再开出一个新的 bump PR。
+                ACTION="bump"
+                ONLY_VERSION=1
+                while IFS= read -r f; do
+                  case "$f" in
+                    pyproject.toml|.env|zoo_framework/__init__.py) ;;
+                    *) ONLY_VERSION=0 ;;
+                  esac
+                done < /tmp/changed.txt
+                if [ "$ONLY_VERSION" = "1" ]; then ACTION="tag"; fi
+              else
+                echo "本次推送未触及发布相关路径，不动作"
+              fi
             fi
           else
             echo "⚠️ 无法与 $BEFORE_SHA 比较（可能是首次推送），按 bump 处理"
+            ACTION="bump"
           fi
 
           echo "action=$ACTION" >> "$GITHUB_OUTPUT"
