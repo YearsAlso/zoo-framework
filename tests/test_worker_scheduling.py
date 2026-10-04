@@ -11,6 +11,7 @@
 sleep 收敛，避免出现"只有某个平台的 CI 才会红"的覆盖缺口。
 """
 
+import threading
 import time
 
 import pytest
@@ -124,6 +125,25 @@ class _FailingWorker(_RecordingWorker):
     def _execute(self):
         self.runs += 1
         raise RuntimeError("boom")
+
+
+class _BlockingWorker(_RecordingWorker):
+    """在 ``_execute`` 内阻塞到被显式释放的 Worker.
+
+    用来把「仍在执行」这一条件交给测试掌控：只要测试不释放，第一次派发就不会结束，
+    于是在飞期间的断言与墙上时钟无关——不需要「循环比 duration 快」这类隐含假设。
+    """
+
+    def __init__(self, name: str, is_loop: bool = False):
+        super().__init__(name, is_loop=is_loop, duration=0.0)
+        self.started = threading.Event()
+        self.release = threading.Event()
+
+    def _execute(self):
+        self.runs += 1
+        self.started.set()
+        self.release.wait(10.0)
+        return f"result-{self.name}"
 
 
 # =============================================================================
@@ -249,17 +269,30 @@ class TestInflightState:
         assert worker.errors == 1
 
     def test_long_running_worker_not_dispatched_twice(self):
-        """Scenario: 长时间运行的 Worker 不被重复派发."""
+        """Scenario: 长时间运行的 Worker 不被重复派发.
+
+        用阻塞式 Worker 把「在飞」变成由测试掌控的确定性条件。此前写法是
+        「4 轮 execute_service + 固定 sleep(0.02)」对上一个 duration=0.3 的 Worker，
+        断言实际依赖的是**循环是否比 duration 跑得快**：在受争用的 runner（如
+        macOS arm64）上循环耗时超过 duration 时，首轮已正常结束、循环 Worker 被
+        **合法**重派，runs 变成 2 却被报成竞态。改为阻塞后，只要测试不释放，
+        重派就必然是缺陷。
+        """
         waiter = _make_waiter(WaiterConstant.WORKER_MODE_THREAD_POOL)
-        worker = _RecordingWorker("Long", is_loop=True, duration=0.3)
+        worker = _BlockingWorker("Long", is_loop=True)
         waiter.call_workers([worker])
+        try:
+            assert _tick_until(waiter, worker.started.is_set), "Worker 未在预期时间内进入执行"
 
-        for _ in range(4):
-            waiter.execute_service()
-            time.sleep(0.02)
+            for _ in range(50):
+                waiter.execute_service()
+                time.sleep(0.002)
 
-        assert worker.runs == 1, f"在飞期间被重复派发了 {worker.runs} 次"
-        waiter.shutdown()
+            assert worker.runs == 1, f"在飞期间被重复派发了 {worker.runs} 次"
+        finally:
+            # 必须在 shutdown 之前释放，否则断言失败时会留下一个阻塞中的线程
+            worker.release.set()
+            waiter.shutdown()
 
 
 # =============================================================================
@@ -290,9 +323,7 @@ class TestTimeout:
         waiter.call_workers([worker])
         waiter.execute_service()
 
-        assert _tick_until(waiter, lambda: worker.name in waiter._broken), (
-            "超时的 Worker 未被熔断"
-        )
+        assert _tick_until(waiter, lambda: worker.name in waiter._broken), "超时的 Worker 未被熔断"
         waiter.shutdown()
 
     def test_timed_out_worker_is_not_dispatched_again(self):
@@ -341,9 +372,7 @@ class TestTimeout:
         waiter.call_workers([worker])
         waiter.execute_service()
 
-        assert _tick_until(waiter, lambda: worker.name in waiter._broken), (
-            "Worker 未被判定为超时"
-        )
+        assert _tick_until(waiter, lambda: worker.name in waiter._broken), "Worker 未被判定为超时"
         # 判定为超时之后，执行体本身仍然跑完且只跑了一次——说明系统没有强制终止它
         assert _wait_until(lambda: worker.runs == 1)
         time.sleep(0.45)
@@ -400,9 +429,7 @@ class TestResultReporting:
         reactor.worker_names = None
         received: list = []
         reactor.on_result = received.append
-        EventReactorManager().bind_topic_reactor(
-            WaiterConstant.WORKER_RESULT_TOPIC, reactor
-        )
+        EventReactorManager().bind_topic_reactor(WaiterConstant.WORKER_RESULT_TOPIC, reactor)
         yield received
         reactor.on_result = None
 
@@ -417,9 +444,7 @@ class TestResultReporting:
         waiter.call_workers([worker])
         waiter.execute_service()
 
-        assert _wait_until(lambda: len(collector) == 1), (
-            f"{mode} 模式下结果未被投递"
-        )
+        assert _wait_until(lambda: len(collector) == 1), f"{mode} 模式下结果未被投递"
         assert collector[0].content == "result-Rep_1"
         assert collector[0].worker_name == worker.name
         waiter.shutdown()
