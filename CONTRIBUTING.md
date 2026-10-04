@@ -111,15 +111,16 @@ These are what CI actually enforces, on Python 3.13 across ubuntu / windows / ma
 | Format | `ruff format zoo_framework` | ✅ hard fail (drift is a failure) |
 | Tests | `pytest` | ✅ hard fail |
 | Coverage | `pytest --cov=zoo_framework --cov-report=term-missing --cov-fail-under=30` | ✅ hard fail at **30%** |
-| Types | `mypy zoo_framework` | ⚠️ `continue-on-error` |
-| Security | `bandit -r zoo_framework -c .bandit.yaml` | ⚠️ advisory |
+| Types | `mypy zoo_framework --show-error-codes` | ✅ hard fail |
+| Security | `bandit -r zoo_framework -c .bandit.yaml` | ✅ hard fail |
 
 Run all of them locally before pushing:
 
 ```bash
 ruff check zoo_framework --fix
 ruff format zoo_framework
-mypy zoo_framework
+mypy zoo_framework --show-error-codes
+bandit -r zoo_framework -c .bandit.yaml
 pytest --cov=zoo_framework --cov-report=term-missing
 pre-commit run --all-files
 ```
@@ -376,15 +377,16 @@ docs(openspec): 同步 fix-worker-scheduling 的 delta spec 并归档
 | 格式 | `ruff format zoo_framework` | ✅ 硬失败（格式漂移即失败） |
 | 测试 | `pytest` | ✅ 硬失败 |
 | 覆盖率 | `pytest --cov=zoo_framework --cov-report=term-missing --cov-fail-under=30` | ✅ 门禁为 **30%** |
-| 类型 | `mypy zoo_framework` | ⚠️ `continue-on-error` |
-| 安全 | `bandit -r zoo_framework -c .bandit.yaml` | ⚠️ 仅提示 |
+| 类型 | `mypy zoo_framework --show-error-codes` | ✅ 硬失败 |
+| 安全 | `bandit -r zoo_framework -c .bandit.yaml` | ✅ 硬失败 |
 
 推送前请全部本地跑一遍：
 
 ```bash
 ruff check zoo_framework --fix
 ruff format zoo_framework
-mypy zoo_framework
+mypy zoo_framework --show-error-codes
+bandit -r zoo_framework -c .bandit.yaml
 pytest --cov=zoo_framework --cov-report=term-missing
 pre-commit run --all-files
 ```
