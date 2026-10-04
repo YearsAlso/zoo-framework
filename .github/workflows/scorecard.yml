@@ -1,0 +1,65 @@
+# OpenSSF Scorecard —— 供应链安全审计
+#
+# 与仓库已有的 bandit 扫描**不是一回事**，两者互补：
+# - bandit 扫的是**源码里的缺陷模式**（SAST，eval / shell 注入 / 弱随机…）
+# - Scorecard 审计的是**仓库与供应链的工程实践**：分支保护、依赖是否锁定、
+#   是否启用 CodeQL、令牌权限、发布流程是否可复现等十余项，产出 0–10 分
+#
+# 两点必须知道：
+# 1) **上游明确：只支持默认分支**。本仓库默认分支是 `main`，故只在那里跑，
+#    另有每周一次定时。结果是**仓库级**的，不针对某个分支。
+# 2) `publish_results: true` 会把结果发布到 OpenSSF 的公开 API —— README 的徽章读的就是它。
+#    所以**首次运行成功之前，徽章不会有分数**；而本文件要先到达 `main` 才会触发。
+#
+# 版本钉法：与上游起始模板一致，用 commit SHA 而不是 tag —— 这是一个供应链安全作业，
+# 它自己就该是钉死的。其余工作流用的是 tag（`@v4` 之类），那会被 Scorecard 的
+# Pinned-Dependencies 项照实扣分；那是它报出来的事实，不是本文件的问题。
+
+name: Scorecard supply-chain security
+
+on:
+  push:
+    # 上游注明：仅支持默认分支
+    branches:
+      - main
+  schedule:
+    # 每周六 01:30 UTC
+    - cron: "30 1 * * 6"
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      # 上传 SARIF 到 Code scanning 需要
+      security-events: write
+      # publish_results: true 需要 OIDC 令牌
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          # 分析过程不需要凭据，且留着会扩大暴露面
+          persist-credentials: false
+
+      - name: Run analysis
+        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc  # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7.0.1
+        with:
+          name: SARIF file
+          path: results.sarif
+          retention-days: 5
+
+      - name: Upload to code-scanning
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2  # v4.38.2
+        with:
+          sarif_file: results.sarif
