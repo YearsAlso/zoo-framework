@@ -92,7 +92,7 @@ uv run pytest tests/test_{module}.py -x -q --no-header
 
 - **不修改业务代码** — 只编写和修改测试代码
 - **不生成空测试方法** — 每个测试方法必须有**有牙齿的**断言（判据见 `.claude/rules/assertion-integrity.md`）
-- **不运行全量测试** — 只运行当前变更模块的对应测试（全量回归由 CI/`ci_tests.py` 负责）
+- **不运行全量测试** — 只运行当前变更模块的对应测试（全量回归由 CI 的 Tests 工作流执行 `pytest` 负责）
 - **不强制生成新测试文件** — 若无对应测试文件，只提示建议创建，不擅自生成
 - 新增测试遵循 pytest 框架约定（`testpaths = tests`、`python_classes = Test*`、`python_functions = test_*`）
 - 测试方法命名：`{method}_{scenario}_{expected}`（如 `test_execute_timeout_marks_unhealthy`）
