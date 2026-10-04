@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "zoo-framework"
 version = "0.7.1-beta"
-description = "Declarative all-in-one multi-task framework — foundation for next-gen Agents and workflows"
+description = "Python declarative multi-task orchestration framework powering next-gen Agents and workflows"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.13"
