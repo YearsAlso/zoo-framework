@@ -21,8 +21,12 @@ Comments, docstrings, docs and config comments in this repo are written in Chine
 ## Commands
 
 ```bash
-# Setup (uv.lock is committed; plain pip also works)
-uv sync                                  # or: pip install -e ".[dev]"
+# Setup — use the pip path. `uv.lock` is committed but STALE: it still describes the
+# 0.7.0 dependency set and pins greenlet 3.0.3, which ships no cp313 wheel. Running
+# `uv sync` (or `uv run`, which syncs first) today re-locks from that state, downgrades
+# the runtime deps, and uninstalls the dev toolchain (ruff/mypy/pytest/pre-commit/bandit).
+# Rebuilding the lock is a separate change; until then:
+pip install -e ".[dev]"
 pre-commit install
 
 # Tests (testpaths = tests, configured in pyproject.toml)
@@ -48,7 +52,7 @@ python -m build
 
 Design docs live in `docs/` (`ARCHITECTURE.md`, `DEVELOPMENT.md`, `OPTIMIZATION_PLAN.md`, `ROADMAP.md`). Development is also driven by **OpenSpec** (`openspec/`): `openspec/specs/<capability>/spec.md` are the authoritative behavior specs, `openspec/changes/<id>/` holds in-flight changes (proposal → design → spec deltas → tasks), and completed ones move to `openspec/changes/archive/<date>-<id>/`. `openspec validate --strict` gates each change; `openspec/config.yaml` pins artifacts to zh-CN while structural headings and SHALL/MUST keywords stay English.
 
-Note: a Python 3.9 `venv/` sits in the working tree (no longer tracked — it was dropped from the index — and still not covered by `.gitignore`), and bare `python` on this machine resolves to it. It cannot import the package. Use `uv run`, `.venv/Scripts/python.exe`, or another explicit 3.13 interpreter.
+Note: a Python 3.9 `venv/` sits in the working tree and bare `python` on this machine resolves to it. It cannot import the package. Use `.venv/Scripts/python.exe` or another explicit 3.13 interpreter. (`venv/` is untracked and now covered by `.gitignore`; if you prefer uv, use `uv run --no-sync` — plain `uv run` re-locks from the stale `uv.lock`, see Commands above.)
 
 ## Architecture
 
