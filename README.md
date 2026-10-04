@@ -383,8 +383,8 @@ pytest                        # 367 cases
 ```
 
 Note: use an explicit Python 3.13 interpreter (`uv run`, or `.venv/Scripts/python.exe`
-on Windows). Both `ruff check` and `pytest` are hard CI gates; `mypy` is
-`continue-on-error`.
+on Windows). `ruff check`, `ruff format`, `pytest`, `mypy` and `bandit` are all hard CI
+gates.
 
 ### License
 
@@ -732,8 +732,8 @@ pytest                        # 367 条用例
 ```
 
 注意使用明确的 Python 3.13 解释器（`uv run`，或 Windows 上的
-`.venv/Scripts/python.exe`）。CI 中 `ruff check` 与 `pytest` 是硬性门禁，`mypy` 为
-`continue-on-error`。
+`.venv/Scripts/python.exe`）。CI 中 `ruff check`、`ruff format`、`pytest`、`mypy` 与
+`bandit` 都是硬性门禁。
 
 ### 许可证
 
