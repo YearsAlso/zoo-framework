@@ -2,9 +2,8 @@
 
 <img src="https://raw.githubusercontent.com/YearsAlso/zoo-framework/dev/docs/assets/logo.png" alt="Zoo Framework Logo" width="400"/>
 
-# 🎪 Zoo Framework
-
-**打造智能体与设备编排的下一代基石架** —— 调度 Worker、投递事件、持久化状态
+声明式一站式多任务框架 —— 下一代 Agent 与工作流的基石
+Declarative all-in-one multi-task framework — foundation for next-gen Agents and workflows
 
 [![Python](https://img.shields.io/badge/Python-3.13%2B-blue)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/zoo-framework)](https://pypi.org/project/zoo-framework/)
