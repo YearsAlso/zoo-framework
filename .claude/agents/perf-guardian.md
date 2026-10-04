@@ -36,7 +36,7 @@ PY bench/profile_framework.py           # 框架开销占端到端延迟比例
 PY bench/compare_execution_models.py    # Python 派发路径 vs Rust(Tokio)
 
 # 热路径针对性验证
-uv run pytest tests/test_execution_time.py -x -q
+uv run --no-sync pytest tests/test_execution_time.py -x -q
 ```
 
 ### Step 3: 校验读数硬约束（bench/README.md 三条）

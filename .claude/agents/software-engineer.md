@@ -71,9 +71,9 @@ tools: Read, Grep, Glob, Bash, Edit, Write
 
 ### Step 4: 质量验证
 ```bash
-uv run pytest tests/test_{对应模块}.py -x -q     # 对应模块测试
-uv run ruff check zoo_framework                  # 风格门禁
-uv run mypy zoo_framework                        # 类型检查（现状 continue-on-error，新增错误须清零）
+uv run --no-sync pytest tests/test_{对应模块}.py -x -q   # 对应模块测试
+uv run --no-sync ruff check zoo_framework                # 风格门禁
+uv run --no-sync mypy zoo_framework                      # 类型检查（硬门禁，0 error；新增错误须清零）
 ```
 失败则修复后重试，不提交未通过验证的代码。
 

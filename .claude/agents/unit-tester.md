@@ -14,14 +14,14 @@ tools: Read, Grep, Glob, Bash, Edit, Write
 
 - **单次执行 ≤10s**：只运行 1 个测试文件/测试类（≤20 个测试方法），不运行全量套件
 - **限定范围**：只测试当前变更的 1 个模块，不跑跨模块集成链路
-- **先语法检查，再测试**：`uv run python -m py_compile {文件}` 或 ruff check 失败则终止，不继续执行
+- **先语法检查，再测试**：`uv run --no-sync python -m py_compile {文件}` 或 ruff check 失败则终止，不继续执行
 - **全局状态隔离**：被测对象涉及 `@cage` 单例 / `WorkerRegistry` / `ParamsFactory.config_params` 时，测试必须通过 fixture 重置或在用例中断言重置生效（进程级状态泄漏会让后续断言在错误实现下依旧绿，见 assertion-integrity 规则）
 
 ## 执行流程
 
 ### Step 1: 语法/风格验证（≤3s）
 ```bash
-uv run ruff check {变更文件}
+uv run --no-sync ruff check {变更文件}
 ```
 失败则终止，输出完整错误信息。
 
@@ -50,8 +50,8 @@ uv run ruff check {变更文件}
 
 ### Step 3: 运行对应测试（≤7s）
 ```bash
-uv run pytest tests/test_{module}.py -x -q --no-header
-# 或精确到类：uv run pytest tests/test_{module}.py::Test{ClassName} -x -q
+uv run --no-sync pytest tests/test_{module}.py -x -q --no-header
+# 或精确到类：uv run --no-sync pytest tests/test_{module}.py::Test{ClassName} -x -q
 ```
 
 `-x` 首个失败即终止（快速反馈）；涉及耗时的调度/计时用例可加 `-m "not slow"`（遵循 `--strict-markers`，marker 未注册会直接报错）。

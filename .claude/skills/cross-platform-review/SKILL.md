@@ -45,7 +45,7 @@ description: 跨平台一致性审查 Skill — 审查代码在 Windows/Linux/ma
 ### 6. CI 三平台矩阵
 - 新增测试/功能是否在 ubuntu/windows/macos 都能通过（CI 强制三平台 Python 3.13）
 - 平台特定断言是否用 `sys.platform` / `platform.system()` 守卫，避免只在单机通过
-- 注意工作树里 3.9 的 `venv/` 无法导入本包——本地验证须用 3.13 解释器（`uv run` / `.venv`）
+- 注意工作树里 3.9 的 `venv/` 无法导入本包——本地验证须用 3.13 解释器（`uv run --no-sync` / `.venv`）
 
 ## 执行流程
 
