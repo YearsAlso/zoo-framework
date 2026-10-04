@@ -43,6 +43,10 @@ Thumbs.db
 # Rust 探针的构建产物（bench/pyo3_probe 仅用于基准测量，不进入发布产物）
 /bench/pyo3_probe/target/
 
+# 姊妹仓库 zoo-bench（长期基准 harness，独立仓库、独立 CI、独立 Pages）
+# 本地并列克隆只为同时开发；框架仓库只需要报告链接，不需要它的代码
+/zoo-bench/
+
 # 运行时产物 —— 框架自身在运行中产生，不应入库
 *.log
 *.pic
