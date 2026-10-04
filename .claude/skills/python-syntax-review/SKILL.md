@@ -86,9 +86,9 @@ git diff main...HEAD
 
 ### Step 3: 机械自查辅助（工具门禁）
 ```bash
-uv run ruff check {文件} --fix        # 命名/风格/isort/pydocstyle 机械项
-uv run ruff format --check {文件}     # 格式
-uv run mypy {文件}                    # 类型（关注新增错误）
+uv run --no-sync ruff check {文件} --fix        # 命名/风格/isort/pydocstyle 机械项
+uv run --no-sync ruff format --check {文件}     # 格式
+uv run --no-sync mypy {文件}                    # 类型（关注新增错误）
 ```
 工具发现为机械线索，**架构分层/并发语义/配置时序等仍需人工深审**（不可委托工具）。
 
