@@ -376,13 +376,14 @@ Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the ful
 ```bash
 git clone https://github.com/YearsAlso/zoo-framework.git
 cd zoo-framework
-uv sync                       # or: pip install -e ".[dev]"
+pip install -e ".[dev]"       # NOT `uv sync` — uv.lock is stale, see CONTRIBUTING.md
 pre-commit install
-pytest                        # 367 cases
+pytest                        # 662 cases
 ```
 
-Note: use an explicit Python 3.13 interpreter (`uv run`, or `.venv/Scripts/python.exe`
-on Windows). `ruff check`, `ruff format`, `pytest`, `mypy` and `bandit` are all hard CI
+Note: use an explicit Python 3.13 interpreter (`.venv/Scripts/python.exe` on Windows —
+if you prefer uv, `uv run --no-sync`; plain `uv run` re-locks from the stale `uv.lock`).
+`ruff check`, `ruff format`, `pytest`, `mypy` and `bandit` are all hard CI
 gates.
 
 ### License
@@ -725,13 +726,14 @@ Worker 只依赖传给 `__init__` 的 props 字典，不感知框架内部结构
 ```bash
 git clone https://github.com/YearsAlso/zoo-framework.git
 cd zoo-framework
-uv sync                       # 或：pip install -e ".[dev]"
+pip install -e ".[dev]"       # 请勿使用 `uv sync` —— uv.lock 陈旧，见 CONTRIBUTING.md
 pre-commit install
-pytest                        # 367 条用例
+pytest                        # 662 条用例
 ```
 
-注意使用明确的 Python 3.13 解释器（`uv run`，或 Windows 上的
-`.venv/Scripts/python.exe`）。CI 中 `ruff check`、`ruff format`、`pytest`、`mypy` 与
+注意使用明确的 Python 3.13 解释器（Windows 上是 `.venv/Scripts/python.exe`；
+偏好 uv 的话用 `uv run --no-sync`，裸 `uv run` 会从陈旧的 `uv.lock` 重新解析）。
+CI 中 `ruff check`、`ruff format`、`pytest`、`mypy` 与
 `bandit` 都是硬性门禁。
 
 ### 许可证
