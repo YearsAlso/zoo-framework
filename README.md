@@ -2,8 +2,8 @@
 
 <img src="https://raw.githubusercontent.com/YearsAlso/zoo-framework/dev/docs/assets/logo.png" alt="Zoo Framework Logo" width="400"/>
 
-声明式一站式多任务框架 —— 下一代 Agent 与工作流的基石
-Declarative all-in-one multi-task framework — foundation for next-gen Agents and workflows
+Python 声明式多任务编排框架，一站式支撑下一代 Agent 与工作流
+Python declarative multi-task orchestration framework powering next-gen Agents and workflows
 
 [![Python](https://img.shields.io/badge/Python-3.13%2B-blue)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/zoo-framework)](https://pypi.org/project/zoo-framework/)
