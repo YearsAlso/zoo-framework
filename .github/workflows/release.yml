@@ -16,7 +16,15 @@
 # - **required_approving_review_count: 1** → bump PR 需 1 个批准；这是发布闸门的一部分。
 # tag 推送是唯一的发布闸门，且 tag 不受分支保护约束，故能由工作流直接推送。
 #
-# 🔑 Secrets：PYPI_API_TOKEN（发布到 PyPI）
+# 🔑 Secrets：
+# - RELEASE_PAT：**仅 bump PR 用**。不能用 GITHUB_TOKEN 代替 —— 本仓库的
+#   can_approve_pull_request_reviews 为 false，Actions 建的 PR 会被平台拒绝
+#   （实测报 "GitHub Actions is not permitted to create or approve pull requests."）。
+#   需要 fine-grained PAT：Contents: write + Pull requests: write，仓库限本仓库。
+#   刻意不开 can_approve_pull_request_reviews：那会同时赋予 Actions "批准 PR" 的能力，
+#   于是 required_approving_review_count: 1 这道闸门只靠 YAML 自觉，而不是平台强制。
+# - PYPI_API_TOKEN：发布到 PyPI（当前该 secret 未配置，实际走 OIDC trusted publishing，
+#   见下方 release 作业的说明）
 # 🔑 权限：contents: write（推分支/tag）、pull-requests: write（开 PR）、id-token: write（OIDC）
 
 name: 🚀 Release
@@ -193,7 +201,10 @@ jobs:
       - name: Create or update pull request
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # 用 PAT 而非 GITHUB_TOKEN：GITHUB_TOKEN 建 PR 会被平台拒绝（见文件头的
+          # RELEASE_PAT 说明）。副作用是这件事变好了 —— 由 PAT 建的 PR 会正常触发
+          # pull_request 事件上的检查工作流，而 GITHUB_TOKEN 建的 PR 不会触发任何新运行。
+          token: ${{ secrets.RELEASE_PAT }}
           base: ${{ needs.decide.outputs.branch }}
           branch: release/bump-${{ steps.calc_version.outputs.new_version }}
           # 分支保护要求提交签名；经 API 产生的提交由 GitHub 签名，git commit 产生的不是
@@ -346,8 +357,14 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+        # 刻意不传 password：OIDC trusted publishing 的触发条件就是
+        # `user == __token__`（该 action 的 user 输入默认值）且 password 为空 ——
+        # 见 twine-upload.sh 的 `[[ "${INPUT_USER}" == "__token__" && -z "${INPUT_PASSWORD}" ]]`。
+        # 原先这里写 `password: ${{ secrets.PYPI_API_TOKEN }}`，但本仓库并无该 secret
+        # （gh secret list 只有 PYPI），故它一直解析为空值、走的本来就是 OIDC；写在这里
+        # 只会误导。若确实想改用 API token，需在 PyPI 账号侧签发 token 并加成本仓库的
+        # secret 后再传 password —— 反之，一旦有人误加同名 secret，认证方式就会从 OIDC
+        # 悄悄切回 token，而 OIDC 是更推荐的做法。
 
       - name: Generate Changelog
         id: changelog

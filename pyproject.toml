@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zoo-framework"
-version = "0.7.0"
-description = "🎪 Zoo Framework - the foundation framework for agent and device orchestration: schedule Workers, deliver events, persist state"
+version = "0.7.1-beta"
+description = "Declarative all-in-one multi-task framework — foundation for next-gen Agents and workflows"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.13"
@@ -251,7 +251,7 @@ exclude_lines = [
 # Bump My Version 配置 (自动版本号管理)
 # ============================================
 [tool.bumpversion]
-current_version = "0.7.0"
+current_version = "0.7.1-beta"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
 serialize = ["{major}.{minor}.{patch}"]
 search = "{current_version}"
