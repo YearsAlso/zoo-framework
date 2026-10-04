@@ -3,24 +3,26 @@ from datetime import datetime, timedelta
 
 class DateTimeUtils:
     @classmethod
-    def get_format_now(cls, format_mod="%Y-%m-%d %H:%M:%S.%f"):
+    def get_format_now(cls, format_mod: str = "%Y-%m-%d %H:%M:%S.%f") -> str:
         return datetime.now().strftime(format_mod)
 
     @classmethod
-    def get_format_datetime(cls, target_time, format_mod="%Y-%m-%d %H:%M:%S.%f"):
+    def get_format_datetime(
+        cls, target_time: datetime, format_mod: str = "%Y-%m-%d %H:%M:%S.%f"
+    ) -> str:
         return target_time.strftime(format_mod)
 
     @classmethod
-    def get_sub_datetime(cls, sub_days):
+    def get_sub_datetime(cls, sub_days: int) -> datetime:
         return datetime.now() + timedelta(days=sub_days)
 
     @classmethod
-    def get_format_sub_datetime(cls, sub_days, format_mod):
+    def get_format_sub_datetime(cls, sub_days: int, format_mod: str) -> str:
         time = cls.get_sub_datetime(sub_days)
         return cls.get_format_datetime(time, format_mod)
 
     @classmethod
-    def get_week_day(cls, date_str):
+    def get_week_day(cls, date_str: str) -> str:
         week_day_dict = {
             0: "星期一",
             1: "星期二",
@@ -35,7 +37,7 @@ class DateTimeUtils:
         return week_day_dict[day]
 
     @classmethod
-    def get_month_date(cls, year, moth):
+    def get_month_date(cls, year: int, moth: int) -> list[str]:
         now = datetime(year, moth, 1)
         delta = timedelta(days=1)
         date_list = []
@@ -45,7 +47,7 @@ class DateTimeUtils:
         return date_list
 
     @classmethod
-    def get_next_month(cls):
+    def get_next_month(cls) -> datetime:
         now = datetime.now()
         month = now.month + 1
         year = now.year
@@ -55,7 +57,7 @@ class DateTimeUtils:
         return datetime(year=year, month=month, day=1)
 
     @classmethod
-    def get_before_month(cls):
+    def get_before_month(cls) -> datetime:
         now = datetime.now()
         month = now.month - 1
         year = now.year

@@ -15,10 +15,7 @@ from zoo_framework.core import Master, MasterConfig
 master = Master()
 
 # 使用配置
-config = MasterConfig(
-    config_path="./config.json",
-    enable_svm=True
-)
+config = MasterConfig(config_path="./config.json", enable_svm=True)
 master = Master(config)
 
 # 注册 Worker
@@ -46,38 +43,70 @@ master.shutdown()
 ```python
 from zoo_framework.workers import BaseWorker
 
+
 class MyWorker(BaseWorker):
     def __init__(self):
-        super().__init__({
-            "is_loop": True,        # 是否循环执行
-            "delay_time": 1.0,      # 执行间隔（秒）
-            "name": "MyWorker",     # Worker 名称
-            "priority": 0           # 优先级
-        })
-    
+        super().__init__(
+            {
+                "is_loop": True,  # 是否在调度轮次之间保留并重复执行
+                "delay_time": 1.0,  # 单次执行结束后的等待秒数
+                "name": "MyWorker",  # Worker 名称
+                "run_timeout": 30,  # 可选：执行超时秒数
+                "sleep_func": None,  # 可选：替换延迟等待的实现（测试用）
+            }
+        )
+
     def _execute(self):
         """执行业务逻辑（必须实现）"""
         pass
-    
+
     def _destroy(self, result):
-        """销毁回调（可选）"""
+        """销毁回调（可选）：Worker 被注销时调用，停机流程会触发它"""
         pass
-    
-    def stop(self):
-        """停止 Worker"""
-        super().stop()
+
+    def _on_error(self):
+        """执行抛异常时调用（可选）"""
+        pass
+
+    def _on_done(self):
+        """单次执行结束（无论成败）时调用（可选）"""
+        pass
 ```
+
+**配置读取**：`is_loop` / `run_timeout` / `delay_time` 都是以 `_props` 字典为唯一真源的**属性**，
+读取不需要调用语法（`worker.is_loop`，而非 `worker.is_loop()`）。子类不得用实例属性遮蔽它们。
+
+**执行语义**：
+
+- `_execute()` 抛出的异常在记录并调用 `_on_error()` 之后**继续向上传播**，由调度器收口处理；
+  失败的执行不会产生 `WorkerResult`，因此不会被误当作空结果上报。
+- `run_timeout` 的语义是**观测 + 熔断**：超时后记录错误、标记该 Worker 不健康、不再派发它。
+  系统**不会**强制终止仍在执行的 Worker——CPython 无法安全中断一个正在执行的线程，
+  因此框架不声称具备该能力。
+
+### 停机
+
+```python
+master = Master()
+...
+master.shutdown()  # 可重复调用
+```
+
+停机顺序：停止派发 → 取消调度任务 → 停止事件循环 → 停止监控 → 注销 Worker（触发 `_destroy`）。
+状态机 Worker 的最后一次落盘发生在这条链路的末尾。
 
 ### AsyncWorker
 
 ```python
 from zoo_framework.workers import AsyncWorker
 
+
 class MyAsyncWorker(AsyncWorker):
     async def async_execute(self):
         """异步执行业务逻辑"""
         result = await some_async_operation()
         return result
+
 
 # 使用
 worker = MyAsyncWorker()
@@ -92,6 +121,7 @@ task = worker.run_in_background()
 ```python
 from zoo_framework.workers import EventWorker
 
+
 class MyEventWorker(EventWorker):
     def handle_event(self, event):
         """处理事件"""
@@ -102,6 +132,7 @@ class MyEventWorker(EventWorker):
 
 ```python
 from zoo_framework.workers import StateMachineWorker
+
 
 class MyStateWorker(StateMachineWorker):
     def setup_state_machine(self):
@@ -115,15 +146,44 @@ class MyStateWorker(StateMachineWorker):
 
 ## 🏠 Cage API
 
-### 装饰器使用
+笼子对应 **`ScopedContainer`**：按作用域持有共享实例。**`@cage` 装饰器已删除**（它用
+"替换类"提供单例，导致 `issubclass` / `isinstance` 失效）。
+
+### 注册与解析
 
 ```python
-from zoo_framework.core.aop import cage
+from zoo_framework.core.container import Scope, ScopeKind, ScopedContainer, ThreadSafety
 
-@cage
-class SafeWorker(BaseWorker):
-    """线程安全的 Worker"""
-    pass
+container = ScopedContainer()
+container.register(
+    ChannelManager, scope_kind=ScopeKind.PROCESS, thread_safety=ThreadSafety.INSTANCE_GUARANTEED
+)  # 必填声明
+manager = container.resolve(ChannelManager, Scope.process())  # 作用域句柄必填
+```
+
+- 作用域取 `ScopeKind.PROCESS`（全进程唯一）/ `SESSION`（每会话一个）/ `PROTOTYPE`
+  （每次新建，不缓存）
+- 线程安全归属取 `ThreadSafety.INSTANCE_GUARANTEED` / `CONTAINER_SERIALIZED` /
+  `SINGLE_THREAD`。两者都**没有隐式默认值**：不声明归属会被拒绝注册，不传作用域句柄
+  会被显式校验拦下（刻意不提供"不传即进程级"的便利，那会静默破坏会话隔离）
+- 标识默认取**模块 + 限定名**，故同名但定义位置不同的类不会串号；可用 `name=` 覆盖
+- 解析**保留类型契约**：`isinstance` / `issubclass` 照常可用（容器不替换类）
+
+### 生命周期与测试接缝
+
+```python
+container.release(scope)  # 结束一个作用域：幂等，每个实例只触发一次 on_release
+container.live_names(scope)  # 核对释放是否生效
+container.replace(MyService, scope, instance=fake)  # 测试：注入假实现（仅作用于该作用域）
+container.reset()  # 测试：清掉全部替换与实例
+```
+
+声明为 `CONTAINER_SERIALIZED` 的项必须经 `exclusive(target, scope)` 取用——块内互斥，
+返回**真实实例而非代理**，故类型契约不受影响：
+
+```python
+with container.exclusive(SessionStore, scope) as store:
+    store.mutate()
 ```
 
 ### ThreadSafeDict
@@ -204,20 +264,17 @@ EventReactorManager.dispatch(
     topic="event.topic",
     content={"data": "value"},
     reactor_name="reactor_name",
-    channel=ChannelType.BUSINESS.value
+    channel=ChannelType.BUSINESS.value,
 )
 
 # 按通道分发
 EventReactorManager.dispatch_by_channel(
-    topic="event.topic",
-    content={"data": "value"},
-    channel=ChannelType.SYSTEM.value
+    topic="event.topic", content={"data": "value"}, channel=ChannelType.SYSTEM.value
 )
 
 # 注册响应器通道
 EventReactorManager.register_reactor_channels(
-    "reactor_name",
-    [ChannelType.BUSINESS.value, ChannelType.SYSTEM.value]
+    "reactor_name", [ChannelType.BUSINESS.value, ChannelType.SYSTEM.value]
 )
 ```
 
@@ -232,7 +289,7 @@ node = EventNode(
     content="content",
     channel_name="default",
     priority=100,
-    priority_level=PriorityLevel.HIGH
+    priority_level=PriorityLevel.HIGH,
 )
 
 # 获取有效优先级
@@ -252,10 +309,7 @@ urgency = node.get_urgency()
 from zoo_framework.core.persistence_scheduler import PersistenceScheduler
 
 scheduler = PersistenceScheduler(
-    filepath="data.pkl",
-    auto_save_interval=60,
-    enable_backup=True,
-    max_backups=5
+    filepath="data.pkl", auto_save_interval=60, enable_backup=True, max_backups=5
 )
 
 # 启动
@@ -413,6 +467,7 @@ workers = registry.get_all_workers()
 # 注销
 registry.unregister("WorkerName")
 
+
 # 装饰器方式
 @register_worker("MyWorker", {"priority": 100})
 class MyWorker(BaseWorker):
@@ -448,25 +503,21 @@ StateObserver = Callable[[Any], None]
 ```python
 from zoo_framework.core import Master
 from zoo_framework.workers import BaseWorker
-from zoo_framework.core.aop import cage
 from zoo_framework.utils import LogUtils
 
-@cage
+
 class CompleteWorker(BaseWorker):
     def __init__(self):
-        super().__init__({
-            "is_loop": True,
-            "delay_time": 1.0,
-            "name": "CompleteWorker"
-        })
+        super().__init__({"is_loop": True, "delay_time": 1.0, "name": "CompleteWorker"})
         self.counter = 0
-    
+
     def _execute(self):
         self.counter += 1
         LogUtils.info(f"执行次数: {self.counter}")
-    
+
     def _destroy(self, result):
         LogUtils.info(f"Worker 停止，总计: {self.counter}")
+
 
 # 运行
 if __name__ == "__main__":

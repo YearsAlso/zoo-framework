@@ -8,7 +8,12 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.5.0
     hooks:
+      # --unsafe 用于放行自定义 YAML 标签：mkdocs.yml 用
+      # !!python/name:pymdownx.superfences.fence_code_format 声明 Mermaid 的自定义
+      # fence（mkdocs-material 的标准写法），safe_load 会直接拒绝该标签、导致
+      # mkdocs.yml 无法提交。本钩子只做语法检查，不解析标签语义。
       - id: check-yaml
+        args: [--unsafe]
       - id: check-added-large-files
         args: ['--maxkb=500']
       - id: check-case-conflict
@@ -25,8 +30,12 @@ repos:
       - id: debug-statements
 
   # Ruff - Python 代码格式化和 linting (P0)
+  # rev 必须与项目实际使用的 ruff 对齐：此前钉在 v0.1.14（2024-01），
+  # 该版本不认识 pyproject.toml 里的 target-version = "py313"，
+  # 直接 "Failed to parse pyproject.toml" 而失败——即 ruff 钩子对本仓库
+  # 从来跑不起来。CI 装的是 ruff>=0.1.0 且不锁版本，故本地与 CI 也一直不一致。
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.1.14
+    rev: v0.16.9
     hooks:
       # 运行 linter
       - id: ruff
@@ -34,19 +43,44 @@ repos:
       # 运行 formatter
       - id: ruff-format
 
-  # MyPy - 类型检查 (P0)
+  # MyPy - 类型检查 (P0，与 CI 同为硬门禁)
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.7.1
     hooks:
+      # 与 CI 逐字对齐：quality.yml 跑的是 `mypy zoo_framework --show-error-codes`。
+      # 另三点与命令本身无关，是既有事实的收口：
+      #   1) 原先的 additional_dependencies: [types-all] 装不上——types-all 依赖的
+      #      types-pkg-resources 已从 PyPI 移除，钩子环境根本创建不出来。本仓库只用到
+      #      click/jinja2/gevent/pyyaml/dotenv 的存根，且 pyproject.toml 已全局设
+      #      ignore_missing_imports = true，故去掉该 additional_dependencies，也**不再**显式
+      #      传 --ignore-missing-imports —— CI 的命令行没有它，配置文件已覆盖同等语义。
+      #   2) 曾置于 manual 阶段，理由是根目录那个被跟踪的空 __init__.py 让 mypy 直接报
+      #      "Source file found twice under different module names" 无法启动，修好它之后仍有
+      #      82 个既有错误。两条都已在本变更内解决，故恢复到默认阶段 —— 否则会出现
+      #      "CI 门禁开着、本地门禁关着"，正是本变更要消除的分叉。
+      #      （rev 仍钉 1.7.1 而 CI 从 [dev] 装最新版，这一差异**保留**：实测两版对合并后的树
+      #      均为零错误；升级 mypy 会一并解掉三处 noqa 变通，属依赖变更、不在本变更范围。）
+      #   3) files: ^zoo_framework/ 使**文件集**与 CI 的 `mypy zoo_framework` 直接对应：
+      #      `pre-commit run --all-files` 的默认范围是"仓库里所有 Python 文件"，比 CI 宽——
+      #      会把 bench/ 和仓库根那几个维护脚本一并送去检查。用**正向** `files:` 而不是不断
+      #      加长的 exclude，是因为前者字面上就是"CI 检查什么"，仓库新增目录时也不会失效。
+      #      **对齐范围 ≠ 修好**：bench/ 里确有陈旧属性访问的真错误（scheduler-model-seam
+      #      之后 bench 脚本没跟上，如 BaseWaiter 的 pool_size / resource_pool），它们**仍未
+      #      处理**，只是 CI 本来也不检查 bench/（它是测量与决策区，非产品代码）。
       - id: mypy
-        additional_dependencies: [types-all]
-        args: [--ignore-missing-imports, --show-error-codes]
-        exclude: ^(tests/|test/|example/)
+        files: ^zoo_framework/
+        args: [--show-error-codes]
 
   # 安全扫描
+  # 与 CI 对齐：quality.yml 跑的是 `bandit -r zoo_framework -c .bandit.yaml`
+  # （.bandit.yaml 里 skips: [B101]，并排除 tests/ test/ example/）。
+  # 此前钩子写的是 `-c pyproject.toml`——而 pyproject.toml 里并没有 [tool.bandit] 段，
+  # 于是 B101 未跳过；又因为没有范围过滤，pre-commit 会把测试文件也交给 bandit，
+  # 结果是每个用例里的 assert 都算一条 B101，钩子必然失败。
   - repo: https://github.com/PyCQA/bandit
     rev: 1.7.6
     hooks:
       - id: bandit
-        args: ["-c", "pyproject.toml"]
+        files: ^zoo_framework/
+        args: ["-c", ".bandit.yaml"]
         additional_dependencies: ["bandit[toml]"]

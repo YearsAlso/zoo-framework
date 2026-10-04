@@ -1,7 +1,10 @@
-from zoo_framework.core.aop import cage
+from zoo_framework.core.container import ThreadSafety, process_scoped
 
 
-@cage
+# 声明为"仅限单线程"而不是"实例自身保证"：本类的 event_list 是**裸 list**，既没有
+# 锁也不是不可变的（清点时记为 F1）。本模块目前仅被 event/__init__.py 再导出、框架内
+# 无调用点，故这条声明是如实而非限制。
+@process_scoped(thread_safety=ThreadSafety.SINGLE_THREAD)
 class EventRegister:
     """事件注册器."""
 

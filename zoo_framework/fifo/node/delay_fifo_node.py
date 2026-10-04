@@ -11,6 +11,11 @@ class DelayFIFONode:
         self.index = index
 
     def is_expire(self):
-        if self.expired_time <= time.time():
+        """是否已过期.
+
+        ``expired_time`` MUST 是**单调时钟**时刻（``time.monotonic()`` 基准）。
+        用墙钟判定会让 NTP 校时或夏令时跳变把未到期的节点判成到期（或反之）。
+        """
+        if self.expired_time <= time.monotonic():
             return True
         return None

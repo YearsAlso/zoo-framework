@@ -3,6 +3,8 @@ from collections.abc import Callable
 from enum import Enum
 from typing import Any
 
+from zoo_framework.core.run_identity import current_identity
+
 
 class PriorityLevel(Enum):
     """优先级等级.
@@ -38,14 +40,14 @@ class EventPriorityCalculator:
 
         Args:
             priority: 基础优先级
-            create_time: 创建时间戳
+            create_time: 创建时刻（**单调时钟**基准，见 ``EventNode.create_time``）
             wait_time_weight: 等待时间权重 (0-1)
             max_wait_time: 最大等待时间（秒）
 
         Returns:
             综合优先级分数（越高越优先）
         """
-        current_time = time.time()
+        current_time = time.monotonic()
         wait_time = max(0, current_time - create_time)
 
         # 计算等待时间加成（指数增长，但不超过 max_wait_time）
@@ -106,6 +108,14 @@ class EventNode:
     timeout: int = 0
     # 超时响应
     timeout_response: Callable[..., Any] | None = None
+    # 绝对截止期（**单调时钟**基准）；None 表示不按截止期判定过期。
+    # 与 `timeout` 的区别：`timeout` 是"创建后允许存活多久"的区间量，
+    # `deadline` 是"最迟必须在此刻之前处理"的绝对时刻。二者同基准，不得混入墙钟。
+    deadline: float | None = None
+    # 产生该事件的那次运行的标识；入队时从当前上下文盖章，可由生产方显式覆盖
+    run_id: str | None = None
+    # 该事件所属会话的标识
+    session_id: str | None = None
     # 创建时间
     create_time: float
     # 失败响应
@@ -141,7 +151,15 @@ class EventNode:
             self.priority = priority
 
         self.channel_name = channel_name
-        self.create_time = time.time()
+        # 创建时刻取**单调时钟**：它只用于计算"等待了多久"与"是否超时"这类区间量，
+        # 用墙钟会因 NTP 校时/夏令时跳变而算出负的等待时间或误判超时。
+        self.create_time = time.monotonic()
+        self.deadline = None
+        # 运行标识在**入队时**盖章：显式字段是真相来源，接收方据此可按运行筛选事件，
+        # 不依赖隐式上下文（事件会被跨线程消费，那里的上下文未必是生产方的）
+        identity = current_identity()
+        self.run_id = identity.run_id if identity is not None else None
+        self.session_id = identity.session_id if identity is not None else None
 
     def __repr__(self) -> str:
         """:return: str"""
@@ -232,12 +250,42 @@ class EventNode:
         self.timeout = timeout
         self.timeout_response = timeout_response
 
+    def set_deadline(self, deadline: float | None):
+        """设置绝对截止期.
+
+        Args:
+            deadline: 绝对时刻（**单调时钟**基准）；None 表示取消截止期
+        """
+        self.deadline = deadline
+
+    def set_identity(self, run_id: str | None, session_id: str | None = None) -> None:
+        """显式设置运行标识.
+
+        覆盖入队时从上下文盖章的值，供不在运行上下文内的生产方显式标注。
+
+        Args:
+            run_id: 运行标识
+            session_id: 会话标识
+        """
+        self.run_id = run_id
+        self.session_id = session_id
+
     def is_expire(self) -> bool:
-        """是否过期."""
+        """是否过期.
+
+        **截止期优先于相对超时**：给出 ``deadline`` 时以它判定；否则按 ``timeout``
+        与创建时刻的间隔判定。二者与 ``create_time`` 同基准（单调时钟），
+        MUST NOT 混入墙钟。
+        """
+        now = time.monotonic()
+
+        if self.deadline is not None:
+            return now >= self.deadline
+
         if self.timeout is None or self.timeout == 0:
             return False
 
-        return 0 < self.timeout < (time.time() - self.create_time)
+        return 0 < self.timeout < (now - self.create_time)
 
     def expire_callback(self):
         """过期回调."""
@@ -245,8 +293,18 @@ class EventNode:
             self.timeout_response(self)
 
     def get_retry_times(self) -> int:
-        """获取重试次数."""
+        """获取剩余重试次数."""
         return self.retry_times
+
+    def set_retry_times(self, retry_times: int) -> None:
+        """设置剩余重试次数.
+
+        消费路径据此决定事件在无法投递时是回队重试还是记入死信。
+
+        Args:
+            retry_times: 剩余重试次数；<=0 表示不再重试
+        """
+        self.retry_times = max(0, int(retry_times))
 
     def increment_retry(self) -> None:
         """增加重试次数.

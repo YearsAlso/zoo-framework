@@ -7,10 +7,12 @@ import logging
 import sys
 from typing import Any
 
+from .log_utils import SafeStreamHandler
+
 # 尝试导入 structlog，如果不可用则回退到标准库
 # 运行时安装: pip install structlog
 try:
-    import structlog  # type: ignore
+    import structlog
 except Exception:
     structlog = None
     STRUCTLOG_AVAILABLE = False
@@ -32,13 +34,16 @@ class StructuredLogUtils:
 
     _instance: "StructuredLogUtils | None" = None
     _initialized = False
+    # 声明为 Any：structlog 可用时是 BoundLogger，不可用时是标准库 Logger，
+    # 两条路径的共同点只有"有 debug/info/... 方法"，任何具体类型都会把另一条路径排除掉。
+    _logger: Any = None
 
-    def __new__(cls):
+    def __new__(cls) -> "StructuredLogUtils":
         if cls._instance is None:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self):
+    def __init__(self) -> None:
         if self._initialized:
             return
 
@@ -77,15 +82,17 @@ class StructuredLogUtils:
         self._logger = structlog.get_logger("zoo_framework")
 
     def _setup_standard_logging(self) -> None:
-        """配置标准日志作为后备."""
-        logging.basicConfig(
-            format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-            level=logging.INFO,
-            stream=sys.stdout,
-        )
+        """配置标准日志作为后备.
+
+        控制台输出使用 SafeStreamHandler：在非 UTF-8 控制台下最坏情况是含非 ASCII
+        字符的字形降级，MUST NOT 是整条日志连同时间戳一起消失。
+        """
+        handler = SafeStreamHandler(sys.stdout)
+        handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+        logging.basicConfig(level=logging.INFO, handlers=[handler])
         self._logger = logging.getLogger("zoo_framework")
 
-    def bind(self, **context) -> "StructuredLogUtils":
+    def bind(self, **context: Any) -> "StructuredLogUtils":
         """绑定上下文变量.
 
         使用示例：
@@ -100,11 +107,13 @@ class StructuredLogUtils:
             返回自身，支持链式调用
         """
         self._context.update(context)
-        if STRUCTLOG_AVAILABLE and hasattr(self._logger, "bind"):
+        # 补一个显式 `is not None`：`hasattr(None, "bind")` 在运行期本就为 False，故行为不变；
+        # 但静态检查无法从 hasattr 收窄 `Any | None`，补判空只为让这处既有防护可见。
+        if STRUCTLOG_AVAILABLE and self._logger is not None and hasattr(self._logger, "bind"):
             self._logger = self._logger.bind(**context)
         return self
 
-    def unbind(self, *keys) -> "StructuredLogUtils":
+    def unbind(self, *keys: str) -> "StructuredLogUtils":
         """解绑上下文变量.
 
         Args:
@@ -112,31 +121,31 @@ class StructuredLogUtils:
         """
         for key in keys:
             self._context.pop(key, None)
-        if STRUCTLOG_AVAILABLE and hasattr(self._logger, "unbind"):
+        if STRUCTLOG_AVAILABLE and self._logger is not None and hasattr(self._logger, "unbind"):
             self._logger = self._logger.unbind(*keys)
         return self
 
-    def debug(self, event: str, **kwargs) -> None:
+    def debug(self, event: str, **kwargs: Any) -> None:
         """DEBUG 级别日志."""
         self._log("debug", event, **kwargs)
 
-    def info(self, event: str, **kwargs) -> None:
+    def info(self, event: str, **kwargs: Any) -> None:
         """INFO 级别日志."""
         self._log("info", event, **kwargs)
 
-    def warning(self, event: str, **kwargs) -> None:
+    def warning(self, event: str, **kwargs: Any) -> None:
         """WARNING 级别日志."""
         self._log("warning", event, **kwargs)
 
-    def error(self, event: str, **kwargs) -> None:
+    def error(self, event: str, **kwargs: Any) -> None:
         """ERROR 级别日志."""
         self._log("error", event, **kwargs)
 
-    def exception(self, event: str, **kwargs) -> None:
+    def exception(self, event: str, **kwargs: Any) -> None:
         """EXCEPTION 级别日志（包含异常信息）."""
         self._log("exception", event, **kwargs)
 
-    def _log(self, level: str, event: str, **kwargs) -> None:
+    def _log(self, level: str, event: str, **kwargs: Any) -> None:
         """内部日志方法."""
         # 添加 emoji 标记
         emoji_map = {"debug": "🐛", "info": "ℹ️", "warning": "⚠️", "error": "❌", "exception": "💥"}
@@ -161,7 +170,7 @@ class StructuredLogUtils:
             extra = " ".join([f"{k}={v}" for k, v in log_data.items() if k != "event"])
             logger_method(f"{log_data.get('emoji', '')} {event} | {extra}")
 
-    def metric(self, name: str, value: float, unit: str = "", **tags) -> None:
+    def metric(self, name: str, value: float, unit: str = "", **tags: Any) -> None:
         """记录指标.
 
         P2: 可观测性 - 自动记录性能指标
@@ -200,28 +209,28 @@ def get_logger(name: str | None = None) -> StructuredLogUtils:
 class LogUtilsCompatibility:
     """兼容旧版 LogUtils 接口."""
 
-    _logger = None
+    _logger: StructuredLogUtils | None = None
 
     @classmethod
-    def _get_logger(cls):
+    def _get_logger(cls) -> StructuredLogUtils:
         if cls._logger is None:
             cls._logger = StructuredLogUtils()
         return cls._logger
 
     @classmethod
-    def debug(cls, clazz, msg):
+    def debug(cls, clazz: Any, msg: Any) -> None:
         cls._get_logger().debug(
             str(msg), class_name=clazz.__name__ if hasattr(clazz, "__name__") else str(clazz)
         )
 
     @classmethod
-    def info(cls, clazz, msg):
+    def info(cls, clazz: Any, msg: Any) -> None:
         cls._get_logger().info(
             str(msg), class_name=clazz.__name__ if hasattr(clazz, "__name__") else str(clazz)
         )
 
     @classmethod
-    def error(cls, clazz, msg):
+    def error(cls, clazz: Any, msg: Any) -> None:
         cls._get_logger().error(
             str(msg), class_name=clazz.__name__ if hasattr(clazz, "__name__") else str(clazz)
         )

@@ -1,4 +1,4 @@
-import time
+from collections.abc import Callable
 
 from zoo_framework.event.event_channel_manager import EventChannelManager
 from zoo_framework.reactor import EventReactor
@@ -9,17 +9,21 @@ from zoo_framework.reactor.event_retry_strategy import EventRetryStrategy
 # 参数说明：
 #   topic: 事件的主题，用于标识事件类型
 #   channel: 事件通道名称，默认为"default"
-#   timeout: 事件超时时间，默认为当前时间加1000秒
+#   timeout: 事件超时**相对秒数**，默认为 None（不设超时）
 #   retry_time: 重试次数，默认为1次
 #   retry_strategy: 重试策略，默认为RetryOnce（仅重试一次）
 #   done_callback: 事件完成后的回调函数，默认为None
 #   error_callback: 事件出错时的回调函数，默认为None
 #   success_callback: 事件成功时的回调函数，默认为None
 # 返回值：返回一个装饰器函数，用于包装目标函数
+#
+# 注意：timeout 的默认值曾是 `time.time() + 1000`——那是在**导入期**求值一次、
+# 且以墙钟为基准的绝对时刻，含义会随进程运行时间漂移。时间量 MUST 是相对的或以
+# 单调时钟为基准，MUST NOT 依赖墙钟。
 def event(
     topic: str,
     channel: str = "default",
-    timeout: int = time.time() + 1000,
+    timeout: int | None = None,
     retry_time: int = 1,
     retry_strategy=EventRetryStrategy.RetryOnce,
     done_callback=None,
@@ -27,7 +31,7 @@ def event(
     success_callback=None,
 ):
     # 内部装饰器函数，接收被装饰的目标函数
-    def _event(func: callable):
+    def _event(func: Callable):
         # 创建一个事件反应器实例，并设置相关属性
         reactor = EventReactor(func.__name__)
         reactor.set_event_callback(func)  # 设置事件回调函数为目标函数

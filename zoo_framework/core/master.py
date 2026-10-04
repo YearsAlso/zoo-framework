@@ -22,13 +22,16 @@ from .worker_registry import get_worker_registry
 class SVMWorker:
     """SVM (State Vector Machine) Worker - 状态向量机工作器."""
 
-    def __init__(self):
+    def __init__(self, check_interval: float = 10):
         self._workers: dict[str, Any] = {}
         self._metrics: dict[str, dict] = {}
         self._policies: list[str] = []
         self._lock = threading.RLock()
         self._running = False
         self._monitor_thread: threading.Thread | None = None
+        self._check_interval = check_interval
+        # 用可唤醒的等待替代 sleep：否则停机时要等满一个检查周期，最长 check_interval 秒
+        self._stop_event = threading.Event()
 
     def register_worker(self, name: str, worker: Any) -> None:
         """注册 Worker 到 SVM 管理."""
@@ -102,30 +105,35 @@ class SVMWorker:
         if self._running:
             return
 
+        self._stop_event.clear()
         self._running = True
-        self._monitor_thread = threading.Thread(target=self._monitor_loop)
+        self._monitor_thread = threading.Thread(target=self._monitor_loop, name="zoo-svm")
         self._monitor_thread.daemon = True
         self._monitor_thread.start()
         LogUtils.info("🔍 SVM monitoring started")
 
     def stop_monitoring(self) -> None:
-        """停止监控线程."""
+        """停止监控线程.
+
+        通过事件唤醒监控循环，使停机不必等满一个检查周期。
+        """
         self._running = False
+        self._stop_event.set()
         if self._monitor_thread:
             self._monitor_thread.join(timeout=5)
         LogUtils.info("🛑 SVM monitoring stopped")
 
     def _monitor_loop(self) -> None:
         """监控循环."""
-        import time
-
         while self._running:
             try:
                 self._check_workers_health()
-                time.sleep(10)
             except Exception as e:
                 LogUtils.error(f"❌ SVM monitor error: {e}")
-                time.sleep(5)
+
+            # 可被停机唤醒的等待
+            if self._stop_event.wait(self._check_interval):
+                break
 
     def _check_workers_health(self) -> None:
         """检查所有 Worker 健康状态."""
@@ -198,6 +206,11 @@ class Master:
         # P2 优化：使用新的 WorkerRegistry
         self.worker_registry = get_worker_registry()
 
+        # 调度主循环的运行时句柄
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._task: asyncio.Task | None = None
+        self._shutdown_done = False
+
         # 加载配置
         ParamsFactory(self.config.config_path)
         self._load_config()
@@ -206,7 +219,10 @@ class Master:
         self._register_default_workers()
 
         # SVM Worker 集成
-        self.svm_worker = SVMWorker() if self.config.enable_svm else None
+        # svm_check_interval 此前是声明了但从未被读取的配置项，此处真正生效
+        self.svm_worker = (
+            SVMWorker(self.config.svm_check_interval) if self.config.enable_svm else None
+        )
         if self.svm_worker:
             self._setup_svm()
 
@@ -235,6 +251,11 @@ class Master:
 
     def _setup_svm(self) -> None:
         """设置 SVM 监控."""
+        # 先判空——本文件其余四处取用 svm_worker 时都判了（226/306/381/399），只此处漏；
+        # 未启用 SVM 时 svm_worker 为 None，原先这里会直接 AttributeError。
+        if not self.svm_worker:
+            return
+
         # 注册所有 Worker 到 SVM
         for name, worker in self.worker_registry.get_all_workers().items():
             self.svm_worker.register_worker(name, worker)
@@ -244,13 +265,14 @@ class Master:
         LogUtils.info("✅ SVM Worker setup completed")
 
     def _create_waiter(self) -> None:
-        """创建 Waiter."""
-        from zoo_framework.core.waiter import WaiterFactory
-        from zoo_framework.params import WorkerParams
+        """创建 Waiter.
 
-        self.waiter = WaiterFactory.get_waiter(WorkerParams.WORKER_RUN_POLICY)
-        if self.waiter is None:
-            raise Exception("Master hasn't available waiter, the application can't start.")
+        调度器按**调度模型名**装配（模型名由 ``worker:mode`` 决定，未配置时由
+        ``worker:pool:enable`` 推导）；无法识别的模型名会被明确拒绝。
+        """
+        from zoo_framework.core.waiter import WaiterFactory
+
+        self.waiter = WaiterFactory.get_waiter()
 
         # 将 Worker 传递给 Waiter
         self.waiter.call_workers(list(self.worker_registry.get_all_workers().values()))
@@ -263,7 +285,12 @@ class Master:
         """
         if self.waiter is not None:
             raise Exception("Waiter already exists, cannot change")
-        self.waiter = waiter
+        # 【已知缺陷】下面这行**不可达**：`__init__` 必设 `self.waiter`，故上面的守卫恒真、
+        # 赋值永远执行不到 —— 即 `change_waiter` **永远无法完成它的职责**（且全仓库零调用点、
+        # 无任何文档承诺它）。"是该允许替换、还是该保留这条守卫"属未定的语义问题，**故不猜修**
+        # （见 openspec/changes/establish-type-gate/tasks.md 3.1 的记录）；用带锚点的 ignore
+        # 收口，让缺陷保持可见，而不是被静默改掉。
+        self.waiter = waiter  # type: ignore[unreachable]
 
     def register_worker(self, name: str, worker_class: type, metadata: dict | None = None) -> None:
         """注册 Worker.
@@ -277,11 +304,17 @@ class Master:
         """
         self.worker_registry.register_class(name, worker_class, metadata)
 
+        # 调度列表由 Waiter 持有：只在注册表登记不会让 Worker 被派发，
+        # 必须同步加入调度，否则运行期注册的 Worker 永远不会执行。
+        worker = self.worker_registry.get_worker(name)
+        if worker is None:
+            return
+
+        self.waiter.add_worker(worker)
+
         # 如果 SVM 已启用，注册到 SVM
         if self.svm_worker:
-            worker = self.worker_registry.get_worker(name)
-            if worker:
-                self.svm_worker.register_worker(name, worker)
+            self.svm_worker.register_worker(name, worker)
 
     async def perform(self) -> None:
         """执行任务主循环."""
@@ -294,21 +327,76 @@ class Master:
         """运行 Master."""
         try:
             LogUtils.info("🎪 Master started, zoo is open!")
-            loop = asyncio.get_event_loop()
-            loop.create_task(self.perform())
+            # 显式新建事件循环：asyncio.get_event_loop() 在无运行循环时已弃用，
+            # 且会复用上一个循环，使重复启动的 Master 相互干扰。
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            self._loop = loop
+
+            self._task = loop.create_task(self.perform())
+            # 调度任务抛异常时必须可见并停止主循环；否则 run_forever() 会持续空转，
+            # 而调度其实早已停止——表现为进程活着但什么都不做。
+            self._task.add_done_callback(self._on_schedule_task_done)
+
             loop.run_forever()
         except KeyboardInterrupt:
             LogUtils.info("🛑 Master stopping...")
         finally:
             self.shutdown()
 
+    def _on_schedule_task_done(self, task: asyncio.Task) -> None:
+        """调度主循环结束时的收口：异常可见，并停止事件循环。
+
+        Args:
+            task: 调度任务
+        """
+        if task.cancelled():
+            return
+
+        error = task.exception()
+        if error is not None:
+            LogUtils.error(f"❌ 调度主循环异常终止: {error!r}")
+
+        # 用 call_soon_threadsafe 以便本回调无论从哪个线程触发都能安全停止循环
+        loop = self._loop
+        if loop is not None and loop.is_running():
+            loop.call_soon_threadsafe(loop.stop)
+
     def shutdown(self) -> None:
-        """优雅关闭 Master."""
+        """优雅关闭 Master.
+
+        顺序：先停调度（不再派发）→ 取消调度任务 → 停事件循环 → 停监控 →
+        注销 Worker（触发其销毁钩子，状态机在此落盘）。MUST 可重复调用。
+        """
+        if self._shutdown_done:
+            return
+        self._shutdown_done = True
+
         LogUtils.info("🧹 Shutting down Master...")
+
+        # 先停调度器：停机过程中 MUST NOT 再派发新的 Worker
+        if getattr(self, "waiter", None) is not None:
+            self.waiter.shutdown()
+
+        task = self._task
+        self._task = None
+        if task is not None and not task.done():
+            task.cancel()
+
+        loop = self._loop
+        if loop is not None and loop.is_running():
+            loop.call_soon_threadsafe(loop.stop)
 
         # 停止 SVM 监控
         if self.svm_worker:
             self.svm_worker.stop_monitoring()
+
+        # 注销已注册的 Worker：WorkerRegistry.unregister 会调用其销毁钩子，
+        # 状态机 Worker 的最后一次落盘发生在这里。
+        registry = getattr(self, "worker_registry", None)
+        if registry is not None:
+            for name in list(registry.get_all_workers().keys()):
+                registry.unregister(name)
 
         LogUtils.info("👋 Master stopped")
 

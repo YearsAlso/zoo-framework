@@ -1,5 +1,5 @@
 import copy
-import pickle
+import pickle  # nosec B403 — 与 core/persistence_scheduler.py 同因：本框架的持久化格式就是 pickle，读的是自己写出的文件
 import threading
 
 from zoo_framework.statemachine.state_machine_manager import StateMachineManager
@@ -24,8 +24,9 @@ class StateMachineWorker(BaseWorker):
     _instance_lock = threading.Lock()
 
     def __init__(self):
+        # is_loop 由 BaseWorker 以属性形式暴露、以 _props 为唯一真源；
+        # 此处 MUST NOT 再用实例属性遮蔽它（属性无 setter，赋值会直接抛 AttributeError）。
         BaseWorker.__init__(self, {"is_loop": True, "delay_time": 5, "name": "StateMachineWorker"})
-        self.is_loop = True
         # 标记是否已加载
         self._loaded = False
 
@@ -72,7 +73,7 @@ class StateMachineWorker(BaseWorker):
 
                         # 重新定位到文件开头
                         f.seek(0)
-                        unpickler = pickle.Unpickler(f)
+                        unpickler = pickle.Unpickler(f)  # nosec B301 — 见文件头 import pickle 处的说明
                         state_machines = unpickler.load()
 
                         LogUtils.info(f"✅ State machines loaded: {len(state_machines)} states")
@@ -147,7 +148,9 @@ class StateMachineWorker(BaseWorker):
         backup_dir = os.path.join(os.path.dirname(file_path), "backups")
         os.makedirs(backup_dir, exist_ok=True)
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # 时间戳精确到微秒：秒级精度下同一秒内的多次备份会相互覆盖。
+        # 固定宽度的微秒后缀同时保证"字典序等于时间序"——取最新备份依赖该性质。
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         backup_path = os.path.join(backup_dir, f"state_machine_{timestamp}.pkl")
 
         try:
@@ -190,7 +193,7 @@ class StateMachineWorker(BaseWorker):
 
         try:
             with open(latest_backup, "rb") as f:
-                state_machines = pickle.load(f)
+                state_machines = pickle.load(f)  # nosec B301 — 见文件头 import pickle 处的说明
                 LogUtils.info(f"✅ State machines restored from backup: {latest_backup}")
                 state_machine_manager.load_state_machines(state_machines)
         except Exception as e:

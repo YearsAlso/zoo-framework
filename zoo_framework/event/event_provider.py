@@ -1,9 +1,9 @@
-from zoo_framework.core.aop import cage
+from zoo_framework.core.container import ThreadSafety, process_scoped
 from zoo_framework.event import EventChannel, EventChannelRegister
 from zoo_framework.fifo.node import EventNode
 
 
-@cage
+@process_scoped(thread_safety=ThreadSafety.INSTANCE_GUARANTEED)
 class EventProvider:
     """事件提供器."""
 

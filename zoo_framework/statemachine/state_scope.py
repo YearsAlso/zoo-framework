@@ -1,6 +1,7 @@
 import copy
 from typing import Any
 
+from zoo_framework.core.run_identity import RunIdentity, current_identity
 from zoo_framework.statemachine.state_index_factory import StateIndex, StateIndexFactory
 from zoo_framework.statemachine.state_node import StateNode
 from zoo_framework.statemachine.state_node_type import StateNodeType
@@ -29,9 +30,21 @@ class StateScope:
         """
         # P2 优化：使用工厂模式创建索引
         self._state_index: StateIndex = StateIndexFactory.create_index(index_type)
+        # 归属标识：**首个**写入者即所有者，之后不再改写（见 set_state_node）。
+        # 记整个 RunIdentity 而非只记会话，使"运行标识"也能在状态这一侧被查询。
+        self.owner_identity: RunIdentity | None = None
+
+    @property
+    def owner_session_id(self) -> str | None:
+        """归属会话标识；无归属时为 None."""
+        return self.owner_identity.session_id if self.owner_identity is not None else None
 
     def observe_state_node(self, key: str, effect: Any) -> None:
         """观察状态节点.
+
+        键尚不存在时先创建占位节点再登记观察者：静默丢弃注册会让"先声明观察者、
+        等数据到达"这一主要用法失效。此处与 `unobserve_state_node` 的不对称是
+        刻意的——注销一个从未存在的观察者通常意味着调用方出错，应当暴露。
 
         Args:
             key: 状态键名
@@ -39,7 +52,10 @@ class StateScope:
         """
         node = self.get_state_node(key)
         if node is None:
-            return
+            self.register_node(key, None)
+            node = self.get_state_node(key)
+            if node is None:
+                return
         node.add_effect(effect)
 
     def unobserve_state_node(self, key: str, effect: Any) -> None:
@@ -92,16 +108,27 @@ class StateScope:
             value: 节点值
             effect: 副作用列表
         """
+        # 归属标识在**首次写入**时确定：作用域的生命周期长于一次运行，若每次都改写
+        # 归属，"这是谁的会话状态"就失去意义。之后不再改写。
+        if self.owner_identity is None:
+            identity = current_identity()
+            if identity is not None:
+                self.owner_identity = identity
+
         # 1.节点拆分
         key_queue = key.split(".")
 
         if len(key_queue) > 1:
             self._check_and_build_tree(key_queue)
         else:
-            # 如果是根节点，直接注册
+            # 顶层键：与嵌套键分支保持同一语义——存在则更新，不存在则注册。
+            # 曾经这里在节点已存在时直接 return、跳过了 set_value，导致顶层键的
+            # 重复写入被静默丢弃（且不会触发观察者）。
             node = self.get_state_node(key)
             if node is None:
-                self.register_node(key, value)
+                self.register_node(key, value, effect)
+            else:
+                node.set_value(value)
             return
 
         if StateNodeType.get_type_by_value(value) == StateNodeType.branch:
@@ -144,8 +171,14 @@ class StateScope:
         #  3. 设置树型结构
         current_key = key_queue[0]
         for i in range(1, len(key_queue)):
-            node: StateNode = self.get_state_node(current_key)
-            children_node: StateNode = self.get_state_node(f"{current_key}.{key_queue[i]}")
+            # 【已知缺陷】下面两处窄注解**不成立**：实测该路径确实可能取到 None（我一度改成
+            # 断言，测试立刻转红，证明"上面的循环已注册过节点"这条前提**不总成立**），而原代码
+            # 会把 None 传给 `add_child` —— 即**往树上挂一个 None 子节点**；本循环的
+            # `current_key` 也从不推进，两者同属这处待定的语义问题。**故不猜修**（改语义属他人
+            # 决定，见 openspec/changes/establish-type-gate/tasks.md 3.1 的记录），只用带锚点的
+            # ignore 收口：缺陷保持可见，而不是被静默改掉或删掉。
+            node: StateNode = self.get_state_node(current_key)  # type: ignore[assignment]
+            children_node: StateNode = self.get_state_node(f"{current_key}.{key_queue[i]}")  # type: ignore[assignment]
 
             # 一种key不能重复添加
             node.add_child(children_node)
@@ -198,7 +231,9 @@ class StateScope:
         """
         node = self.get_state_node(key)
         if node is None:
-            LogUtils.error(self.__class__, f"State is not exist, key: {key}")
+            # 参数原先写反了：LogUtils.error 的签名是 (message, cls_name=None)，而这里把
+            # **类**当 message、把消息当 cls_name 传——日志里打出的是类对象而不是这条消息。
+            LogUtils.error(f"State is not exist, key: {key}", self.__class__.__name__)
             return
 
         node.set_key(target_key)
@@ -214,7 +249,9 @@ class StateScope:
         """
         node = self.get_state_node(key)
         if node is None:
-            LogUtils.error(self.__class__, f"State is not exist, key: {key}")
+            # 参数原先写反了：LogUtils.error 的签名是 (message, cls_name=None)，而这里把
+            # **类**当 message、把消息当 cls_name 传——日志里打出的是类对象而不是这条消息。
+            LogUtils.error(f"State is not exist, key: {key}", self.__class__.__name__)
             return
 
         if node.get_type() == StateNodeType.branch:

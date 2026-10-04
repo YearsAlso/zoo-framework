@@ -1,4 +1,4 @@
-from zoo_framework.core.aop import cage
+from zoo_framework.core.container import ThreadSafety, process_scoped
 from zoo_framework.reactor import EventReactor
 
 from ..fifo.node import EventNode
@@ -6,7 +6,7 @@ from .event_channel import EventChannel
 from .event_channel_register import EventChannelRegister
 
 
-@cage
+@process_scoped(thread_safety=ThreadSafety.INSTANCE_GUARANTEED)
 class EventChannelManager:
     """事件通道管理器."""
 
@@ -48,26 +48,27 @@ class EventChannelManager:
         if channel is None:
             raise Exception("channel not found")
         # 获得事件响应策略
+        reactors: list[EventReactor]
         if event.response_mechanism == 1:
             # 获得第一个事件反应器
-            reactors: list[EventReactor] = channel.get_reactors(event.topic)
+            reactors = channel.get_reactors(event.topic)
             if reactors is not None and len(reactors) > 0:
                 reactors[0].execute(event.topic, event.content)
         elif event.response_mechanism == 2:
             # 根据事件优先级获得事件反应器
-            reactors: list[EventReactor] = channel.get_reactors(event.topic)
+            reactors = channel.get_reactors(event.topic)
             if reactors is not None and len(reactors) > 0:
                 for reactor in reactors:
                     reactor.execute(event.topic, event.content)
         elif event.response_mechanism == 3:
             # 获得所有的事件反应器
-            reactors: list[EventReactor] = channel.get_reactors(event.topic)
+            reactors = channel.get_reactors(event.topic)
             if reactors is not None and len(reactors) > 0:
                 for reactor in reactors:
                     reactor.execute(event.topic, event.content)
         elif event.response_mechanism == 4:
             # 获得所有的事件反应器
-            reactors: list[EventReactor] = channel.get_reactors(event.topic)
+            reactors = channel.get_reactors(event.topic)
             if reactors is not None and len(reactors) > 0:
                 # 根据名称获得事件反应器
                 for reactor in reactors:
@@ -75,7 +76,7 @@ class EventChannelManager:
                         reactor.execute(event.topic, event.content)
 
     @classmethod
-    def get_channel_reactors(cls, event: EventNode) -> list[EventReactor] or None:
+    def get_channel_reactors(cls, event: EventNode) -> list[EventReactor] | None:
         """获取事件频道的事件反应器."""
         # 事件获得频道
         channel: EventChannel = cls._event_channel_register.get_channel(event.channel_name)
@@ -83,27 +84,30 @@ class EventChannelManager:
         # 获得所有的事件反应器
         # 并且将事件放入事件队列
         if channel is None:
+            # `raise` 之后的 `return None` 是死语句（类型检查已证），已删。
             raise Exception("channel not found")
-            return None
 
         # 获得事件响应策略
+        reactors: list[EventReactor]
         if event.response_mechanism == 1:
             # 获得第一个事件反应器
-            reactors: list[EventReactor] = channel.get_reactors(event.topic)
+            reactors = channel.get_reactors(event.topic)
             if reactors is not None and len(reactors) > 0:
                 return [reactors[0]]
         elif event.response_mechanism == 2:
             # 根据事件优先级获得事件反应器
-            reactors: list[EventReactor] = channel.get_reactors(event.topic)
+            reactors = channel.get_reactors(event.topic)
             if reactors is not None and len(reactors) > 0:
-                return reactors.sort(key=lambda x: x.priority)
+                # 按综合优先级由高到低：EventNode 的既有注释为"优先级高的先响应"。
+                # 必须用 sorted 而非 list.sort——后者原地排序并返回 None。
+                return sorted(reactors, key=lambda x: x.get_priority(), reverse=True)
         elif event.response_mechanism == 3:
             # 获得所有的事件反应器
-            reactors: list[EventReactor] = channel.get_reactors(event.topic)
+            reactors = channel.get_reactors(event.topic)
             return reactors
         elif event.response_mechanism == 4:
             # 获得所有的事件反应器
-            reactors: list[EventReactor] = channel.get_reactors(event.topic)
+            reactors = channel.get_reactors(event.topic)
             if reactors is not None and len(reactors) > 0:
                 # 根据名称获得事件反应器
                 for reactor in reactors:

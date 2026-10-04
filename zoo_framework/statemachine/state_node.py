@@ -2,22 +2,23 @@ from __future__ import annotations
 
 import time
 import types
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import gevent
 
 from zoo_framework.statemachine.state_node_type import StateNodeType
 from zoo_framework.utils import LogUtils
 
-if TYPE_CHECKING:
-    from .state_effect import StateEffect
-
 
 class StateNode:
     """状态节点."""
 
-    def __init__(self, key: str, value: Any, effect_list: list[StateEffect] | None = None):
-        self._effect_list: list[StateEffect] = []
+    def __init__(self, key: str, value: Any, effect_list: list[types.FunctionType] | None = None):
+        # 注解原为 `list[StateEffect]`，但代码往列表里存的是**函数**（`add_effect` 的
+        # `isinstance(effect, types.FunctionType)` 与 `_perform_effect` 里的 `gevent.spawn(effect, …)`
+        # 都证明了这点）；而 `StateEffect` **没有 `__call__`**，那个类型根本不可能被 spawn 调用。
+        # 故改为如实的 `list[types.FunctionType]`。
+        self._effect_list: list[types.FunctionType] = []
         self._version = int(time.time())
         self._is_top = False
         self._parent: Any | None = None
@@ -117,14 +118,14 @@ class StateNode:
         """获取状态节点的值."""
         return self._value
 
-    def add_effect(self, effect: types.FunctionType) -> None:
+    def add_effect(self, effect: types.FunctionType | None) -> None:
         """添加状态节点的副作用."""
         if effect is None:
             return
         if isinstance(effect, types.FunctionType) and effect not in self._effect_list:
             self._effect_list.append(effect)
 
-    def remove_effect(self, effect: types.FunctionType) -> None:
+    def remove_effect(self, effect: types.FunctionType | None) -> None:
         """移除状态节点的副作用 - 修复内存泄漏.
 
         Args:

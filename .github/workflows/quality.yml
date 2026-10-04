@@ -46,10 +46,9 @@ jobs:
             python -m pylint zoo_framework --exit-zero
           fi
 
-      # MyPy 类型检查
+      # MyPy 类型检查（门禁：0 error 已达成，故不再 continue-on-error）
       - name: Run MyPy type check
         run: mypy zoo_framework --show-error-codes
-        continue-on-error: true  # 暂时允许失败，直到所有类型注解完善
 
   security:
     name: Security Scan
@@ -68,9 +67,17 @@ jobs:
           python -m pip install --upgrade pip
           pip install bandit[toml]
 
+      # 门禁：不再用 `|| true` 吞掉失败（变更 establish-type-gate 6.5）。
+      # 按 CI 实际安装的版本复核过：CI 装的是 `bandit[toml]`（**未钉版本 ⇒ 最新**，
+      # 实测 1.9.4），而本地 pre-commit 钩子钉的是 1.7.6 —— 两版结论曾**不一致**，
+      # 故必须以 CI 那版为准（与 4.1 的 mypy 是同一族问题）。复核时该版曾报 3 条
+      # pickle 发现（state_machine_work.py），已按 persistence_scheduler.py 的既有做法
+      # 用带说明的 `# nosec` 处置，现该版退出码为 0。
       - name: Run Bandit security scan
-        run: bandit -r zoo_framework -c .bandit.yaml -f json -o bandit-report.json || true
+        run: bandit -r zoo_framework -c .bandit.yaml -f json -o bandit-report.json
 
+      # 报告仍无条件上传：门禁失败时更需要这份报告来定位。故上游的 `|| true` 去掉、
+      # 这里的 `if: always()` 保留 —— 两者是一对，不是同一处。
       - name: Upload Bandit report
         uses: actions/upload-artifact@v4
         with:

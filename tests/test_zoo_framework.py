@@ -3,38 +3,35 @@
 测试 zoo_framework 的主要功能
 """
 
-import pytest
 import os
 import tempfile
 
-# Worker 测试
-from zoo_framework.workers import BaseWorker, WorkerResult, WorkerProps
-
 # FIFO 测试
 from zoo_framework.fifo import EventFIFO
-from zoo_framework.fifo.base_fifo import BaseFIFO
 from zoo_framework.fifo.node.event_fifo_node import EventNode, PriorityLevel
-
-# Utils 测试
-from zoo_framework.utils import LogUtils, FileUtils
-from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 
 # Params 测试
 from zoo_framework.params import EventParams, LogParams, WorkerParams
 
+# Plugin 测试
+from zoo_framework.plugin import Plugin, WorkerDelayManager
+
 # Reactor 测试
 from zoo_framework.reactor.event_reactor_req import (
-    EventReactorReq,
-    ChannelType,
     ChannelManager,
+    ChannelType,
+    EventReactorReq,
 )
 
 # StateMachine 测试
 from zoo_framework.statemachine import StateMachineManager
 
-# Plugin 测试
-from zoo_framework.plugin import Plugin, PluginManager, WorkerDelayManager
+# Utils 测试
+from zoo_framework.utils import FileUtils, LogUtils
+from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 
+# Worker 测试
+from zoo_framework.workers import BaseWorker, WorkerProps, WorkerResult
 
 # ==================== Worker Tests ====================
 
@@ -50,14 +47,15 @@ class TestBaseWorker:
         }
         worker = BaseWorker(props)
         assert worker._props == props
-        assert worker.is_loop() is True
+        # is_loop 是以 _props 为唯一真源的属性，读取不需要调用语法
+        assert worker.is_loop is True
         assert "TestWorker" in worker.name
 
     def test_worker_init_defaults(self):
         """测试 Worker 默认属性"""
         props = {"name": "TestWorker"}
         worker = BaseWorker(props)
-        assert worker.is_loop() is False
+        assert worker.is_loop is False
         assert "TestWorker" in worker.name
 
     def test_worker_execute(self):
@@ -133,20 +131,19 @@ class TestEventFIFO:
 
     def test_fifo_push_and_pop(self):
         """测试 FIFO 入队和出队"""
-        # 注意：BaseFIFO 使用类变量，需要清理
-        BaseFIFO._fifo = []
         fifo = EventFIFO()
         fifo.push_value("test_value")
-        assert BaseFIFO.size() > 0
-        popped = BaseFIFO.pop_value()
+        assert fifo.size() == 1
+        popped = fifo.pop_value()
         assert popped is not None
 
     def test_fifo_dispatch(self):
         """测试 FIFO dispatch"""
-        BaseFIFO._fifo = []
         fifo = EventFIFO()
         fifo.dispatch("test.topic", "test_content", "test_provider")
-        assert BaseFIFO.size() > 0
+        assert fifo.size() == 1
+        # 第三个实参是通道名，必须被保留到事件上，否则通道隔离失效
+        assert fifo.get_top().channel_name == "test_provider"
 
 
 # ==================== Utils Tests ====================

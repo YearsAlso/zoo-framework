@@ -170,7 +170,11 @@ class WorkerDelayManager:
         if retry_count > max_retries:
             retry_count = max_retries
 
-        delay = base_delay * (2**retry_count)
+        # 显式标注：mypy 把 `base_delay * (2**retry_count)` 推成 `Any`（已用 reveal_type 定位：
+        # 两个操作数分别是 float 与 int，唯独乘积落到 Any），于是从声明返回 float 的函数里
+        # 返回它就报 no-any-return。`delay: float` 是**算术上为真**的类型，此处补上它并不
+        # 压制错误，而是把类型供给检查器。
+        delay: float = base_delay * (2**retry_count)
         return min(delay, self.max_delay)
 
     def adaptive_delay(

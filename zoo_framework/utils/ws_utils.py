@@ -1,10 +1,11 @@
 import json
 import time
+from typing import Any
 
 
 class WsUtils:
     @classmethod
-    def build_websocket_contents(cls, result, topic):
+    def build_websocket_contents(cls, result: Any, topic: str) -> str:
         result = json.dumps(result)
         return json.dumps(
             {
@@ -19,7 +20,7 @@ class WsUtils:
         )
 
     @classmethod
-    def build_websocket_heart_check(cls):
+    def build_websocket_heart_check(cls) -> str:
         return json.dumps(
             {
                 "topic": "connect",
