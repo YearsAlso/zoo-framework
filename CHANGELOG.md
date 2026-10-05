@@ -10,6 +10,12 @@
 
 ## [Unreleased]
 
+（暂无）
+
+---
+
+## [0.8.0] - 2026-10-04
+
 ### Added
 
 - 仓库标准化文档：重写 `README.md`（中英双语、能力清单、同类方案对比、社区与反馈渠道），
@@ -71,26 +77,33 @@
 
 | 版本 | 类型 | 发布日期 | 说明 |
 |---|---|---|---|
+| [v0.8.0](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.8.0) | 正式版 | 2026-10-04 | 见上方 `[0.8.0]` 段（人工整理）。**含破坏性变更**：`@cage` 删除、`worker:mode` 键控、`worker:runPolicy` 语义收窄 |
+| [v0.7.1-beta](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.7.1-beta) | 预发布 | 2026-09-30 | 发布工作流自动生成 |
 | [v0.6.0](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.6.0) | 正式版 | 2026-02-19 | 发布工作流自动生成 |
 | [v0.5.4-beta](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.5.4-beta) | 预发布 | 2026-02-19 | 同上 |
 | [v0.5.3-beta](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.5.3-beta) | 预发布 | 2026-02-19 | 同上 |
 | [v0.5.2-beta](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.5.2-beta) | 预发布 | 2026-02-19 | 同上 |
 | [v0.5.1-beta](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.5.1-beta) | 预发布 | 2026-02-18 | 同上 |
 
-> **版本号一致性提示。** `dev` 上的三处版本声明（`pyproject.toml` / `.env` /
-> `zoo_framework/__init__.py`）为 **`0.7.1-beta`**，与仓库里最新的标签
-> **`v0.7.1-beta`**（2026-09-30 由发布工作流创建，带 `0.7.1b0` 的 whl 与 tar.gz）对齐；
-> 最新的稳定版仍是 `v0.6.0`。
+> **版本号一致性提示。** `dev` 与 `main` 的三处版本声明（`pyproject.toml` / `.env` /
+> `zoo_framework/__init__.py`）现均为 **`0.8.0`**，与最新标签 **`v0.8.0`**（2026-10-04）一致。
 >
-> 此前三处声明停在 `0.7.0`，而 `0.7.0` **从未发布到 PyPI**（查询返回 404），最新的发布
-> 是 `0.7.1b0`。工作流的版本算术从声明值出发（`dev` 走 patch 自增），从 `0.7.0` 算出的
-> 正是 `0.7.1-beta` —— 与已有标签同名，一发布就会撞上。现已对齐，下一次触及发布相关路径
-> 的推送算出的将是 **`0.7.2-beta`**。
+> ⚠️ **两条分支的版本线是各自独立的**：工作流的版本算术只读「**收到推送的那个分支自己的
+> 声明值**」—— `main` 走 minor、`dev` 走 patch。因此**每次从 `main` 发版后，`main` 的新版本线
+> 不会自动回到 `dev`**；不回流的话，`dev` 的下一次 bump 会算出一个**比刚发布的版本还低**的号。
+>
+> 本仓库已实际踩过一次：`0.8.0` 发布后，`dev` 基于残留的 `0.7.1-beta` 开出了升到
+> `0.7.2-beta` 的 PR（已关闭 —— 合它会把一个**旧线**的 beta 发到 `0.8.0` 之后）。
+> **发版后请把 `main` 的版本声明同步回 `dev`。**
 >
 > 三处必须一起改：版本号同时存在于 `pyproject.toml`、`.env` 与
 > `zoo_framework/__init__.py`，少改一处就会出现「发出的包对自己的版本撒谎」。
 > `[tool.bumpversion].current_version` 也同步维护以求自洽，但它不在发布路径上 ——
 > 发版版本号由 `.github/workflows/release.yml` 自己算。
+>
+> 另有一个陷阱：**只改版本声明的推送会被判成「打 tag」而非「开 bump PR」**。若那个 tag
+> 已存在，该步骤会就地报错中止（刻意不改写既有 tag）。所以版本对齐宜与一个**非版本文件**
+> 的改动同批推送。
 
 ---
 
