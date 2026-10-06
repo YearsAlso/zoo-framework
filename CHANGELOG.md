@@ -22,6 +22,15 @@
 
 ### Changed
 
+- 内部重构（无行为影响，变更 `declare-debt-carriers` / #50 切片一）：新增进程级共享
+  载体登记表 `core/process_state.CARRIERS`，测试复位由它生成；扫描测试拦截未登记的
+  新载体。顺带删除零读写的死类属性 `StateEffectScheduler._response_list`。
+- AOP 的两条导入顺序约束从静默改为出声（变更 `aop-determinism` / #51）：
+  参数类在"从未读到配置"的世代解析过、而 `Master` 随后读到配置 ⇒ 构造期点名报错；
+  `Master` 消费注册表后再 `@configure` 注册 ⇒ 照常登记但告警"只有下一个 Master 会消费"。
+  新增 `aop` 能力规格固化 `@configure`/`@logger`/`@stopwatch` 的注册时机、调用约定与失败模式。
+  （BREAKING，窄：仅"先导入参数模块、后构造 Master"的错误时序从静默默认值转为报错；
+  无配置的全默认运行与正常同目录用法不受影响。）
 - 调度内核的策略解析（周期/相位/超时的"自报→覆盖→默认"三段）改为按 Worker 缓存
   （#47 P1）：解析语义逐项不变，falsy 配置值（`0`/`False`/`""`）仍是有效结果；
   调度列表替换、同名重注册、停机复位时自动失效。

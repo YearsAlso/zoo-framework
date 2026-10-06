@@ -213,6 +213,22 @@ class Master:
 
         # 加载配置
         ParamsFactory(self.config.config_path)
+
+        # 顺序核对（变更 aop-determinism / #51）：配置刚被读到，但若有参数类是在
+        # "从未读到配置"的世代里首次导入并解析的，它们的取值已冻结在默认值——
+        # 大声失败并点名，而不是让运行期拿到一份看起来正常、实际全默认的配置。
+        if ParamsFactory.generation() > 0:
+            from .aop.params import stale_param_classes
+
+            stale = stale_param_classes()
+            if stale:
+                raise RuntimeError(
+                    f"以下参数类在配置载入之前已被导入并解析，取值冻结在默认值："
+                    f"{stale}。请把参数模块的首次导入移到配置文件可见之处"
+                    f"（与 Master 同工作目录），或在解析前就已载入配置；"
+                    f"框架包根会立即导入内建参数模块，故换目录启动时最容易命中本核对。"
+                )
+
         self._load_config()
 
         # P2 优化：简化 Worker 注册
@@ -230,9 +246,16 @@ class Master:
         self._create_waiter()
 
     def _load_config(self) -> None:
-        """加载配置."""
+        """加载配置：遍历并**无参**调用导入期注册的 @configure 函数.
+
+        消费完即封（变更 aop-determinism / #51）：封后 `@configure` 注册大声失败，
+        因为那条注册永远不会再被这里消费——把历史上的静默失效变成报错。
+        """
+        from .aop.configure import seal_config_funcs
+
         for value in config_funcs.values():
             value()
+        seal_config_funcs()
 
     def _register_default_workers(self) -> None:
         """注册默认 Worker.

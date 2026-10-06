@@ -11,6 +11,13 @@ class ParamsFactory:
     # 判据见 specs/scoped-container 的「框架自身的进程级共享 MUST 被显式归类」。
     config_params: dict = {}
 
+    # 配置载入世代（变更 aop-determinism / issue #51）：每次成功读入配置文件 +1。
+    # @params 的解析发生在导入期（包根 `from . import params` 使这无法晚于任何显式
+    # 载入），故"解析时配置还没读到"无法在导入现场拦——改在 Master 构造时核对：
+    # 解析发生在旧世代、而本 Master 刚读到了非空配置 ⇒ 这些类被冻结在默认值，
+    # 大声失败。从未有配置文件时世代永为 0，核对不触发——"全默认"是合法运行形态。
+    _generation = 0
+
     def __init__(self, config_path="./config.json"):
         if not os.path.exists(config_path):
             return
@@ -18,6 +25,7 @@ class ParamsFactory:
         # 配置文件的读写 MUST 显式指定编码：默认编码随平台变化（Windows 中文环境为 GBK），
         # 会让同一份配置在不同平台上被解析成不同的值，且不抛异常。
         ParamsFactory.config_params = json.loads(FileUtils.read_text(config_path))
+        ParamsFactory._generation += 1
 
         # 处理 exports
         self.load_exports()
@@ -49,6 +57,11 @@ class ParamsFactory:
             content = json.loads(FileUtils.read_text(file_name))
 
         return content
+
+    @classmethod
+    def generation(cls) -> int:
+        """当前配置载入世代（@params 解析时记录，Master 构造时核对，#51）."""
+        return cls._generation
 
     @classmethod
     def get_params(cls, path, default_value=""):
