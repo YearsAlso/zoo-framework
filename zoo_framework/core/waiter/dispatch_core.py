@@ -33,6 +33,11 @@ from ..run_identity import RunIdentity, current_identity
 #: 0 会被误读为"观测到零抖动"。
 JITTER_NOT_APPLICABLE = "不适用"
 
+#: 策略缓存的未命中哨兵（#47 P1）。MUST NOT 用 None 兼任——None 本身是合法的
+#: 解析结果（"未声明周期"），falsy 值（0 / False / ""）同样是有效配置值，
+#: 缓存判据 MUST 是身份比较而非真值判断。
+_POLICY_MISS = object()
+
 
 class WorkerDispatchCore:
     """调度内核.
@@ -66,11 +71,20 @@ class WorkerDispatchCore:
         # 抖动只保留摘要（最近 / 上界 / 样本数），避免长跑 Worker 无限积累样本
         self._jitter: dict[str, dict] = {}
 
+        # 策略解析缓存（#47 P1）：worker 名 -> 属性键 -> 已解析值。此前每轮每个
+        # Worker 都重走"自报→覆盖→默认"三段并现拼参数字符串键（实测 9.4 µs/任务，
+        # 占提交侧 33%）；解析结果在 Worker 存续期内是静态的（配置无运行期重载），
+        # 失效入口只有 set_workers / add_worker(同名) / clear 三处。
+        self._policy_cache: dict[tuple[str, str], object] = {}
+
     # ---------------------------------------------------------------- 调度列表
 
     def set_workers(self, worker_list) -> None:
         """设置参与调度的 Worker 列表."""
-        self.workers = list(worker_list)
+        with self._lock:
+            self.workers = list(worker_list)
+            # 调度列表整体替换：旧列表的策略条目全部作废
+            self._policy_cache.clear()
 
     def add_worker(self, worker) -> None:
         """把运行期新增的 Worker 纳入调度.
@@ -80,6 +94,9 @@ class WorkerDispatchCore:
         if worker is None:
             return
         with self._lock:
+            # 同名重注册（如 Master.register_worker 覆盖旧实例）时旧解析作废；
+            # 新名字无需动作——缓存惰性填充。
+            self._invalidate_policy(worker.name)
             if worker not in self.workers:
                 self.workers.append(worker)
 
@@ -110,12 +127,42 @@ class WorkerDispatchCore:
 
     # ---------------------------------------------------------------- 周期排期
 
+    def _policy(self, worker, key: str, compute):
+        """按 (worker 名, 属性) 缓存一段解析（#47 P1）.
+
+        命中判据是哨兵身份比较：缓存里的 None / 0 / False / "" 都是**有效结果**，
+        MUST NOT 被当作未命中重新解析或穿透到默认值。调用方可能已持有
+        ``self._lock``（RLock 可重入），这里统一持锁读写。
+        """
+        cache_key = (worker.name, key)
+        with self._lock:
+            cached = self._policy_cache.get(cache_key, _POLICY_MISS)
+            if cached is not _POLICY_MISS:
+                return cached
+            value = compute(worker)
+            self._policy_cache[cache_key] = value
+            return value
+
+    def _invalidate_policy(self, worker_name: str) -> None:
+        """作废某个 Worker 名的全部策略条目（调用方已持锁）."""
+        stale = [k for k in self._policy_cache if k[0] == worker_name]
+        for k in stale:
+            del self._policy_cache[k]
+
     def resolve_period(self, worker):
         """解析 Worker 的周期：自报 → 按 Worker 名覆盖 → 全局默认.
+
+        结果按 Worker 名缓存（#47 P1），三段语义逐项保持：
+        falsy 的自报/覆盖值（0 / False / ""）仍按现有规则落到下一段，
+        缓存 MUST NOT 改变这一点。
 
         Returns:
             周期秒数；未声明时返回 None（调用方据此按事件驱动处理）
         """
+        return self._policy(worker, "period", self._compute_period)
+
+    @staticmethod
+    def _compute_period(worker):
         from zoo_framework.core.params_factory import ParamsFactory
         from zoo_framework.params import WorkerParams
 
@@ -135,9 +182,16 @@ class WorkerDispatchCore:
     def resolve_phase(self, worker):
         """解析 Worker 的相位偏移：自报 → 按 Worker 名覆盖 → 全局默认.
 
+        结果按 Worker 名缓存（#47 P1）。相位是典型 falsy 场景：配置里显式
+        ``phase: 0`` 是有效值，缓存判据 MUST 是哨兵比较而不是真值判断。
+
         Returns:
             相位秒数；未声明时返回 0.0
         """
+        return self._policy(worker, "phase", self._compute_phase)
+
+    @staticmethod
+    def _compute_phase(worker):
         from zoo_framework.core.params_factory import ParamsFactory
         from zoo_framework.params import WorkerParams
 
@@ -343,9 +397,15 @@ class WorkerDispatchCore:
     def resolve_run_timeout(self, worker):
         """解析 Worker 的超时：自报 → 按 Worker 名覆盖 → 全局默认.
 
+        结果按 Worker 名缓存（#47 P1）；全局默认取自 ``default_run_timeout``，
+        它在构造后不再变更（变更需同步作废缓存，当前无这样的运行期入口）。
+
         Returns:
             超时秒数；未声明时返回 None
         """
+        return self._policy(worker, "run_timeout", self._compute_run_timeout)
+
+    def _compute_run_timeout(self, worker):
         from zoo_framework.core.params_factory import ParamsFactory
         from zoo_framework.params import WorkerParams
 
@@ -440,6 +500,7 @@ class WorkerDispatchCore:
         with self._lock:
             self.workers = []
             self.worker_props.clear()
+            self._policy_cache.clear()
             self._period_base = None
             self._ticks.clear()
             self._next_at.clear()

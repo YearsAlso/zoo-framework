@@ -22,6 +22,9 @@
 
 ### Changed
 
+- 调度内核的策略解析（周期/相位/超时的"自报→覆盖→默认"三段）改为按 Worker 缓存
+  （#47 P1）：解析语义逐项不变，falsy 配置值（`0`/`False`/`""`）仍是有效结果；
+  调度列表替换、同名重注册、停机复位时自动失效。
 - `ThreadSafeDict` 的互斥锁改为**每实例一把 `threading.RLock`**（原模块级单把
   `multiprocessing.Lock` 把全进程串行化）；锁不入 pickle，状态机持久化行为不变。
 - `BaseFIFO` / `DelayFIFO` 存储换 `collections.deque`（出队 O(1)）；API 与空队返回
