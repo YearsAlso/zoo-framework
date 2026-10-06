@@ -16,4 +16,4 @@
 
 ## 4. 联动
 
-- [ ] 4.1 PR 合并后：关闭 #51（附规格位置与不可行点修正说明）；#50 登记表追加两项新状态（`ParamsFactory._generation`、`aop.params._resolved_generation`）；#32 在办表同步
+- [x] 4.1 合并后收尾已完成（#51 已关闭、#50 已留言含两项新状态登记要求、#32 同步随本 PR）：PR 合并后：关闭 #51（附规格位置与不可行点修正说明）；#50 登记表追加两项新状态（`ParamsFactory._generation`、`aop.params._resolved_generation`）；#32 在办表同步

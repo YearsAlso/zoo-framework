@@ -18,4 +18,4 @@
 
 - [x] 4.1 `docs/structure.md` 中英文两处 `core/aop/` 装饰器清单去掉 `worker` / `validation`（注明已判废与弃用周期）；`docs/DEBUGGING.md` 的 `worker_register.get_all_worker()` 排错段改指向 `WorkerRegistry` / `Master` 真实路径
 - [x] 4.2 `CHANGELOG.md` 记 BREAKING：公共导出面收缩五项 + 弃用时间表（下个 minor 删 `core/aop/worker.py` 与 `workers.WorkerRegister`）
-- [ ] 4.3 issue 联动（待 PR 合并后关闭）：留言 #49（附验收逐条 + PR 链接，合并后关闭）；#50 评论载体清单 -2（`worker_register`、`params_validate_map`）；#51 评论范围收窄（`@validation` 不再需要裁决去留）；#32 在办表同步
+- [x] 4.3 issue 联动（合并后收尾已完成）：留言 #49（附验收逐条 + PR 链接，合并后关闭）；#50 评论载体清单 -2（`worker_register`、`params_validate_map`）；#51 评论范围收窄（`@validation` 不再需要裁决去留）；#32 在办表同步
