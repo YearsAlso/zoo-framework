@@ -20,12 +20,28 @@ def _reset_registries() -> None:
     - **容器之外的进程级状态**（``WorkerRegistry`` 的实例缓存、通道监听配置）：
       它们不走容器，仍各自复位。
     """
+    from zoo_framework.core.aop.configure import unseal_config_funcs_for_tests
     from zoo_framework.core.container import framework_container
+    from zoo_framework.core.params_factory import ParamsFactory
     from zoo_framework.core.worker_registry import get_worker_registry
     from zoo_framework.event.event_channel_register import EventChannelRegister
     from zoo_framework.reactor.event_reactor_manager import EventReactorManager
     from zoo_framework.reactor.event_reactor_req import get_channel_manager
     from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
+
+    # 封位复位（#51 接缝）：避免上一个用例的 Master() 把 @configure 注册封到下个用例
+    unseal_config_funcs_for_tests()
+
+    # 配置世代与解析记录复位（#51 接缝）：stale 核对是"每进程一次性"的检查，
+    # 用例之间必须从同一基准开始，否则前一个用例读到配置抬高的世代会让下一个
+    # 用例里的导入时序被误判（真实跨用例的冻结在测试环境里不成立——每个用例
+    # 都从头开始）。这两项同样是 #50 要收编的进程级状态。
+    # 注：按属性取模块会被同名函数遮蔽（aop/__init__ 的 `from .params import params`），
+    # 故直接导入字典对象本身——模块不会重绑它。
+    from zoo_framework.core.aop.params import _resolved_generation
+
+    ParamsFactory._generation = 0
+    _resolved_generation.clear()
 
     # 容器的进程级实例 + 替换 + 单线程绑定
     framework_container().reset()
