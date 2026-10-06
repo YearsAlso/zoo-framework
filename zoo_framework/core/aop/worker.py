@@ -1,11 +1,25 @@
-# TODO: 使用 register 的方式来注册 worker
+# 已判废（变更 cleanup-aop-public-surface / issue #49）：本模块不再从 `core` / `core.aop`
+# 包面导出；模块路径保留一个 minor 周期供迁移，下个 minor 连同 `workers.WorkerRegister`
+# 一起删除。历史问题：它写入的 legacy 表不被 `Master` 的调度链（`WorkerRegistry`）读取，
+# 故注册后从不被派发；键仍是裸类名；导入期即实例化。接通路径只有一条：
+# `Master.register_worker(name, worker_class)`。
+import warnings
+
 from zoo_framework.workers import WorkerRegister
 
 worker_register: WorkerRegister = WorkerRegister()
 
+_DEPRECATION_TEXT = (
+    "@worker 不接通调度：它注册进不被 Master 读取的 legacy WorkerRegister，"
+    "实例从不会是被派发的对象。请改用 Master.register_worker(name, worker_class)；"
+    "本模块将在下一个 minor 版本删除。"
+)
+
 
 def worker(count: int = 1):
     """装饰器函数，用于注册指定数量的 worker 实例。
+
+    .. deprecated:: 已判废（#49）；使用时发 ``DeprecationWarning``，见模块顶部说明。
 
     参数:
         count (int): 需要注册的 worker 实例数量，默认为 1。
@@ -23,6 +37,8 @@ def worker(count: int = 1):
         返回:
             class: 返回原始类，保持装饰器的透明性。
         """
+        # 弃用信号在被装饰类定义的现场发出（stacklevel 穿透装饰器应用点）。
+        warnings.warn(_DEPRECATION_TEXT, DeprecationWarning, stacklevel=3)
         # 如果只需要注册一个实例，则直接注册该类的实例
         if count == 1:
             worker_register.register(cls.__name__, cls())
