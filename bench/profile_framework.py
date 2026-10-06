@@ -22,6 +22,7 @@
 import json
 import logging
 import platform
+import statistics
 import sys
 import threading
 import time
@@ -100,10 +101,10 @@ def _measure_tier(scale: int, io_wait: float) -> dict:
         waiter.shutdown(wait=True)
         reactor.on_result = None
 
-    e2e_samples.sort()
-    body_samples.sort()
-    median_e2e = e2e_samples[len(e2e_samples) // 2]
-    median_body = body_samples[len(body_samples) // 2]
+    # 中位数取 statistics.median（偶数样本取两中值均值）：与手写"排序后取中位"相比，
+    # 样本数固定（ROUNDS=60）时两者差异在测量噪声内，但标准库写法免去了自证口径
+    median_e2e = statistics.median(e2e_samples)
+    median_body = statistics.median(body_samples)
     overhead = median_e2e - median_body
 
     return {
