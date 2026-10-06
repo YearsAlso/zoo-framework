@@ -22,6 +22,9 @@
 
 ### Changed
 
+- 内部重构（无行为影响，变更 `declare-debt-carriers` / #50 切片一）：新增进程级共享
+  载体登记表 `core/process_state.CARRIERS`，测试复位由它生成；扫描测试拦截未登记的
+  新载体。顺带删除零读写的死类属性 `StateEffectScheduler._response_list`。
 - AOP 的两条导入顺序约束从静默改为出声（变更 `aop-determinism` / #51）：
   参数类在"从未读到配置"的世代解析过、而 `Master` 随后读到配置 ⇒ 构造期点名报错；
   `Master` 消费注册表后再 `@configure` 注册 ⇒ 照常登记但告警"只有下一个 Master 会消费"。
