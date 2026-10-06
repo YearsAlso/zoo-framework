@@ -1,0 +1,3 @@
+[submodule "example/agent"]
+	path = example/agent
+	url = https://github.com/YearsAlso/zoo-code-agent.git
