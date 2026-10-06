@@ -153,10 +153,11 @@
 
 ```python
 try:
-    import zoo_core          # Rust 扩展（可选）
+    import zoo_core  # Rust 扩展（可选）
+
     HAS_RUST_CORE = True
 except ImportError:
-    HAS_RUST_CORE = False    # 回退到纯 Python 实现
+    HAS_RUST_CORE = False  # 回退到纯 Python 实现
 ```
 
 **理由**：全量替换为 Rust-only 会失去可回退性，并强制所有用户安装带平台限制的二进制产物——对一个以"pip 可装、源码可读"为卖点的框架，这是产品属性的断裂。可选加速使迁移可增量、可随时回退，也让 CI 能在没有 Rust 工具链的环境下继续验证语义。

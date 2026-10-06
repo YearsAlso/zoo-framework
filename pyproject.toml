@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zoo-framework"
-version = "0.8.0"
+version = "0.8.2-beta"
 description = "Python declarative multi-task orchestration framework powering next-gen Agents and workflows"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -27,7 +27,8 @@ classifiers = [
 dependencies = [
     "click>=8.0.0",
     # jinja2 已移除：脚手架模板只用 string.Template 的变量替换，不需要模板引擎
-    "gevent>=23.0.0",
+    # gevent 已移除（align-execution-primitives）：事件投递与状态 effect 改用
+    # concurrent.futures 线程执行器；greenlet 系在 free-threaded 构建上不可用
     "pyyaml>=6.0",
     "python-dotenv>=1.0.0",
     "typing-extensions>=4.7.0",
@@ -251,7 +252,7 @@ exclude_lines = [
 # Bump My Version 配置 (自动版本号管理)
 # ============================================
 [tool.bumpversion]
-current_version = "0.7.1-beta"
+current_version = "0.8.0"
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
 serialize = ["{major}.{minor}.{patch}"]
 search = "{current_version}"

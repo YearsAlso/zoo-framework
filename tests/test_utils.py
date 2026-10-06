@@ -5,11 +5,91 @@
 
 import os
 import tempfile
+import threading
 
 import pytest
 
 from zoo_framework.utils import FileUtils, LogUtils
 from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
+
+
+class TestThreadSafeDictLockScope:
+    """align-execution-primitives D3: 锁每实例持有、为 threading 级."""
+
+    def test_lock_is_per_instance_rlock(self):
+        """Scenario: 锁为 threading 级且按实例持有."""
+        d1 = ThreadSafeDict()
+        d2 = ThreadSafeDict()
+
+        assert isinstance(d1._lock, type(threading.RLock()))
+        assert d1._lock is not d2._lock, "两个实例仍共享同一把锁"
+
+    def test_two_instances_do_not_serialize(self):
+        """Scenario: 两个实例互不阻塞（一个实例锁内的慢操作不拖累另一个）."""
+        d1 = ThreadSafeDict()
+        d2 = ThreadSafeDict()
+
+        holder_entered = threading.Event()
+        holder_release = threading.Event()
+
+        def _holder():
+            with d1._lock:
+                holder_entered.set()
+                holder_release.wait(5)
+            d1["after"] = 1
+
+        thread = threading.Thread(target=_holder)
+        thread.start()
+        try:
+            assert holder_entered.wait(5), "慢操作未能进入 d1 锁内"
+
+            d2_written = threading.Event()
+
+            def _writer():
+                d2["k"] = "v"
+                d2_written.set()
+
+            writer = threading.Thread(target=_writer)
+            writer.start()
+            # 模块级共享锁时代：这里会被 d1 的慢操作阻塞到释放为止
+            assert d2_written.wait(2), "d2 被 d1 锁内操作阻塞，锁仍为进程级共享"
+            writer.join(2)
+            assert d2["k"] == "v"
+        finally:
+            holder_release.set()
+            thread.join(2)
+
+    def test_concurrent_updates_same_instance_not_lost(self):
+        """Scenario: 同一实例并发读写不丢更新."""
+        d = ThreadSafeDict()
+        errors: list[BaseException] = []
+
+        def _bump(prefix: str) -> None:
+            try:
+                for i in range(200):
+                    d[f"{prefix}-{i}"] = i
+            except BaseException as exc:  # 收集给主线程断言
+                errors.append(exc)
+
+        threads = [threading.Thread(target=_bump, args=(f"t{n}",)) for n in range(4)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join(10)
+
+        assert not errors
+        assert len(d) == 800
+
+    def test_pickle_round_trip_excludes_lock(self):
+        """实例持锁后状态机持久化（pickle）不得回归：锁不序列化，载入时重建."""
+        import pickle
+
+        d = ThreadSafeDict({"k": 1})
+        restored = pickle.loads(pickle.dumps(d))
+
+        assert restored.get("k") == 1
+        assert isinstance(restored._lock, type(threading.RLock()))
+        assert restored._lock is not d._lock
 
 
 class TestLogUtils:
@@ -80,7 +160,7 @@ class TestFileUtils:
 
     def test_copy_file(self):
         """测试复制文件"""
-        with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
             temp_path = f.name
             f.write("content to copy")
 
@@ -96,7 +176,7 @@ class TestFileUtils:
 
     def test_get_file_size(self):
         """测试获取文件大小"""
-        with tempfile.NamedTemporaryFile(mode='w', delete=False) as f:
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
             temp_path = f.name
             f.write("12345")  # 5 bytes
 
@@ -108,7 +188,9 @@ class TestFileUtils:
 
     def test_get_file_size_not_found(self):
         """测试获取不存在的文件大小"""
-        with pytest.raises(Exception):
+        # 内核确实抛裸 Exception（file_utils.get_file_size 的现状）；收窄到具体类型
+        # 属公共行为变更，不在本变更范围。
+        with pytest.raises(Exception):  # noqa: B017
             FileUtils.get_file_size("nonexistent_file_xyz.txt")
 
 

@@ -146,6 +146,11 @@ design 的 P1 把它们列为 `fix-worker-scheduling` 的一部分，但**该变
 **建议**：先做这两项纯 Python 优化并重测。它们的量级远大于本次测得的 Rust 收益，
 而且不需要新的构建链与发布矩阵。
 
+> **后续状态（2026-10-06）**：本节两项均已落地——纯 Python 优化由变更
+> `align-execution-primitives` 完成（去 gevent / 实例级 RLock / deque），
+> waiter 派发路径的 ThreadPoolExecutor 替换（P2）仍待启动（#47）。Rust 重估
+> 的前置条件自此进入「做完并重测」阶段，待 CI 三平台首轮留档后判读。
+
 ---
 
 ## 五、需要你确定的一件事
@@ -171,10 +176,10 @@ Rust**（细粒度档 Rust 也救不了：占比 53.5% 仍远超阈值；粗粒�
 
 | 项 | 状态 | 原因 | 归属 |
 |---|---|---|---|
-| Linux 侧框架开销的原生取数 | **未完成** | WSL2 的数字被 Hypervisor 放大（3x），不可用；需要 CI 的 `ubuntu-latest` | 并入待立变更 `align-execution-primitives` 的复测任务 |
+| Linux 侧框架开销的原生取数 | **未完成** | WSL2 的数字被 Hypervisor 放大（3x），不可用；需要 CI 的 `ubuntu-latest` | **承接已落地**：`.github/workflows/bench.yml`（变更 `align-execution-primitives` 任务组 5）——数字待首轮留档 |
 | 真实业务负载 trace | **未完成** | 仓库无真实样本，用代表性负载替代（`bench/workload.py` 已标注其为替身） | 仍无归属——需要真实样本才有意义，不宜为它单立变更 |
-| 四项纯 Python 优化 | **未完成** | design 中列为 P1 的一部分，但 `fix-worker-scheduling` 的 tasks 未包含；属任务表编写疏漏 | 「默认启用资源池」→ `scheduler-model-seam`；「去 gevent + `ThreadSafeDict` 换锁 + `BaseFIFO` 换 `deque`」→ 待立变更 `align-execution-primitives` |
-| macOS 抽样验证 | **未完成** | 本机无 macOS 环境，需要 CI 的 `macos-latest` | 并入待立变更 `align-execution-primitives` 的复测任务 |
+| 四项纯 Python 优化 | **已落地**（变更 `align-execution-primitives`，2026-10-06） | design 中列为 P1 的一部分，但 `fix-worker-scheduling` 的 tasks 未包含；属任务表编写疏漏 | 「默认启用资源池」→ `scheduler-model-seam`（已落）；「去 gevent + `ThreadSafeDict` 换锁 + `BaseFIFO` 换 `deque`」→ `align-execution-primitives`（已落：gevent/greenlet 出树，投递改轮末批量 wait 摊每事件 6.4-10.4 µs，Windows 实测） |
+| macOS 抽样验证 | **未完成** | 本机无 macOS 环境，需要 CI 的 `macos-latest` | **承接已落地**：`.github/workflows/bench.yml`（同上）——数字待首轮留档 |
 
 **三项与本次裁定相关的实测补充（2026-09-27 复核）：**
 

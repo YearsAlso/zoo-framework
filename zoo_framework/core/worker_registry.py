@@ -250,41 +250,10 @@ class WorkerRegistry:
         return result
 
 
-# 装饰器注册方式
-def register_worker(name: str | None = None, metadata: dict | None = None):
-    """Worker 注册装饰器.
-
-    P2 优化：支持装饰器方式注册 Worker
-
-    使用示例:
-        @register_worker("my_worker", {"priority": 100})
-        class MyWorker(BaseWorker):
-            pass
-
-    Args:
-        name: Worker 名称，默认为类名
-        metadata: 元数据
-    """
-
-    def decorator(cls):
-        if not issubclass(cls, BaseWorker):
-            raise TypeError(f"Must inherit from BaseWorker: {cls}")
-
-        worker_name = name or cls.__name__
-
-        # 注册到全局注册表
-        from .aop import worker_register as registry
-
-        if isinstance(registry, WorkerRegistry):
-            registry.register_class(worker_name, cls, metadata)
-        else:
-            # 兼容旧版本
-            instance = cls()
-            registry.register(worker_name, instance)
-
-        return cls
-
-    return decorator
+# 已删除（变更 cleanup-aop-public-surface / issue #49）：`register_worker` 装饰器的
+# `isinstance(registry, WorkerRegistry)` 判定恒为 False（它拿的是 legacy
+# `WorkerRegister` 实例），实际只走"写入不被派发的表"的分支——零使用、死分支，
+# 与 `Master.register_worker` 又构成第二条注册真源，故整删而非修复。
 
 
 # 全局注册表
@@ -310,5 +279,4 @@ __all__ = [
     "WorkerRegistration",
     "WorkerRegistry",
     "get_worker_registry",
-    "register_worker",
 ]

@@ -43,7 +43,8 @@ graph TB
 ### 技术栈
 
 - **Python**: 3.13+
-- **异步支持**: asyncio, gevent
+- **异步支持**: asyncio；事件投递与状态 effect 基于线程执行器（concurrent.futures，
+  gevent 已随 `align-execution-primitives` 移除）
 - **代码质量**: Ruff, MyPy, pre-commit
 - **测试**: pytest, pytest-cov, pytest-asyncio
 - **CI/CD**: GitHub Actions
@@ -272,10 +273,9 @@ bandit -r zoo_framework
 ```toml
 [project.dependencies]
 click>=8.0.0
-jinja2>=3.0.0
-gevent>=23.0.0
 pyyaml>=6.0
 python-dotenv>=1.0.0
+typing-extensions>=4.7.0
 ```
 
 ### 开发依赖
@@ -295,7 +295,7 @@ pip install -e ".[dev]"
 ```toml
 [project]
 name = "zoo-framework"
-version = "0.7.1-beta"
+version = "0.8.0"
 requires-python = ">=3.13"
 
 [project.optional-dependencies]

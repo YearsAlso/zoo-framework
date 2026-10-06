@@ -1,6 +1,6 @@
+from concurrent.futures import Future, ThreadPoolExecutor, wait
+from functools import partial
 from typing import TYPE_CHECKING
-
-import gevent
 
 from zoo_framework.event.event_channel_manager import EventChannelManager
 from zoo_framework.utils import LogUtils
@@ -32,11 +32,26 @@ class EventWorker(BaseWorker):
         # 事件处理器注册器
         self.eventChannelManager: EventChannelManager = EventChannelManager()
 
+        # 响应器投递执行器：实例级建一次（align-execution-primitives D1）。
+        # 替代历史的 gevent.spawn/joinall：greenlet 系原语在 free-threaded 构建上
+        # 不可用，且实测单次派发 38.1 µs 远高于线程提交。EventParams 仍须**惰性导入**
+        # （解析发生在首次导入，早于配置载入会冻结成默认值，见 #51）——本类由
+        # WorkerRegistry 在运行期构造，此处与 _execute 内的导入都满足该顺序。
+        from zoo_framework.params import EventParams
+
+        self._executor = ThreadPoolExecutor(
+            max_workers=EventParams.EVENT_EXECUTOR_WORKERS,
+            thread_name_prefix="zoo-event-reactor",
+        )
+        # 销毁路径经 BaseWorker.__del__ 调用；wait=False 与 greenlet 时代一致：
+        # 不做强杀也不无限等待在飞响应器。
+        self._destroy_func = partial(self._executor.shutdown, wait=False, cancel_futures=True)
+
     def _execute(self):
         from zoo_framework.params import EventParams
 
         channel_names = self.eventChannelManager.get_all_channel_name()
-        g_queue = []
+        dispatched: list[Future] = []
         # TODO：获得除去失败事件通道的所有事件通道
         for channel_name in channel_names:
             # get_channel 的实现在未命中时会就地创建再返回，故它**不会**返回 None；
@@ -74,13 +89,13 @@ class EventWorker(BaseWorker):
                     continue
                 for reactor in reactors:
                     # 执行事件反应器：EventReactor 的公开入口是 execute(topic, content)。
-                    g = gevent.spawn(reactor.execute, event_node.topic, event_node.content)
-                    g_queue.append(g)
+                    f = self._executor.submit(reactor.execute, event_node.topic, event_node.content)
+                    dispatched.append(f)
 
-        if len(g_queue) > 0:
-            # 执行处理方法
-            gevent.joinall(g_queue, timeout=EventParams.EVENT_JOIN_TIMEOUT)
-            self._report_unfinished(g_queue)
+        if len(dispatched) > 0:
+            # 有界等待本轮派发结果；超时项与异常项均转交可观测上报
+            wait(dispatched, timeout=EventParams.EVENT_JOIN_TIMEOUT)
+            self._report_unfinished(dispatched)
 
     @staticmethod
     def _requeue_or_dead_letter(channel, event_node, reason: str = "") -> None:
@@ -102,17 +117,26 @@ class EventWorker(BaseWorker):
         channel.push_dead_letter(event_node, reason=reason)
 
     @staticmethod
-    def _report_unfinished(g_queue: list) -> None:
-        """上报 join 超时后仍在运行的响应器.
+    def _report_unfinished(dispatched: list[Future]) -> None:
+        """上报 join 超时后仍在运行的响应器，并上报已结束的响应器抛出的异常.
 
-        这些响应器的结果不会被回收，MUST 可观测，而非随 join 超时静默消失。
+        超时未结束者的结果不会被回收，MUST 可观测，而非随超时静默消失；
+        已结束者携带的异常 MUST NOT 被吞掉（greenlet 时代它们静默消失）。
 
         Args:
-            g_queue: 本轮派发的全部 greenlet
+            dispatched: 本轮派发的全部 future
         """
-        unfinished = [g for g in g_queue if not g.ready()]
+        unfinished = [f for f in dispatched if not f.done()]
         if unfinished:
             LogUtils.warning(
                 f"{len(unfinished)} 个响应器在 join 超时后仍未结束，其结果未被回收",
                 "EventWorker",
             )
+
+        for f in dispatched:
+            if not f.done():
+                continue
+            # done() 后取 exception() 不阻塞；未抛异常时为 None。
+            exc = f.exception()
+            if exc is not None:
+                LogUtils.warning(f"响应器执行抛出异常且结果未被回收: {exc!r}", "EventWorker")

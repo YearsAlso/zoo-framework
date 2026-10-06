@@ -9,8 +9,9 @@
 # 本地构建：
 #   uv run --no-project --with mkdocs-material mkdocs build
 #
-# 必须带 --no-project：否则 uv 会连项目自身一起安装，进而尝试从源码编译 gevent
-# （本机无对应 wheel 时会失败）。构建文档站不需要项目运行时依赖。
+# 建议带 --no-project：避免连项目自身一起安装（历史原因：曾触发 gevent 源码编译失败，
+# gevent 已随 align-execution-primitives 移除；保留 --no-project 是因为构建文档站
+# 不需要项目运行时依赖）。
 
 site_name: Zoo Framework
 site_description: 后台任务编排框架 —— 调度 Worker、投递事件、持久化状态

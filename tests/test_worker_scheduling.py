@@ -843,6 +843,74 @@ class TestEventPipelineReliability:
         assert fifo.pop_value() is not None
         assert fifo.pop_value() is None
 
+    def test_join_timeout_reports_unfinished_reactors(self, monkeypatch):
+        """Scenario: 超时后未结束的响应器被可观测上报（align-execution-primitives）."""
+        import zoo_framework.workers.event_worker as event_worker_module
+        from zoo_framework.params import EventParams
+
+        channel_name = "timeout-probe"
+        topic = "slow.reactor.topic"
+        reactor = EventReactor("slow-reactor")
+
+        def slow_execute(_topic, _content):
+            time.sleep(0.5)
+
+        monkeypatch.setattr(reactor, "execute", slow_execute)
+        EventChannelManager().refresh_channel(channel_name, topic, reactor)
+        channel = EventChannelManager().get_channel(channel_name)
+        channel.push_event(EventNode(topic=topic, content="x"))
+
+        warnings: list[str] = []
+
+        class _CapturingLog:
+            @staticmethod
+            def warning(message, *_args, **_kwargs):
+                warnings.append(str(message))
+
+        monkeypatch.setattr(event_worker_module, "LogUtils", _CapturingLog)
+        # join 超时压到 50ms：慢响应器必然越界
+        monkeypatch.setattr(EventParams, "EVENT_JOIN_TIMEOUT", 0.05)
+
+        from zoo_framework.workers.event_worker import EventWorker
+
+        start = time.monotonic()
+        EventWorker()._execute()
+        # 消费循环在超时处返回，不被慢响应器挂死
+        assert time.monotonic() - start < 0.4
+        assert any("join 超时后仍未结束" in w for w in warnings), "超时未完成的响应器未被可观测上报"
+
+    def test_reactor_exception_is_logged(self, monkeypatch):
+        """Scenario: 响应器异常被可观测上报（greenlet 时代它们静默消失）."""
+        import zoo_framework.workers.event_worker as event_worker_module
+
+        channel_name = "raising-probe"
+        topic = "raising.reactor.topic"
+        reactor = EventReactor("raiser")
+
+        def boom(_topic, _content):
+            raise RuntimeError("boom")
+
+        monkeypatch.setattr(reactor, "execute", boom)
+        EventChannelManager().refresh_channel(channel_name, topic, reactor)
+        channel = EventChannelManager().get_channel(channel_name)
+        channel.push_event(EventNode(topic=topic, content="x"))
+
+        warnings: list[str] = []
+
+        class _CapturingLog:
+            @staticmethod
+            def warning(message, *_args, **_kwargs):
+                warnings.append(str(message))
+
+        monkeypatch.setattr(event_worker_module, "LogUtils", _CapturingLog)
+
+        from zoo_framework.workers.event_worker import EventWorker
+
+        # 异常不传播出消费循环；本轮其余事件不受影响
+        EventWorker()._execute()
+
+        assert any("响应器执行抛出异常" in w for w in warnings), "响应器异常被吞掉，未被可观测上报"
+
 
 class TestReactorRegistrationIdempotency:
     """event-dispatch: 响应器注册 MUST 幂等."""

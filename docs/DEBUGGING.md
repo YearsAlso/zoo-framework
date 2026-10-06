@@ -98,10 +98,11 @@ class ProfiledWorker(BaseWorker):
 **排查步骤**：
 
 ```python
-# 1. 检查 Worker 是否注册
-from zoo_framework.core.aop import worker_register
+# 1. 检查 Worker 是否注册到调度链的真实源 WorkerRegistry
+# （旧路径 `core.aop.worker_register` 已随 #49 判废：写入它的实例从不被派发）
+from zoo_framework.core.worker_registry import get_worker_registry
 
-print(worker_register.get_all_worker())  # 应该包含你的 Worker
+print(list(get_worker_registry().get_all_workers()))  # 应该包含你的 Worker
 
 # 2. 检查 Master 是否启动
 master = Master()

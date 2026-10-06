@@ -1,13 +1,40 @@
 from __future__ import annotations
 
+import threading
 import time
 import types
+from concurrent.futures import ThreadPoolExecutor, wait
 from typing import Any
-
-import gevent
 
 from zoo_framework.statemachine.state_node_type import StateNodeType
 from zoo_framework.utils import LogUtils
+
+# effect 执行器：模块级共享、懒建（align-execution-primitives D2）。
+# 替代历史的 gevent.spawn/joinall：写路径同步等待 effect 的语义**刻意保留**
+# （非阻塞投递属另行裁定的行为决策），换的只是原语：effect 并发执行、
+# 最长等 _EFFECT_JOIN_TIMEOUT_SECONDS 秒、超时后写入正常返回。
+_EFFECT_JOIN_TIMEOUT_SECONDS = 5
+_EFFECT_EXECUTOR_WORKERS = 8
+
+_effect_executor: ThreadPoolExecutor | None = None
+_effect_executor_lock = threading.Lock()
+
+
+def _get_effect_executor() -> ThreadPoolExecutor:
+    """取共享 effect 执行器（双检锁懒建）.
+
+    不主动 shutdown：解释器退出时由 concurrent.futures 的 atexit 钩子回收；
+    effect 是用户回调，框架不做强杀（greenlet 时代同样不强杀）。
+    """
+    global _effect_executor
+    if _effect_executor is None:
+        with _effect_executor_lock:
+            if _effect_executor is None:
+                _effect_executor = ThreadPoolExecutor(
+                    max_workers=_EFFECT_EXECUTOR_WORKERS,
+                    thread_name_prefix="zoo-state-effect",
+                )
+    return _effect_executor
 
 
 class StateNode:
@@ -15,8 +42,8 @@ class StateNode:
 
     def __init__(self, key: str, value: Any, effect_list: list[types.FunctionType] | None = None):
         # 注解原为 `list[StateEffect]`，但代码往列表里存的是**函数**（`add_effect` 的
-        # `isinstance(effect, types.FunctionType)` 与 `_perform_effect` 里的 `gevent.spawn(effect, …)`
-        # 都证明了这点）；而 `StateEffect` **没有 `__call__`**，那个类型根本不可能被 spawn 调用。
+        # `isinstance(effect, types.FunctionType)` 与 `_perform_effect` 里的 `executor.submit(effect, …)`
+        # 都证明了这点）；而 `StateEffect` **没有 `__call__`**，那个类型根本不可能被执行。
         # 故改为如实的 `list[types.FunctionType]`。
         self._effect_list: list[types.FunctionType] = []
         self._version = int(time.time())
@@ -99,16 +126,28 @@ class StateNode:
         self._perform_effect(value, version)
 
     def _perform_effect(self, value: Any, version: int) -> None:
-        """执行状态节点的副作用."""
+        """执行状态节点的副作用.
+
+        effect 在共享线程执行器上并发执行；写入在超时内同步等待。
+        effect 抛出的异常不传播给写入方，但 MUST 可观测（记入日志）。
+        """
         if len(self._effect_list) == 0:
             return
 
-        g_effect_queue = []
-        for effect in self._effect_list:
-            g = gevent.spawn(effect, {"value": value, "version": version})
-            g_effect_queue.append(g)
+        executor = _get_effect_executor()
+        futures = [
+            executor.submit(effect, {"value": value, "version": version})
+            for effect in self._effect_list
+        ]
+        wait(futures, timeout=_EFFECT_JOIN_TIMEOUT_SECONDS)
 
-        gevent.joinall(g_effect_queue, timeout=5)
+        for f in futures:
+            if not f.done():
+                continue
+            # done() 后取 exception() 不阻塞；与 gevent.joinall 一致不重抛。
+            exc = f.exception()
+            if exc is not None:
+                LogUtils.warning(f"状态 effect 执行抛出异常: {exc!r}", "StateNode")
 
     def _update_version(self) -> None:
         """更新状态节点的版本号."""

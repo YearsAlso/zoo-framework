@@ -4,8 +4,8 @@
 - [x] 1.2 在修复后的实现上重取基线：派发开销、`EventReactorManager.dispatch()` 全路径、事件管道单次投递；验证：三项数字均低于本轮评审记录的改前值（13.5 µs / 18.6 µs / 38.1 µs），且差距超出测量噪声
 - [ ] 1.3 **未完成 · 归属已裁定** —— 四项纯 Python 优化至今未落地。核对后两条实测断言仍成立：`gevent` 仍在 `pyproject.toml` 依赖中，且**仅剩两处**使用（`workers/event_worker.py`、`statemachine/state_node.py`）；`ThreadSafeDict` 仍使用模块级 `multiprocessing.Lock`。归属裁定：
   - **默认启用资源池** → 移交 `scheduler-model-seam`。它是"模型默认（并发原语 + 背压策略）"的决定，不是原语替换。补充事实：内核已从 `fix-worker-scheduling` 获得 `WORKER_MODE` 参数与 `worker:pool:enabled` 别名兼容，且线程模式与池模式现已共用单一结算点上报结果——该项风险低于本表编写时的水平
-  - **去 gevent（两处）+ `ThreadSafeDict` 换锁 + `BaseFIFO` 换 `deque`** → 移交待立变更 `align-execution-primitives`。三者不可拆：`gevent` 依赖只有在两处使用都清掉后才能从依赖列表移除，而其中 `state_node._perform_effect` 同时是"写路径阻塞观察者"的**行为**问题（同一个代码行）
-  - 原因为任务表编写疏漏（把 design 里论证用的优化清单误当成已分配的工作）。归属已同步记入 `bench/DECISION.md` 的「未完成项」
+  - **去 gevent（两处）+ `ThreadSafeDict` 换锁 + `BaseFIFO` 换 `deque`** → 移交变更 `align-execution-primitives`（**已立案 2026-10-06**）。三者不可拆：`gevent` 依赖只有在两处使用都清掉后才能从依赖列表移除，而其中 `state_node._perform_effect` 同时是"写路径阻塞观察者"的**行为**问题（同一个代码行）
+  - 原因为任务表编写疏漏（把 design 里论证用的优化清单误当成已分配的工作）。归属已同步记入 `bench/DECISION.md` 的「未完成项」；承接变更 `align-execution-primitives` 已于 2026-10-06 立案
 - [x] 1.4 准备真实负载 trace，明确来源、规模与代表性；验证：trace 文件与说明写入 `bench/README.md`，MUST NOT 只使用空 Worker 的合成基准（见 design 的 Risks 首条）
 - [x] 1.5 按 design D0 为每个目标平台各建一份基线。**实际达成度**：Windows 为原生数据；Linux 只能在 WSL2 上取数，而 WSL2 的跨线程唤醒被 Hypervisor 放大（框架开销实测为 Windows 的约 3 倍），**原生 Linux 的绝对数字仍未取得**，需要 CI 的 `ubuntu-latest`。已记入 `bench/DECISION.md` 的「未完成项」
 - [x] 1.6 确认取数环境符合 design D0 对 WSL 的用途边界；验证：涉及跨线程唤醒的绝对延迟取自 CI 的 `ubuntu-latest` 而非 WSL2；WSL2 数据仅用于论证机制性差异（锁实现代价、`fork`/`spawn` 有无、GIL 行为）
@@ -61,7 +61,7 @@
 - [x] 8.2 确认产品构建链未被改动；验证：`pyproject.toml` 中 `build-backend` 仍为 `hatchling`，`release.yml` 未修改
 - [x] 8.3 确认已发布版本的运行时行为零变化；验证：`pytest -q` 全绿，用例数不少于 `fix-worker-scheduling` 完成后的数量
 - [x] 8.4 复跑 OpenSpec 校验；验证：`openspec validate --all` 全绿，`adopt-rust-core` 的 `skip_specs` 标记仍被正确采纳
-- [ ] 8.5 **未完成 · 归属已裁定** —— 本机无法运行 CI 三平台矩阵。核对后确认：`bench/` 未被任何 workflow 引用（`tests.yml` 的 `benchmark` 作业指向的是**不存在的** `tests/benchmarks/`，两个目录名撞车，容易误判）。归属裁定：并入待立变更 `align-execution-primitives` 的验证任务——该变更的 800x/13x/12.4x 声明需在原生 Linux 复测才能跨平台成立，与 `DECISION.md` 记录的「Linux 侧原生取数未完成」是同一件事
+- [ ] 8.5 **未完成 · 归属已裁定** —— 本机无法运行 CI 三平台矩阵。核对后确认：`bench/` 未被任何 workflow 引用（`tests.yml` 的 `benchmark` 作业指向的是**不存在的** `tests/benchmarks/`，两个目录名撞车，容易误判）。归属裁定：变更 `align-execution-primitives`（**已立案 2026-10-06**）承接——其任务组 5 落地 CI 三平台取数——该变更的 800x/13x/12.4x 声明需在原生 Linux 复测才能跨平台成立，与 `DECISION.md` 记录的「Linux 侧原生取数未完成」是同一件事
 
 ## 9. 跨平台缺陷的移交与追踪
 
@@ -74,5 +74,3 @@ design D6 层 3 列出的五项缺陷发生在**现有 Python 代码**中，不�
 - [x] 9.5 登记 CI 覆盖不均：`build.yml`/`quality.yml`/`docs.yml`/`release.yml` 均为 ubuntu-only；验证：已登记。**承接方：`adopt-rust-core-impl`（P3）**——纯 Python 阶段无害，但引入 Rust 扩展后 `release.yml` 必须改为多平台
 - [x] 9.6 登记文本模式 `open()` 未声明编码导致的跨平台配置损坏（16 处，其中 `core/params_factory.py:13,16,41` 影响最大）；验证：已登记并附复现证据（含中文的 UTF-8 配置在 `cp936` 下被静默读成 `璋冭瘯`，无异常）。**承接方：`fix-cross-platform-defects`（X2）**
 - [x] 9.7 确认六项登记均指向明确的承接方；验证：每项都有承接方与状态，无遗漏、无重复。当前映射为：X1/X2/X3/X4 → `fix-cross-platform-defects`；`thread_safe_dict` → `fix-worker-scheduling`；`release.yml` → `adopt-rust-core-impl`
-
-
