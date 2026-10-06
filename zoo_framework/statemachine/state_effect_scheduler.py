@@ -9,8 +9,9 @@ class StateEffectScheduler:
     # TODO: 通过管道管理器
     _event_channel = EventChannelManager().get_channel(__name__)
 
-    # 响应列表
-    _response_list: set = set()
+    # 历史上的类属性 `_response_list: set = set()` 已删（变更 declare-debt-carriers）：
+    # 全仓库零读写的死状态，却是一个类级可变共享——扫描登记机制上线后暴露，
+    # 与其登记一个死载体不如直接移除。
 
     def __init__(self, state_machine):
         self.state_machine = state_machine
