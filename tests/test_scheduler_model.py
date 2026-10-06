@@ -329,3 +329,128 @@ class TestNoSilentDegradation:
         )
         with pytest.raises(ValueError):
             BaseWaiter()
+
+
+class _RecordingWorker(_ProbeWorker):
+    """记录全局执行顺序（构造给定的短 tag 依序追加进 order 列表）."""
+
+    def __init__(self, name, order, gate=None):
+        super().__init__(name)
+        self._order = order
+        self._gate = gate
+        self.tag = name  # worker.name 属性会拼上序号后缀，顺序断言用短 tag
+
+    def _execute(self):
+        self._order.append(self.tag)  # 先登记"已开始"，再占住线程（gate）
+        if self._gate is not None:
+            self._gate.wait(10)
+        return super()._execute()
+
+
+class TestQueueBackedPool:
+    """replace-pool-dispatch-queue（#47 P2）：queue.Queue + 固定线程的池语义."""
+
+    def test_threads_are_fixed_and_named(self):
+        core = WorkerDispatchCore()
+        model = ThreadPoolModel(pool_size=3)
+        model.start(core)
+        try:
+            assert len(model._threads) == 3
+            assert all(t.name.startswith("zoo-worker-") for t in model._threads)
+            assert all(t.daemon for t in model._threads)
+        finally:
+            model.teardown(core, wait=True, timeout=5.0)
+        assert all(not t.is_alive() for t in model._threads)
+
+    def test_single_worker_pool_preserves_fifo_order(self):
+        """排队=FIFO：尺寸 1 的池串行消费，后进顺序与提交顺序一致."""
+        core = WorkerDispatchCore()
+        model = ThreadPoolModel(pool_size=1, backpressure_policy=BACKPRESSURE_QUEUE)
+        model.start(core)
+        order: list[str] = []
+        gate = threading.Event()
+        blocker = _RecordingWorker("blocker", order, gate=gate)
+        try:
+            core.begin(blocker, timeout=None)
+            model.submit(core, blocker)
+            # 等 blocker 真正占住唯一工作线程（先于 gate 放行被记入 order 之前卡住），
+            # 否则后三项会被并发消费而无法证明排队顺序
+            assert _wait_until(lambda: "blocker" in order), "blocker 未被唯一线程取走"
+            pending = [_RecordingWorker(f"w{i}", order) for i in range(3)]
+            for worker in pending:
+                core.begin(worker, timeout=None)
+                model.submit(core, worker)
+            gate.set()
+            assert _wait_until(lambda: len(order) == 4)
+            expected = [w.tag for w in pending]
+            names = [n for n in order if n != "blocker"]
+            assert names == expected, f"乱序：{order}"
+        finally:
+            gate.set()
+            model.teardown(core, wait=True, timeout=5.0)
+
+    def test_teardown_discards_queued_tasks(self):
+        """stop_semantics=cancel_queued：未开始的排队任务被丢弃，已开始的不被中断."""
+        core = WorkerDispatchCore()
+        model = ThreadPoolModel(pool_size=1, backpressure_policy=BACKPRESSURE_QUEUE)
+        model.start(core)
+        order: list[str] = []
+        gate = threading.Event()
+        blocker = _RecordingWorker("blocker", order, gate=gate)
+        queued = _RecordingWorker("queued", order)
+        core.begin(blocker, timeout=None)
+        model.submit(core, blocker)
+        # 先确认 blocker 已开始（正在 gate 上阻塞），再投排队项：
+        # "已开始不被中断"与"未开始被丢弃"才是各自成立
+        assert _wait_until(lambda: "blocker" in order), "blocker 未被唯一线程取走"
+        core.begin(queued, timeout=None)
+        model.submit(core, queued)
+
+        model.teardown(core, wait=False, timeout=None)
+        gate.set()  # 放行已开始的任务
+        time.sleep(0.3)
+
+        assert order == ["blocker"], f"排队任务被丢弃后不应执行，已开始任务应跑完：{order}"
+
+    def test_escaped_exception_is_logged_and_thread_survives(self, monkeypatch):
+        """从执行单元逃逸的异常就地留痕；工作线程 MUST 存活继续服务."""
+        import queue as queue_module
+
+        import zoo_framework.core.waiter.scheduler_model as scheduler_module
+
+        logged: list[str] = []
+
+        class _CapturingLog:
+            @staticmethod
+            def error(message, *_args, **_kwargs):
+                logged.append(str(message))
+
+            @staticmethod
+            def info(*args, **kwargs):
+                pass
+
+        monkeypatch.setattr(scheduler_module, "LogUtils", _CapturingLog)
+
+        tasks: queue_module.Queue = queue_module.Queue()
+        served: list[str] = []
+        thread = threading.Thread(target=ThreadPoolModel._worker_loop, args=(tasks,), daemon=True)
+        thread.start()
+        try:
+
+            def _boom(_worker):
+                raise RuntimeError("escaped")
+
+            tasks.put((_boom, object()))
+            tasks.put((lambda _worker: served.append("alive"), object()))
+            assert _wait_until(lambda: served == ["alive"]), "逃逸异常杀死了工作线程"
+            assert any("escaped" in entry for entry in logged), "异常未留痕"
+        finally:
+            tasks.put(None)
+            thread.join(2)
+
+    def test_start_rejects_nonpositive_size(self):
+        """尺寸非法当场拒绝（与旧 ThreadPoolExecutor(max_workers=0) 报错行为对齐）."""
+        core = WorkerDispatchCore()
+        model = ThreadPoolModel(pool_size=0)
+        with pytest.raises(ValueError, match="资源池尺寸必须为正数"):
+            model.start(core)

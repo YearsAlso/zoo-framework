@@ -20,10 +20,10 @@
 重新实现。
 """
 
+import queue
 import threading
 import time
 from abc import ABC, abstractmethod
-from concurrent.futures import ThreadPoolExecutor
 
 from zoo_framework.constant import WorkerConstant
 from zoo_framework.utils import LogUtils
@@ -199,6 +199,12 @@ class ThreadPoolModel(SchedulerModel):
     对应既有 ``worker:mode=thread_pool``。三种背压策略吸收了原
     ``SimpleWaiter`` / ``StableWaiter`` / ``SafeWaiter`` 的**唯一**差异：
     expand / queue / reject。
+
+    容器实现（变更 replace-pool-dispatch-queue / #47 P2）：固定工作线程 +
+    ``queue.Queue`` 任务队列，取代历史 ``concurrent.futures.ThreadPoolExecutor``——
+    实测 Future 记账占派发成本绝大部分（submit().result() 31.9 µs vs 队列直连
+    1.86 µs，bench/DECISION.md 第四节）。对外六项契约与三项背压语义逐项不变：
+    上界=线程数、排队=FIFO 无界队列、停机取消排队=丢弃未开始任务。
     """
 
     concurrency_primitive = CONCURRENCY_THREAD_POOL
@@ -230,7 +236,10 @@ class ThreadPoolModel(SchedulerModel):
         # 实际生效的池尺寸（expand 策略会放宽它，但**不改动** pool_size 本身——
         # 调用方配置的意图 MUST 保持可读）
         self.effective_pool_size = pool_size
-        self._pool: ThreadPoolExecutor | None = None
+        # 任务队列 + 固定工作线程（stop_semantics=stop_dispatch_cancel_queued 的
+        # "取消排队"由 teardown 丢弃未开始任务实现；在飞表清理由内核 shutdown 承担）
+        self._tasks: queue.Queue | None = None
+        self._threads: list[threading.Thread] = []
 
     def prepare_workers(self, workers) -> int:
         """按背压策略处理"Worker 数超过池尺寸"的情形.
@@ -261,53 +270,93 @@ class ThreadPoolModel(SchedulerModel):
         return self.effective_pool_size
 
     def start(self, core) -> None:
-        if self._pool is None:
-            self._pool = ThreadPoolExecutor(
-                max_workers=self.effective_pool_size, thread_name_prefix="zoo-worker"
+        """按**当前**生效尺寸建队列与固定工作线程（已在 start 前由 prepare_workers 定尺寸）."""
+        if self._threads:
+            return
+        if self.effective_pool_size <= 0:
+            # 与旧 ThreadPoolExecutor(max_workers<=0) 的报错行为对齐：尺寸非法当场拒绝，
+            # MUST NOT 静默建出零线程池让 submit 永远找不到"已启动"的容器
+            raise ValueError(
+                f"资源池尺寸必须为正数，当前 {self.effective_pool_size}（配置项 worker:pool:size）"
             )
+        self._tasks = queue.Queue()
+        self._threads = [
+            threading.Thread(
+                target=self._worker_loop,
+                args=(self._tasks,),
+                name=f"zoo-worker-{index}",
+                daemon=True,
+            )
+            for index in range(self.effective_pool_size)
+        ]
+        for thread in self._threads:
+            thread.start()
+
+    @staticmethod
+    def _worker_loop(tasks: queue.Queue) -> None:
+        """工作线程主循环：取任务、执行、就地观测逃逸异常.
+
+        执行单元（``core.run_and_settle``）内部已捕获 Worker 异常并走单一结算；
+        从这一层逃逸的均是调度路径缺陷，MUST 留痕且线程 MUST 存活继续服务。
+        None 为停机哨兵。
+        """
+        while True:
+            item = tasks.get()
+            if item is None:
+                return
+            run_and_settle, worker = item
+            try:
+                run_and_settle(worker)
+            except Exception as error:  # 逃逸即缺陷，留痕不重抛，线程继续服务
+                LogUtils.error(
+                    f"调度执行单元异常（非 Worker 自身异常）: {error}",
+                    ThreadPoolModel.__name__,
+                )
 
     def submit(self, core, worker) -> None:
-        if self._pool is None:
+        if self._tasks is None or not self._threads:
             raise RuntimeError("模型尚未启动（start 未被调用）")
-        # 线程池任务同样不会继承调用方的上下文，故与线程模式一样显式携带
-        future = self._pool.submit(carry_context(core.run_and_settle), worker)
-        core.attach_container(worker, future)
-        future.add_done_callback(self._log_unexpected_failure)
-
-    @staticmethod
-    def _log_unexpected_failure(future) -> None:
-        """执行单元自身不应抛异常.
-
-        它内部已捕获 Worker 的异常并结算；若仍有异常逃逸（例如结算路径的缺陷），
-        必须留下痕迹——线程池会把未观察的异常静默丢掉。
-        """
-        if future.cancelled():
-            return
-        error = future.exception()
-        if error is not None:
-            LogUtils.error(
-                f"调度执行单元异常（非 Worker 自身异常）: {error}", ThreadPoolModel.__name__
-            )
+        # 工作线程不会继承调用方的上下文，故与线程模式一样在派发现场显式携带
+        run_and_settle = carry_context(core.run_and_settle)
+        self._tasks.put((run_and_settle, worker))
+        core.attach_container(worker, run_and_settle)
 
     def teardown(self, core, wait: bool = True, timeout: float | None = None) -> None:
-        pool = self._pool
-        self._pool = None
-        if pool is None:
+        """停机：丢弃尚未开始的排队任务（``stop_dispatch_cancel_queued``），再停线程.
+
+        已开始的任务无法中断（CPython 限制，与旧 ThreadPoolExecutor 实现一致）；
+        在飞表与调度列表由 ``core.clear()``（BaseWaiter.shutdown 调用）清理。
+        """
+        tasks, threads = self._tasks, self._threads
+        self._tasks, self._threads = None, []
+        if tasks is None and not threads:
             return
-        # cancel_futures 只对尚未开始的任务生效；已开始的任务无法中断，只能等
-        pool.shutdown(wait=False, cancel_futures=True)
+        if tasks is not None:
+            # 先清空排队项再投哨兵，否则哨兵会被当作普通项丢弃而线程永久阻塞在 get()
+            self._discard_queued(tasks)
+            for _ in threads:
+                tasks.put(None)
         if wait:
-            self._join_pool_threads(pool, timeout)
+            self._join_threads(threads, timeout)
 
     @staticmethod
-    def _join_pool_threads(pool, timeout: float | None) -> None:
-        """在给定上限内等待资源池的工作线程退出.
+    def _discard_queued(tasks: queue.Queue) -> None:
+        """排空未开始的任务；它们的在飞登记由 core.clear 收口，与 future 取消同形态."""
+        while True:
+            try:
+                tasks.get_nowait()
+            except queue.Empty:
+                return
+
+    @staticmethod
+    def _join_threads(threads: list[threading.Thread], timeout: float | None) -> None:
+        """在给定上限内等待工作线程退出.
 
         使用单调时钟的**总预算**语义：``timeout`` 是所有线程共享的等待上限，
         MUST NOT 被当成每个线程各自的上限（那会让等待时长随线程数增长）。
         """
         deadline = None if timeout is None else time.monotonic() + timeout
-        for thread in list(getattr(pool, "_threads", ())):
+        for thread in threads:
             remaining = None if deadline is None else deadline - time.monotonic()
             if remaining is not None and remaining <= 0:
                 return
