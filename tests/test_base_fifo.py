@@ -36,3 +36,11 @@ class BaseFIFOTester(unittest.TestCase):
         first.push_value("only-in-first")
         self.assertEqual(first.size(), 1)
         self.assertEqual(second.size(), 0)
+
+    def test_pop_value_on_empty_returns_none(self):
+        """空队 pop_value MUST 返回 None 而非抛 IndexError（事件消费路径依赖此兜底）."""
+        fifo = BaseFIFO()
+        self.assertIsNone(fifo.pop_value())
+        fifo.push_value("x")
+        self.assertEqual(fifo.pop_value(), "x")
+        self.assertIsNone(fifo.pop_value())
