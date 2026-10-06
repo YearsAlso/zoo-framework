@@ -1704,7 +1704,7 @@ wheels = [
 
 [[package]]
 name = "zoo-framework"
-version = "0.8.0"
+version = "0.8.2b0"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
