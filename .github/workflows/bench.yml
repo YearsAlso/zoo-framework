@@ -33,6 +33,11 @@ jobs:
   bench:
     name: ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    env:
+      # Windows runner 默认控制台编码（cp1252/GBK）无法编码脚本里的中文与 emoji
+      # 输出，实测首跑在 windows-latest 以 UnicodeEncodeError 崩（Linux/macOS 成功）。
+      # 强制 UTF-8 与跨平台文本 I/O 契约（cross-platform-io）同口径。
+      PYTHONIOENCODING: "utf-8"
     strategy:
       fail-fast: false
       matrix:
