@@ -1,3 +1,5 @@
+from collections import deque
+
 from .base_fifo import BaseFIFO
 from .node import DelayFIFONode
 
@@ -7,7 +9,9 @@ class DelayFIFO(BaseFIFO[DelayFIFONode]):
 
     def __init__(self):
         super().__init__()
-        self._fifo = []
+        # 与基类同型存储（align-execution-primitives：deque，出队 O(1)）；
+        # 本类历史上在这里重置为 list，两处真源 MUST 同步替换。
+        self._fifo = deque()
 
     def push_value(self, value: DelayFIFONode):
         self._fifo.append(value)
@@ -16,7 +20,7 @@ class DelayFIFO(BaseFIFO[DelayFIFONode]):
         if len(self._fifo) <= 0:
             return None
 
-        return self._fifo.pop(0)
+        return self._fifo.popleft()
 
     def is_exist(self, value):
         return value in self._fifo

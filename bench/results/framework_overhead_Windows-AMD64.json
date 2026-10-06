@@ -7,37 +7,37 @@
     "cpu-1x": {
       "scale": 1,
       "io_wait_ms": 0.0,
-      "body_median_ms": 0.039000005926936865,
-      "end_to_end_median_ms": 0.1334000116912648,
-      "framework_overhead_median_ms": 0.09440000576432794,
-      "framework_overhead_ratio": 0.707646158103818,
+      "body_median_ms": 0.04600000102072954,
+      "end_to_end_median_ms": 0.16910000704228878,
+      "framework_overhead_median_ms": 0.12310000602155924,
+      "framework_overhead_ratio": 0.7279716197218975,
       "samples": 60
     },
     "cpu-10x": {
       "scale": 10,
       "io_wait_ms": 0.0,
-      "body_median_ms": 0.28900000324938446,
-      "end_to_end_median_ms": 0.39119999564718455,
-      "framework_overhead_median_ms": 0.10219999239780009,
-      "framework_overhead_ratio": 0.26124742723661026,
+      "body_median_ms": 0.3168000839650631,
+      "end_to_end_median_ms": 0.4550999728962779,
+      "framework_overhead_median_ms": 0.1382998889312148,
+      "framework_overhead_ratio": 0.3038890291534577,
       "samples": 60
     },
     "cpu-100x": {
       "scale": 100,
       "io_wait_ms": 0.0,
-      "body_median_ms": 2.7338999934727326,
-      "end_to_end_median_ms": 2.858000007108785,
-      "framework_overhead_median_ms": 0.12410001363605261,
-      "framework_overhead_ratio": 0.04342197807115993,
+      "body_median_ms": 2.874600002542138,
+      "end_to_end_median_ms": 3.0261999927461147,
+      "framework_overhead_median_ms": 0.15159999020397663,
+      "framework_overhead_ratio": 0.0500958266364966,
       "samples": 60
     },
     "io-10ms": {
       "scale": 1,
       "io_wait_ms": 10.0,
-      "body_median_ms": 10.33189998997841,
-      "end_to_end_median_ms": 10.55130000167992,
-      "framework_overhead_median_ms": 0.21940001170150936,
-      "framework_overhead_ratio": 0.020793647386253607,
+      "body_median_ms": 10.36690000910312,
+      "end_to_end_median_ms": 10.608499986119568,
+      "framework_overhead_median_ms": 0.24159997701644897,
+      "framework_overhead_ratio": 0.022774188370887925,
       "samples": 60
     }
   }

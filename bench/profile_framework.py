@@ -26,7 +26,6 @@ import statistics
 import sys
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -77,11 +76,11 @@ def _measure_tier(scale: int, io_wait: float) -> dict:
     reactor.on_result = lambda _result: received.set()
     EventReactorManager().bind_topic_reactor(WaiterConstant.WORKER_RESULT_TOPIC, reactor)
 
-    waiter = BaseWaiter()
-    waiter.worker_mode = WaiterConstant.WORKER_MODE_THREAD_POOL
-    waiter.pool_enable = True
-    waiter.pool_size = 2
-    waiter.resource_pool = ThreadPoolExecutor(max_workers=2)
+    # 当前代驱动面（与 zoo-bench 适配器的 GENERATION_CURRENT 分支同源）：模式与
+    # 池尺寸经构造参数装配；调度列表只能由 call_workers 送入（workers 是只读属性，
+    # 直接赋值会绕过模型的 start）。历史版本在这里赋属性+赋值 workers，已在
+    # scheduler-model-seam 后的内核上失效。
+    waiter = BaseWaiter(model_name=WaiterConstant.WORKER_MODE_THREAD_POOL, pool_size=2)
 
     e2e_samples = []
     body_samples = []
@@ -89,7 +88,7 @@ def _measure_tier(scale: int, io_wait: float) -> dict:
         for index in range(ROUNDS):
             received.clear()
             worker = _ProbeWorker(f"Probe{index}", scale, io_wait)
-            waiter.workers = [worker]
+            waiter.call_workers([worker])
             waiter.worker_props.clear()
 
             start = time.perf_counter()
@@ -99,13 +98,13 @@ def _measure_tier(scale: int, io_wait: float) -> dict:
             e2e_samples.append(time.perf_counter() - start)
             body_samples.append(worker.body_duration)
     finally:
-        waiter.shutdown()
+        waiter.shutdown(wait=True)
         reactor.on_result = None
 
-    e2e_samples.sort()
-    body_samples.sort()
-    median_e2e = e2e_samples[len(e2e_samples) // 2]
-    median_body = body_samples[len(body_samples) // 2]
+    # 中位数取 statistics.median（偶数样本取两中值均值）：与手写"排序后取中位"相比，
+    # 样本数固定（ROUNDS=60）时两者差异在测量噪声内，但标准库写法免去了自证口径
+    median_e2e = statistics.median(e2e_samples)
+    median_body = statistics.median(body_samples)
     overhead = median_e2e - median_body
 
     return {
@@ -129,9 +128,7 @@ def main() -> int:
     print()
 
     results = {}
-    header = (
-        f"{'档位':>9} | {'Worker 体':>11} | {'端到端':>11} | {'框架开销':>10} | {'占比':>8}"
-    )
+    header = f"{'档位':>9} | {'Worker 体':>11} | {'端到端':>11} | {'框架开销':>10} | {'占比':>8}"
     print(header)
     print("-" * len(header))
 
