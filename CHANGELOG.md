@@ -10,7 +10,31 @@
 
 ## [Unreleased]
 
-（暂无）
+### Removed
+
+- **运行依赖移除 `gevent`**（BREAKING，变更 `align-execution-primitives` / #31）：事件投递
+  与状态 effect 改用 `concurrent.futures` 线程执行器；`greenlet` / `zope-event` /
+  `zope-interface` 随之出依赖树（#34 由此解决），安装不再触发源码构建。
+  直接依赖"框架顺带装上 gevent"的使用者需自行声明。
+- `core/aop/validation.py` 整模块删除（`@validation` / `validation_params` /
+  `params_validate_map`；零使用、零规格，#49）；`worker_registry.register_worker` 装饰器
+  删除（死分支且与 `Master.register_worker` 构成第二注册真源）。
+
+### Changed
+
+- `ThreadSafeDict` 的互斥锁改为**每实例一把 `threading.RLock`**（原模块级单把
+  `multiprocessing.Lock` 把全进程串行化）；锁不入 pickle，状态机持久化行为不变。
+- `BaseFIFO` / `DelayFIFO` 存储换 `collections.deque`（出队 O(1)）；API 与空队返回
+  `None` 的语义不变。
+- 事件投递与状态 effect 的 join 超时项、回调异常从静默消失改为记入日志（可观测性
+  增强；写路径同步等待 ≤5s 语义保留）。
+
+### Deprecated
+
+- `@worker` / `worker_register` 退出 `zoo_framework.core` 与 `core.aop` 的公共导出面（#49）；
+  模块路径 `zoo_framework.core.aop.worker` 保留一个 minor 周期供迁移，使用时发
+  `DeprecationWarning`。注册 Worker 的唯一接通路径是 `Master.register_worker(name, cls)`；
+  下个 minor 连同 `workers.WorkerRegister` 一并删除。
 
 ---
 

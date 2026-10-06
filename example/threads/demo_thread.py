@@ -1,13 +1,15 @@
 import weakref
 from time import sleep
 
-from zoo_framework.core.aop import logger, worker
+from zoo_framework.core.aop import logger
 from zoo_framework.statemachine import StateMachineManager
 from zoo_framework.utils import LogUtils
 from zoo_framework.workers import BaseWorker
 
 
-@worker(count=20)
+# 历史上的 `@worker(count=20)` 已随 cleanup-aop-public-surface（#49）判废：它把实例
+# 写进不被 Master 读取的 legacy 表，注册 20 个也从不被派发。现在的接通路径是
+# `example/main.py` 里的 `master.register_worker("TestThread", DemoThread)`。
 @logger
 class DemoThread(BaseWorker):
     """Demo Worker - 修复内存泄漏版本
