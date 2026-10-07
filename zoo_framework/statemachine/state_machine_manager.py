@@ -31,20 +31,37 @@ class StateMachineManager:
     def load_state_machines(self, state_machine=None):
         """加载状态机.
 
-        【已知缺陷】对本框架自己写出的文件，本方法**实际什么都没加载**：落盘的是
-        `get_state_machines()` 返回的 `ThreadSafeDict`（见 state_machine_work.py 的
-        `pickle.dump(deepcopy(...))`），而 `ThreadSafeDict` **不是** `dict` 的子类
-        （实测 `isinstance(ThreadSafeDict(), dict) is False`），于是下面的守卫恒假、
-        赋值从不执行，`_local_store_loaded` 却被置为 True —— 即**状态从未真正恢复**，
-        且"已加载"的假象会阻止后续重试。属确定的语义缺陷，但"该合并还是该替换、
-        与进程级单例身份如何交互"是未定的语义问题，**故不猜修**（见
-        openspec/changes/establish-type-gate/tasks.md 3.1 的记录）。
-        此行本身只做类型上的收口：入参若是普通 `dict`，包成 `ThreadSafeDict` 再存，
-        使声明类型 `ThreadSafeDict[str, StateScope]` 在**每条路径上都为真**——原先直接
-        赋 `dict` 会让后续 `has_key()` 调用在运行期炸掉（`dict` 无此方法）。
+        恢复语义（变更 fix-state-restore / #72 裁定）：**整表替换**。
+        现行唯一消费路径是进程首次解析后从盘载入（当前实例必为空表），替换与
+        合并等价；在非空状态上显式重载是使用者的有意动作。
+
+        历史缺陷（已修）：落盘的是 `get_state_machines()` 返回的 `ThreadSafeDict`，
+        而它**不是** `dict` 的子类——旧守卫 `isinstance(state_machine, dict)` 对自己
+        写出的文件恒假，赋值从不执行，`_local_store_loaded` 却被置真：状态从未恢复，
+        "已加载"假象还挡死重试（实测见 tests/test_state_restore.py）。现守卫按真实
+        类型分派：
+
+        - `ThreadSafeDict`：原样恢复（本框架自己的落盘形态）
+        - 普通 `dict`：包成 `ThreadSafeDict`，使声明类型在每条路径上为真
+          （旧文件/手工注入的兼容入口；直接存 dict 会让 `has_key()` 运行期炸掉）
+        - 其它非 None 入参：`TypeError` 明确拒绝——静默忽略正是旧缺陷的同族形态；
+          `StateMachineWorker` 的异常路径会退回全新状态并留下错误日志
+
+        Args:
+            state_machine: 待恢复的状态域映射；None 表示无可恢复内容，直接进入新状态
+
+        Raises:
+            TypeError: 入参既不是 None、也不是 dict/ThreadSafeDict
         """
-        if state_machine is not None and isinstance(state_machine, dict):
-            self._state_scope_map = ThreadSafeDict(state_machine)
+        if state_machine is not None:
+            if isinstance(state_machine, ThreadSafeDict):
+                self._state_scope_map = state_machine
+            elif isinstance(state_machine, dict):
+                self._state_scope_map = ThreadSafeDict(state_machine)
+            else:
+                raise TypeError(
+                    f"状态机入参只能是 dict 或 ThreadSafeDict，收到 {type(state_machine).__name__}"
+                )
         self._local_store_loaded = True
 
     def get_and_create_scope(self, scope: str):

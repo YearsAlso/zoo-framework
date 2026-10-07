@@ -17,6 +17,14 @@
   `delay_time=5`；默认值保持 5，行为向后兼容。此前每次事件派发都绑定秒级节拍且
   无法调节（时间敏感场景如 agent 工具循环的单步延迟被钉死在秒级）。
 
+### Fixed
+
+- 状态机读盘恢复不再为空操作（变更 `fix-state-restore` / #72）：`ThreadSafeDict` 非
+  `dict` 子类，旧守卫对框架自家落盘文件恒假——状态从未恢复、`have_loaded()` 却声称
+  已加载并挡死重试（含备份恢复路径）。现按真实类型分派：ThreadSafeDict 原样恢复、
+  普通 dict 包装、未知类型 `TypeError` 拒绝；恢复语义裁定为整表替换。消费者
+  zoo-code-agent 的"重启续跑"就此解除阻塞。
+
 ### Removed
 
 - 死配置键 `event:sleep` 移除（#73）：随 gevent 消费循环删除后零消费，用户填写
