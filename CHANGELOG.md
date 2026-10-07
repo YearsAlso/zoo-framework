@@ -10,8 +10,17 @@
 
 ## [Unreleased]
 
+### Added
+
+- 事件/持久化管道节拍可配（变更 `configurable-run-delay` / #73）：`event:delay`、
+  `stateMachine:delay` 配置入口取代 `EventWorker` / `StateMachineWorker` 硬编码
+  `delay_time=5`；默认值保持 5，行为向后兼容。此前每次事件派发都绑定秒级节拍且
+  无法调节（时间敏感场景如 agent 工具循环的单步延迟被钉死在秒级）。
+
 ### Removed
 
+- 死配置键 `event:sleep` 移除（#73）：随 gevent 消费循环删除后零消费，用户填写
+  它没有任何效果——配置表"看起来可调"而实际不可调的误导终结。
 - **运行依赖移除 `gevent`**（BREAKING，变更 `align-execution-primitives` / #31）：事件投递
   与状态 effect 改用 `concurrent.futures` 线程执行器；`greenlet` / `zope-event` /
   `zope-interface` 随之出依赖树（#34 由此解决），安装不再触发源码构建。
