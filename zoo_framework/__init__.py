@@ -25,7 +25,7 @@
 许可证: Apache-2.0
 """
 
-__version__ = "0.8.4-beta"
+__version__ = "0.9.0"
 __author__ = "XiangMeng"
 __email__ = "mengxiang931015@live.com"
 __license__ = "Apache-2.0"
