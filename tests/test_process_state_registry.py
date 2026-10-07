@@ -86,8 +86,8 @@ def test_reset_process_state_is_idempotent():
 
 
 @pytest.mark.parametrize("canonical", ["reactor_map", "_channel_map"])
-def test_pending_carriers_are_marked_for_absorption(canonical: str):
-    """#50 的三个【已知欠债】在册且分类为待收编（切片二的输入）."""
+def test_absorbed_carriers_are_container_backed(canonical: str):
+    """#50 交付 1（方案 A）：两处注册表已收编为容器实例态，分类为容器本身."""
     matches = [c for c in CARRIERS.values() if canonical in c.canonical]
     assert matches, f"{canonical} 未登记"
-    assert matches[0].category == "待收编"
+    assert matches[0].category == "容器本身"
