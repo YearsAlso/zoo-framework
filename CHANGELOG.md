@@ -10,6 +10,14 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- 状态机读盘恢复不再为空操作（变更 `fix-state-restore` / #72）：`ThreadSafeDict` 非
+  `dict` 子类，旧守卫对框架自家落盘文件恒假——状态从未恢复、`have_loaded()` 却声称
+  已加载并挡死重试（含备份恢复路径）。现按真实类型分派：ThreadSafeDict 原样恢复、
+  普通 dict 包装、未知类型 `TypeError` 拒绝；恢复语义裁定为整表替换。消费者
+  zoo-code-agent 的"重启续跑"就此解除阻塞。
+
 ### Removed
 
 - **运行依赖移除 `gevent`**（BREAKING，变更 `align-execution-primitives` / #31）：事件投递
