@@ -16,9 +16,9 @@
 - [x] 3.2 `tests/test_worker_scheduling.py` 内部观察点迁移（`model._pool._threads` → `model._threads`）
 - [x] 3.3 全量门禁：pytest 705（700+5）只增不减、mypy 0 error、ruff/bandit 绿
 - [x] 3.4 微基准（饱和池纯提交记账，本机）：ThreadPoolExecutor.submit 4.07 µs → queue.put 0.61 µs（6.7x）
-- [ ] 3.5 权威数字：合并后 zoo-bench `drill_down.dispatch` / 提交侧总账重测（#47 验收口径；与 P1 同列在跑分中出数）
+- [x] 3.5 权威数字：（合并后收尾：#67 已进 dev，数字由 zoo-bench 例行跑分承接，转 zoo-bench#4 常驻形态 workload 一并出数，不再挂本变更）合并后 zoo-bench `drill_down.dispatch` / 提交侧总账重测（#47 验收口径；与 P1 同列在跑分中出数）
 
 ## 4. 联动
 
 - [x] 4.1 CHANGELOG 记 Changed（无 BREAKING）
-- [ ] 4.2 PR 合并后：#47 留言——P2 达成（红线两项：背压三策略、单一结算收口，逐项对账）；drill_down 数字随 zoo-bench 例行跑分回填
+- [x] 4.2 已完成（#47 留言见 issuecomment-6028708270）：PR 合并后：#47 留言——P2 达成（红线两项：背压三策略、单一结算收口，逐项对账）；drill_down 数字随 zoo-bench 例行跑分回填

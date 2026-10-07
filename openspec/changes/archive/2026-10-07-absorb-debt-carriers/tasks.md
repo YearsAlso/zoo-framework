@@ -13,4 +13,4 @@
 ## 3. 验证
 
 - [x] 3.1 全量 pytest 705 绿（扫描认领、conftest 单一路径复位、run-identity / worker-scheduling / scoped-container 回归全过）、mypy 0 error、ruff/bandit 绿；openspec validate 全绿
-- [ ] 3.2 PR 合并后：#50 关闭留言（交付 1 + 交付 2 + 验收两项全达成；`SingleFIFO.index_list` 作为登记表在册项转后续，不阻塞）；#32 在办表同步
+- [x] 3.2 已完成（#50 已关闭，留言见 issuecomment-6031634794；#32 同步随归档 PR chore/archive-round2）：PR 合并后：#50 关闭留言（交付 1 + 交付 2 + 验收两项全达成；`SingleFIFO.index_list` 作为登记表在册项转后续，不阻塞）；#32 在办表同步
