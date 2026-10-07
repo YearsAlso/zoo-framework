@@ -25,20 +25,28 @@ class EventWorker(BaseWorker):
     """
 
     def __init__(self):
+        # EventParams 惰性导入且需先于 props 组装：节拍参与 BaseWorker.__init__。
+        # 解析发生在首次导入、早于配置载入会冻结成默认值（见 #51）——本类由
+        # WorkerRegistry 在运行期构造，该顺序成立。
+        from zoo_framework.params import EventParams
+
         # is_loop 由 BaseWorker 以属性形式暴露、以 _props 为唯一真源；
         # 此处 MUST NOT 再用实例属性遮蔽它（属性无 setter，赋值会直接抛 AttributeError）。
-        BaseWorker.__init__(self, {"is_loop": True, "delay_time": 5, "name": "EventWorker"})
+        BaseWorker.__init__(
+            self,
+            {
+                "is_loop": True,
+                "delay_time": EventParams.EVENT_DELAY_TIME,
+                "name": "EventWorker",
+            },
+        )
 
         # 事件处理器注册器
         self.eventChannelManager: EventChannelManager = EventChannelManager()
 
         # 响应器投递执行器：实例级建一次（align-execution-primitives D1）。
         # 替代历史的 gevent.spawn/joinall：greenlet 系原语在 free-threaded 构建上
-        # 不可用，且实测单次派发 38.1 µs 远高于线程提交。EventParams 仍须**惰性导入**
-        # （解析发生在首次导入，早于配置载入会冻结成默认值，见 #51）——本类由
-        # WorkerRegistry 在运行期构造，此处与 _execute 内的导入都满足该顺序。
-        from zoo_framework.params import EventParams
-
+        # 不可用，且实测单次派发 38.1 µs 远高于线程提交。
         self._executor = ThreadPoolExecutor(
             max_workers=EventParams.EVENT_EXECUTOR_WORKERS,
             thread_name_prefix="zoo-event-reactor",
