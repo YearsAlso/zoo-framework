@@ -17,9 +17,9 @@ class ThreadSafeDict(Generic[_K, _V]):  # noqa: UP046 — 见上：mypy 1.7.1 �
     锁归属（align-execution-primitives D3，与 #50 的「线程安全归属 MUST 显式
     声明」同一条线）：**每实例一把 `threading.RLock`**。历史上是模块级单把
     `multiprocessing.Lock`——它把所有实例的读写串行化到同一把全进程锁上，实测
-    单次操作 2056 ns vs 线程锁 155 ns（13x）。锁随实例走：实例被整体替换
-    （如 tests/conftest.py 对 `reactor_map` / `_channel_map` 的复位）时其锁随之
-    更替，不残留进程级共享；选 RLock 是为防未来同实例嵌套调用自我死锁。
+    单次操作 2056 ns vs 线程锁 155 ns（13x）。锁随实例走：宿主对象被整体替换
+    或容器复位重建实例时，其锁随之更替，不残留进程级共享；选 RLock 是为防未来
+    同实例嵌套调用自我死锁。
 
     泛型参数化是**纯注解改动、运行期无变化**：裸写 `ThreadSafeDict()` 仍等价于
     `ThreadSafeDict[Any, Any]`，故既有用法不受影响；而**声明时给出类型参数**的那些容器

@@ -22,6 +22,12 @@
 
 ### Changed
 
+- 容器外三个【已知欠债】进程级共享收编进框架容器（变更 `absorb-debt-carriers` /
+  #50 交付 1，方案 A）：`EventReactorManager.reactor_map` 与
+  `EventChannelRegister._channel_map` 降为进程级实例属性（类级读取经元类代理转发，
+  既有写法兼容），`get_worker_registry()` 改由容器解析——`framework_container().reset()`
+  即彻底复位，conftest 三处手工复位清单退役。`WorkerRegistry` 同步补齐实例内 RLock，
+  `INSTANCE_GUARANTEED` 声明自此如实。无公共 API 变化；直接构造私有注册表的用法不变。
 - `thread_pool` 调度模型的容器换为「固定工作线程 + `queue.Queue`」（变更
   `replace-pool-dispatch-queue` / #47 P2）：去除 Future 记账（本机提交侧记账
   4.07 µs → 0.61 µs）；背压三策略、单一结算收口、六项模型契约逐项不变，

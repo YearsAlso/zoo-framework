@@ -4,10 +4,12 @@ P2 优化：重构 Worker 注册，支持更灵活的注册方式
 """
 
 import inspect
+import threading
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from typing import Any
 
+from zoo_framework.core.container import ThreadSafety, process_instance, register_process_instance
 from zoo_framework.utils import LogUtils
 from zoo_framework.workers import BaseWorker
 
@@ -68,9 +70,14 @@ class WorkerRegistry:
     - 装饰器注册
     - 延迟实例化
     - 依赖注入
+
+    线程安全归属（变更 absorb-debt-carriers / #50 收编的前提）：全部读-改-写由实例
+    内一把可重入锁保护，`INSTANCE_GUARANTEED` 声明如实；此前四张裸 dict 在
+    运行期注册与派发并发访问下并无自保。
     """
 
     def __init__(self):
+        self._lock = threading.RLock()
         self._worker_classes: dict[str, type[BaseWorker]] = {}
         self._worker_instances: dict[str, BaseWorker] = {}
         self._worker_factories: dict[str, Callable[[], BaseWorker]] = {}
@@ -99,8 +106,9 @@ class WorkerRegistry:
                 f"请改用 register_instance 或 register_factory"
             )
 
-        self._worker_classes[name] = worker_class
-        self._worker_metadata[name] = metadata or {}
+        with self._lock:
+            self._worker_classes[name] = worker_class
+            self._worker_metadata[name] = metadata or {}
         LogUtils.info(f"📦 Worker class '{name}' registered")
 
     def register_instance(
@@ -116,8 +124,9 @@ class WorkerRegistry:
         if not isinstance(worker_instance, BaseWorker):
             raise TypeError(f"Must be BaseWorker instance: {worker_instance}")
 
-        self._worker_instances[name] = worker_instance
-        self._worker_metadata[name] = metadata or {}
+        with self._lock:
+            self._worker_instances[name] = worker_instance
+            self._worker_metadata[name] = metadata or {}
         LogUtils.info(f"✅ Worker instance '{name}' registered")
 
     def register_factory(
@@ -132,8 +141,9 @@ class WorkerRegistry:
             factory: 工厂函数
             metadata: 元数据
         """
-        self._worker_factories[name] = factory
-        self._worker_metadata[name] = metadata or {}
+        with self._lock:
+            self._worker_factories[name] = factory
+            self._worker_metadata[name] = metadata or {}
         LogUtils.info(f"🏭 Worker factory '{name}' registered")
 
     def get_worker(self, name: str) -> Any | None:
@@ -147,25 +157,26 @@ class WorkerRegistry:
         Returns:
             Worker 实例
         """
-        # 1. 检查是否有实例
-        if name in self._worker_instances:
-            return self._worker_instances[name]
+        # 1. 检查是否有实例（读-改-写全程持锁；可重入，内部不回调外部代码）
+        with self._lock:
+            if name in self._worker_instances:
+                return self._worker_instances[name]
 
-        # 2. 检查是否有工厂
-        if name in self._worker_factories:
-            instance = self._worker_factories[name]()
-            self._worker_instances[name] = instance
-            return instance
+            # 2. 检查是否有工厂
+            if name in self._worker_factories:
+                instance = self._worker_factories[name]()
+                self._worker_instances[name] = instance
+                return instance
 
-        # 3. 检查是否有类（延迟实例化）
-        if name in self._worker_classes:
-            # mypy 看不到 register_class 里的注册期校验，故此处仍需定向 ignore —— 它压制的
-            # 是一条**已在注册期强制**的前提，不是未经验证的假设。
-            instance = self._worker_classes[name]()  # type: ignore[call-arg]
-            self._worker_instances[name] = instance
-            return instance
+            # 3. 检查是否有类（延迟实例化）
+            if name in self._worker_classes:
+                # mypy 看不到 register_class 里的注册期校验，故此处仍需定向 ignore —— 它压制的
+                # 是一条**已在注册期强制**的前提，不是未经验证的假设。
+                instance = self._worker_classes[name]()  # type: ignore[call-arg]
+                self._worker_instances[name] = instance
+                return instance
 
-        return None
+            return None
 
     def get_all_workers(self) -> dict[str, BaseWorker]:
         """获取所有 Worker 实例.
@@ -175,16 +186,17 @@ class WorkerRegistry:
         Returns:
             Worker 字典
         """
-        # 实例化所有延迟加载的 Worker
-        for name in list(self._worker_classes.keys()):
-            if name not in self._worker_instances:
-                self.get_worker(name)
+        # 实例化所有延迟加载的 Worker（持锁；get_worker 同线程重入）
+        with self._lock:
+            for name in list(self._worker_classes.keys()):
+                if name not in self._worker_instances:
+                    self.get_worker(name)
 
-        for name in list(self._worker_factories.keys()):
-            if name not in self._worker_instances:
-                self.get_worker(name)
+            for name in list(self._worker_factories.keys()):
+                if name not in self._worker_instances:
+                    self.get_worker(name)
 
-        return self._worker_instances.copy()
+            return self._worker_instances.copy()
 
     def unregister(self, name: str) -> None:
         """注销 Worker.
@@ -192,16 +204,17 @@ class WorkerRegistry:
         Args:
             name: Worker 名称
         """
-        # 如果存在实例，先销毁
-        if name in self._worker_instances:
-            worker = self._worker_instances[name]
-            if hasattr(worker, "_destroy"):
-                worker._destroy(None)
+        # 如果存在实例，先销毁（持锁；_destroy 为用户钩子，同线程重入安全由 RLock 保证）
+        with self._lock:
+            if name in self._worker_instances:
+                worker = self._worker_instances[name]
+                if hasattr(worker, "_destroy"):
+                    worker._destroy(None)
 
-        self._worker_classes.pop(name, None)
-        self._worker_instances.pop(name, None)
-        self._worker_factories.pop(name, None)
-        self._worker_metadata.pop(name, None)
+            self._worker_classes.pop(name, None)
+            self._worker_instances.pop(name, None)
+            self._worker_factories.pop(name, None)
+            self._worker_metadata.pop(name, None)
         LogUtils.info(f"🗑️ Worker '{name}' unregistered")
 
     def get_metadata(self, name: str) -> dict | None:
@@ -213,7 +226,8 @@ class WorkerRegistry:
         Returns:
             元数据字典
         """
-        return self._worker_metadata.get(name)
+        with self._lock:
+            return self._worker_metadata.get(name)
 
     def get_workers_by_tag(self, tag: str) -> list[str]:
         """根据标签获取 Worker 名称列表.
@@ -226,8 +240,10 @@ class WorkerRegistry:
         Returns:
             Worker 名称列表
         """
+        with self._lock:
+            snapshot = list(self._worker_metadata.items())
         result = []
-        for name, metadata in self._worker_metadata.items():
+        for name, metadata in snapshot:
             tags = metadata.get("tags", [])
             if tag in tags:
                 result.append(name)
@@ -242,8 +258,10 @@ class WorkerRegistry:
         Returns:
             Worker 名称列表
         """
+        with self._lock:
+            snapshot = list(self._worker_metadata.items())
         result = []
-        for name, metadata in self._worker_metadata.items():
+        for name, metadata in snapshot:
             priority = metadata.get("priority", 0)
             if priority >= min_priority:
                 result.append(name)
@@ -256,22 +274,20 @@ class WorkerRegistry:
 # 与 `Master.register_worker` 又构成第二条注册真源，故整删而非修复。
 
 
-# 全局注册表
-#
-# 【已知欠债】这是**模块级隐式全局单例**、且持有进程级共享的 Worker 状态。按
-# specs/scoped-container 的「框架自身的进程级共享 MUST 被显式归类」，它属于**尚未收编**
-# 的容器外载体（同类的还有 EventReactorManager.reactor_map 与 EventChannelRegister._channel_map
-# 两个类属性）。基线把它记为已知欠债、MUST NOT 被表述为已由容器归类。
-# 收编它需要一个独立变更，且**类属性与实例的收编方式不同**（类属性没有实例身份）。
-_global_registry: WorkerRegistry | None = None
+# 全局注册表（变更 absorb-debt-carriers / #50 交付 1，方案 A）：原模块级隐式单例
+# `_global_registry` 已收编进框架进程级容器——`get_worker_registry()` 解析容器项，
+# 复位统一走 `framework_container().reset()`，不再有第二套手工清表路径。
+# 直接 `WorkerRegistry()` 构造**不受影响**（仍可建私有实例）；只有进程级入口
+# 经容器。未加 @process_scoped 正是因为这条区分：装饰器会把**所有** `cls()`
+# 构造都变成单例，改变测试/局部注册表的既有语义。
+register_process_instance(WorkerRegistry, thread_safety=ThreadSafety.INSTANCE_GUARANTEED)
 
 
 def get_worker_registry() -> WorkerRegistry:
-    """获取全局 Worker 注册表."""
-    global _global_registry
-    if _global_registry is None:
-        _global_registry = WorkerRegistry()
-    return _global_registry
+    """获取进程级 Worker 注册表（框架容器内的唯一实例）."""
+    # 容器按 WorkerRegistry 注册（工厂即类本身），解析结果必为本类实例；
+    # 压制的是 resolve 的 Any 签名，不是未验证的假设。
+    return process_instance(WorkerRegistry)  # type: ignore[no-any-return]
 
 
 # 导出公共 API

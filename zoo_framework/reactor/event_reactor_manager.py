@@ -1,7 +1,7 @@
 import threading
 from typing import Any
 
-from zoo_framework.core.container import ThreadSafety, process_scoped
+from zoo_framework.core.container import ThreadSafety, process_instance, process_scoped
 from zoo_framework.utils import LogUtils
 from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 
@@ -9,28 +9,51 @@ from .event_reactor import EventReactor
 from .event_reactor_req import ChannelType, get_channel_manager
 
 
+class _ReactorMapProxyMeta(type):
+    """类级 `reactor_map` 读代理（变更 absorb-debt-carriers / #50 交付 1，方案 A）.
+
+    注册表状态已降为**进程级实例属性**——容器 reset 天然带走，conftest 不再单独
+    复位类属性。本元类只为**类级读取**（`EventReactorManager.reactor_map`）保提供
+    入口：它转发到进程级实例的同名属性。实例属性查找不经过元类，`self.reactor_map`
+    仍是普通实例属性；既有 classmethod 的 `cls.reactor_map` 写法零改动。
+    """
+
+    @property
+    def reactor_map(cls) -> ThreadSafeDict:
+        # 容器按 cls 注册（工厂即类本身），解析必返本类实例；
+        # 压制的是 resolve 的 Any 签名，不是未验证的假设。
+        return process_instance(cls).reactor_map  # type: ignore[no-any-return]
+
+    @reactor_map.setter
+    def reactor_map(cls, value: ThreadSafeDict) -> None:
+        # 兼容旧复位写法（整表替换）：语义转发到进程级实例。新代码 SHOULD 用
+        # 容器 reset / 本实例 clear()。
+        process_instance(cls).reactor_map = value
+
+
 @process_scoped(thread_safety=ThreadSafety.INSTANCE_GUARANTEED)
-class EventReactorManager:
+class EventReactorManager(metaclass=_ReactorMapProxyMeta):
     """事件响应处理器.
 
     P1 任务：支持事件通道隔离
+
+    注册表归属（变更 absorb-debt-carriers / #50）：`reactor_map` 是**进程级实例**的
+    状态（本类经 `process_scoped` 登记于框架容器），不再是类属性——线程安全声明
+    `INSTANCE_GUARANTEED` 至此与实现一致；容器复位即完全复位。
     """
 
-    # 【已知欠债】类属性即进程级共享状态，且属**尚未收编**的容器外载体：容器只持有本类的
-    # **实例**，够不到这个类属性，故 tests/conftest.py 必须单独复位它。依据见
-    # specs/scoped-container 的「框架自身的进程级共享 MUST 被显式归类」。
-    reactor_map: ThreadSafeDict[str, list[EventReactor]] = ThreadSafeDict()
-
     # 注册表的读-改-写需要整体互斥：ThreadSafeDict 只保护单次操作，
-    # 无法阻止两个线程同时为同一主题创建列表。
+    # 无法阻止两个线程同时为同一主题创建列表。锁留在类级：全进程只有一个
+    # 实例（process_scoped），类级锁与实例级锁同粒度，且 classmethod 可直接引用。
     _registry_lock = threading.RLock()
 
     def __init__(self):
         from zoo_framework.params import EventParams
 
-        # reactor_map 的值是"主题 -> 响应器列表"，必须展开后再逐个设置超时。
-        # 直接对映射值调用 set_event_timeout 会在注册表非空时抛 AttributeError
-        # （list 没有该方法），使响应器管理器在特定构造顺序下无法创建。
+        # 注册表是实例状态：新建即空表。保留对已有条目的超时刷新（同一实例被
+        # 重复"构造"时 __init__ 已被幂等守卫拦下，这里只会见到首次的空表）；
+        # 新注册项的超时改由 bind_topic_reactor 在登记现场设置。
+        self.reactor_map: ThreadSafeDict[str, list[EventReactor]] = ThreadSafeDict()
         for reactors in self.reactor_map.values():
             for reactor in reactors:
                 reactor.set_event_timeout(EventParams.EVENT_JOIN_TIMEOUT)
@@ -150,6 +173,11 @@ class EventReactorManager:
                 return True
 
             reactors.append(reactor)
+            # 超时在登记现场设置（取代原"构造时遍历刷新"兜底——注册表降为实例态后，
+            # 首次构造必为空表，遍历只能空转）
+            from zoo_framework.params import EventParams
+
+            reactor.set_event_timeout(EventParams.EVENT_JOIN_TIMEOUT)
             return True
 
     @classmethod
