@@ -22,6 +22,10 @@
 
 ### Changed
 
+- `thread_pool` 调度模型的容器换为「固定工作线程 + `queue.Queue`」（变更
+  `replace-pool-dispatch-queue` / #47 P2）：去除 Future 记账（本机提交侧记账
+  4.07 µs → 0.61 µs）；背压三策略、单一结算收口、六项模型契约逐项不变，
+  无 API 变化。停机"取消排队"语义等价：丢弃未开始任务、不中断已开始任务。
 - 内部重构（无行为影响，变更 `declare-debt-carriers` / #50 切片一）：新增进程级共享
   载体登记表 `core/process_state.CARRIERS`，测试复位由它生成；扫描测试拦截未登记的
   新载体。顺带删除零读写的死类属性 `StateEffectScheduler._response_list`。

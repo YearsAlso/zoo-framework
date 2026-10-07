@@ -523,7 +523,8 @@ class TestShutdown:
         assert _wait_until(lambda: worker.runs == 1)
 
         # 池由模型持有，且建池发生在 call_workers 内，故此处读取
-        threads = list(getattr(waiter.model._pool, "_threads", ()))
+        # （queue-backed 实现后工作线程直接暴露在 model._threads，不再借道 _pool._threads）
+        threads = list(waiter.model._threads)
         assert threads, "资源池未创建工作线程"
         waiter.shutdown()
         assert all(not thread.is_alive() for thread in threads), "停机后工作线程仍在运行"
