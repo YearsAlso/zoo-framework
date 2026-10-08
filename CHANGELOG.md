@@ -10,6 +10,14 @@
 
 ## [Unreleased]
 
+### Changed
+
+- 发布自动化的版本线跨分支连续（变更 `fix-release-version-continuity` / #82，
+  维护者不可见行为）：dev 算版本以 main 声明为下限抬升（逻辑入
+  `scripts/next_version.py`，可单测）；main bump 合并后自动向 dev 开 back-merge
+  PR；back-merge 入 dev 的声明回声不再误触打 tag。背景：main=0.9.0 后 dev 沿旧线
+  连发过 0.8.3b0/0.8.4b0（#76 人工回并修现象，本变更修机制）。
+
 ### Added
 
 - 事件/持久化管道节拍可配（变更 `configurable-run-delay` / #73）：`event:delay`、
