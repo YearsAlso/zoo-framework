@@ -6,4 +6,4 @@
 ## 2. 验证
 
 - [x] 2.1 全量 pytest 711（705+6）绿、mypy 0 error、ruff/bandit 绿；openspec validate 全绿
-- [ ] 2.2 PR 合并后：#72 关闭留言（消费者 zoo-code-agent 的"重启续跑"解除阻塞）；#32 在办表同步
+- [x] 2.2 已完成（#72 已关闭（PR #78 合并进 dev）；#73/#74 同步关闭；#32 同步随归档 PR chore/archive-round3）：PR 合并后：#72 关闭留言（消费者 zoo-code-agent 的"重启续跑"解除阻塞）；#32 在办表同步

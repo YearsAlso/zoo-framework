@@ -11,4 +11,4 @@
 ## 3. 验证
 
 - [x] 3.1 `tests/test_delay_params.py` 4 条：默认值兼容、两 worker 配置生效、死键不存在；全量 709 绿、mypy 0 error、ruff/bandit 绿
-- [ ] 3.2 PR 合并后：#73、#74 关闭留言；#32 在办表同步
+- [x] 3.2 已完成（#73 关闭 completed、#74 结案 not planned，留言均已发；#32 同步随归档 PR chore/archive-round3）：PR 合并后：#73、#74 关闭留言；#32 在办表同步
