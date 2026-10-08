@@ -13,4 +13,4 @@
 ## 3. 验证
 
 - [x] 3.1 pytest 724 全绿（715+9）；YAML 解析合法；release.yml 全部 19 个 run step 过 `bash -n`
-- [ ] 3.2 合并后线上验收信号：下一次 main bump 合并出现 back-merge PR；下一次 dev 内容 push 的 bump 沿 0.9.x；#82 关闭留言 + 归档本变更（随下轮收尾）
+- [x] 3.2 已完成（PR #83 已合入 dev；信号②实测达成：#83 合入后自动开出的 bump PR #84 目标 0.9.2-beta，沿 0.9.x 线；#82 已关闭。信号①③机制在位，待下次 main bump 顺带观察，异常另开 issue 不重开）：合并后线上验收信号：下一次 main bump 合并出现 back-merge PR；下一次 dev 内容 push 的 bump 沿 0.9.x；#82 关闭留言 + 归档本变更（随下轮收尾）
