@@ -10,8 +10,33 @@
 
 ## [Unreleased]
 
+### Changed
+
+- 发布自动化的版本线跨分支连续（变更 `fix-release-version-continuity` / #82，
+  维护者不可见行为）：dev 算版本以 main 声明为下限抬升（逻辑入
+  `scripts/next_version.py`，可单测）；main bump 合并后自动向 dev 开 back-merge
+  PR；back-merge 入 dev 的声明回声不再误触打 tag。背景：main=0.9.0 后 dev 沿旧线
+  连发过 0.8.3b0/0.8.4b0（#76 人工回并修现象，本变更修机制）。
+
+### Added
+
+- 事件/持久化管道节拍可配（变更 `configurable-run-delay` / #73）：`event:delay`、
+  `stateMachine:delay` 配置入口取代 `EventWorker` / `StateMachineWorker` 硬编码
+  `delay_time=5`；默认值保持 5，行为向后兼容。此前每次事件派发都绑定秒级节拍且
+  无法调节（时间敏感场景如 agent 工具循环的单步延迟被钉死在秒级）。
+
+### Fixed
+
+- 状态机读盘恢复不再为空操作（变更 `fix-state-restore` / #72）：`ThreadSafeDict` 非
+  `dict` 子类，旧守卫对框架自家落盘文件恒假——状态从未恢复、`have_loaded()` 却声称
+  已加载并挡死重试（含备份恢复路径）。现按真实类型分派：ThreadSafeDict 原样恢复、
+  普通 dict 包装、未知类型 `TypeError` 拒绝；恢复语义裁定为整表替换。消费者
+  zoo-code-agent 的"重启续跑"就此解除阻塞。
+
 ### Removed
 
+- 死配置键 `event:sleep` 移除（#73）：随 gevent 消费循环删除后零消费，用户填写
+  它没有任何效果——配置表"看起来可调"而实际不可调的误导终结。
 - **运行依赖移除 `gevent`**（BREAKING，变更 `align-execution-primitives` / #31）：事件投递
   与状态 effect 改用 `concurrent.futures` 线程执行器；`greenlet` / `zope-event` /
   `zope-interface` 随之出依赖树（#34 由此解决），安装不再触发源码构建。
@@ -22,6 +47,16 @@
 
 ### Changed
 
+- 容器外三个【已知欠债】进程级共享收编进框架容器（变更 `absorb-debt-carriers` /
+  #50 交付 1，方案 A）：`EventReactorManager.reactor_map` 与
+  `EventChannelRegister._channel_map` 降为进程级实例属性（类级读取经元类代理转发，
+  既有写法兼容），`get_worker_registry()` 改由容器解析——`framework_container().reset()`
+  即彻底复位，conftest 三处手工复位清单退役。`WorkerRegistry` 同步补齐实例内 RLock，
+  `INSTANCE_GUARANTEED` 声明自此如实。无公共 API 变化；直接构造私有注册表的用法不变。
+- `thread_pool` 调度模型的容器换为「固定工作线程 + `queue.Queue`」（变更
+  `replace-pool-dispatch-queue` / #47 P2）：去除 Future 记账（本机提交侧记账
+  4.07 µs → 0.61 µs）；背压三策略、单一结算收口、六项模型契约逐项不变，
+  无 API 变化。停机"取消排队"语义等价：丢弃未开始任务、不中断已开始任务。
 - 内部重构（无行为影响，变更 `declare-debt-carriers` / #50 切片一）：新增进程级共享
   载体登记表 `core/process_state.CARRIERS`，测试复位由它生成；扫描测试拦截未登记的
   新载体。顺带删除零读写的死类属性 `StateEffectScheduler._response_list`。

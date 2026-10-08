@@ -1,13 +1,17 @@
 # 🚀 自动化发布工作流（tag 驱动 + 版本号走 PR）
 #
 # 版本策略：
-# - dev 分支: 测试版本，patch 自增 (0.5.3-beta → 0.5.4-beta)
+# - dev 分支: 测试版本，patch 自增 (0.5.3-beta → 0.5.4-beta)；计算以 main 声明为**下限**
+#   （scripts/next_version.py，#82：防双分支版本线分叉再发）
 # - main 分支: 正式版本，minor 自增 (0.5.x → 0.6.0)
 #
-# 三条触发路径：
+# 四条触发路径：
 # 1) push 到 dev/main 且有改动（非"仅版本声明"）→ 算出版本、改三处版本声明 → 开/更新 bump PR
 # 2) push 到 dev/main 且**只**改了版本声明（即 bump PR 刚被合并）→ 自动创建并推送 tag v<版本>
+#    （例外：dev 的三处声明与 main 完全一致时是 back-merge 回声，不动作——见 decide）
 # 3) push tag v* → 测试 → 代码质量检查 → 构建 → 发布 PyPI → 创建 GitHub Release
+# 4) main 的 bump 合并（路径 2 在 main 上成立）→ 自动向 dev 开 back-merge PR，
+#    使 dev 版本声明跟上 main（#82 的治根因一环；仍需人工批准合并）
 #
 # 为什么不是"推送即发布"（以下三条是实测的分支保护设置，不是假设）：
 # - dev/main 受保护且 **lock_branch: true** → 锁定分支，工作流用 GITHUB_TOKEN 无法回写版本号；
@@ -109,6 +113,17 @@ jobs:
                   esac
                 done < /tmp/changed.txt
                 if [ "$ONLY_VERSION" = "1" ]; then ACTION="tag"; fi
+
+                # 声明回声检测（#82 路径 2 例外）：dev 推送只改了三处声明、且改完与
+                # origin/main 完全一致——那是 back-merge PR 入 dev 的回声，不是 dev 自己
+                # 的 bump。不打 tag：同版本号 tag 已存在于 main，撞上 tag-release 的
+                # "已存在则中止"守卫只会留下红色失败。正常 dev bump 后声明必领先 main，
+                # 此规则不误杀。
+                if [ "$ACTION" = "tag" ] && [ "$BRANCH" = "dev" ] \
+                   && [ -z "$(git diff origin/main HEAD -- pyproject.toml .env zoo_framework/__init__.py)" ]; then
+                  ACTION="none"
+                  echo "dev 三处声明与 origin/main 一致：back-merge 回声，不打 tag"
+                fi
               else
                 echo "本次推送未触及发布相关路径，不动作"
               fi
@@ -162,22 +177,24 @@ jobs:
           CURRENT_VERSION: ${{ steps.current_version.outputs.version }}
           VERSION_TYPE: ${{ needs.decide.outputs.version_type }}
           RELEASE_TYPE: ${{ needs.decide.outputs.release_type }}
+          BRANCH: ${{ needs.decide.outputs.branch }}
         run: |
           echo "当前版本: $CURRENT_VERSION / 版本类型: $VERSION_TYPE / 发布类型: $RELEASE_TYPE"
 
-          MAJOR=$(echo "$CURRENT_VERSION" | cut -d. -f1)
-          MINOR=$(echo "$CURRENT_VERSION" | cut -d. -f2)
-          PATCH=$(echo "$CURRENT_VERSION" | cut -d. -f3 | cut -d- -f1)
+          # 递增语义 + 下限抬升收敛到仓内脚本（可被 pytest 覆盖）。
+          # dev 传 main 的当前声明作 floor（#82：即使 back-merge PR 被漏合，
+          # 也算不出低于 main 的版本）；main 自身不需下限。
+          FLOOR=""
+          if [ "$BRANCH" = "dev" ]; then
+            git show origin/main:pyproject.toml > /tmp/main_pyproject.toml
+            FLOOR=$(python -c "import toml; print(toml.load('/tmp/main_pyproject.toml')['project']['version'])")
+            echo "下限（main 当前声明）: $FLOOR"
+          fi
 
-          if [ "$VERSION_TYPE" == "minor" ]; then
-            MINOR=$((MINOR + 1)); PATCH=0
-            NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          if [ -n "$FLOOR" ]; then
+            NEW_VERSION=$(python scripts/next_version.py --current "$CURRENT_VERSION" --type "$VERSION_TYPE" --release "$RELEASE_TYPE" --floor "$FLOOR")
           else
-            PATCH=$((PATCH + 1))
-            NEW_VERSION="$MAJOR.$MINOR.$PATCH"
-            if [ "$RELEASE_TYPE" == "beta" ]; then
-              NEW_VERSION="${NEW_VERSION}-beta"
-            fi
+            NEW_VERSION=$(python scripts/next_version.py --current "$CURRENT_VERSION" --type "$VERSION_TYPE" --release "$RELEASE_TYPE")
           fi
 
           echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
@@ -271,6 +288,60 @@ jobs:
           git tag -a "$TAG" -m "Release $TAG"
           git push origin "$TAG"
           echo "已推送 tag $TAG —— 经 PAT 推送，将触发 测试 / 质量检查 / 构建 / 发布"
+
+  # ─── 路径 4：main 的 bump 合并 → 自动向 dev 开 back-merge PR（#82 治根因）───
+  backmerge-dev:
+    name: 🔁 回并 main 版本线到 dev
+    needs: decide
+    # 与 tag-release 并行：两者都由"main 上只改了三处声明"触发，互不依赖
+    if: needs.decide.outputs.action == 'tag' && needs.decide.outputs.branch == 'main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_PAT }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install toml
+
+      - name: 读 main 当前版本（供标题）
+        id: main_version
+        run: |
+          VERSION=$(python -c "import toml; print(toml.load('pyproject.toml')['project']['version'])")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: 开 back-merge PR
+        uses: peter-evans/create-pull-request@v8
+        with:
+          # 同 bump PR：需 RELEASE_PAT（理由见文件头）。分支名带 sha 保证每轮唯一，
+          # 不复用上一轮 head；无工作区改动时 PR diff 即 main 领先 dev 的提交。
+          token: ${{ secrets.RELEASE_PAT }}
+          base: dev
+          branch: backmerge/main-${{ github.sha }}
+          sign-commits: true
+          delete-branch: true
+          title: "chore(release): back-merge main 版本线（v${{ steps.main_version.outputs.version }}）到 dev"
+          body: |
+            自动生成（release.yml 路径 4 / #82）：main 已升到 `v${{ steps.main_version.outputs.version }}`，
+            本 PR 把 main 的版本声明回并进 dev，使 dev 后续 bump 沿正确版本线续算。
+
+            - 历史上 main 的 bump 不回流 dev，两条线分叉后 dev 连发过倒退的 0.8.3b0/0.8.4b0；
+              另有下限抬升兜底（scripts/next_version.py），但漏合本 PR 仍会让 dev 声明暂时落后。
+            - 正常节奏下 dev 未触碰三处版本声明，本 PR 应无冲突。
+            - **合入 dev 后不会触发打 tag**：decide 的声明回声检测会识别这次推送。
+            - 本 PR 由机器人提交，仍需人工批准与合并。
 
   # ─── 路径 3：tag 推送 → 测试 → 质量 → 构建 → 发布 ───
   test:

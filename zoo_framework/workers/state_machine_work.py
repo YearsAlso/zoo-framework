@@ -24,9 +24,20 @@ class StateMachineWorker(BaseWorker):
     _instance_lock = threading.Lock()
 
     def __init__(self):
+        # 节拍参数化（变更 configurable-run-delay / #73）：与 EventWorker 同族，
+        # 惰性导入需先于 props 组装；本类由 WorkerRegistry 在运行期构造，顺序成立。
+        from zoo_framework.params import StateMachineParams
+
         # is_loop 由 BaseWorker 以属性形式暴露、以 _props 为唯一真源；
         # 此处 MUST NOT 再用实例属性遮蔽它（属性无 setter，赋值会直接抛 AttributeError）。
-        BaseWorker.__init__(self, {"is_loop": True, "delay_time": 5, "name": "StateMachineWorker"})
+        BaseWorker.__init__(
+            self,
+            {
+                "is_loop": True,
+                "delay_time": StateMachineParams.STATE_MACHINE_DELAY_TIME,
+                "name": "StateMachineWorker",
+            },
+        )
         # 标记是否已加载
         self._loaded = False
 

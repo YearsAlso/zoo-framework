@@ -63,14 +63,10 @@ def _register_all() -> dict[str, Carrier]:
     from zoo_framework.core.container import framework_container
     from zoo_framework.core.params_factory import ParamsFactory
     from zoo_framework.core.waiter.base_waiter import LEGACY_POLICY_TO_BACKPRESSURE
-    from zoo_framework.core.worker_registry import get_worker_registry
-    from zoo_framework.event.event_channel_register import EventChannelRegister
     from zoo_framework.fifo.single_fifo import SingleFIFO
     from zoo_framework.plugin import Plugin
-    from zoo_framework.reactor.event_reactor_manager import EventReactorManager
     from zoo_framework.reactor.event_reactor_req import get_channel_manager
     from zoo_framework.statemachine.state_index_factory import StateIndexFactory
-    from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 
     # ---- 复位动作（具名函数：返回 None，不把 tuple 表达式当 Callable 用） ----
 
@@ -85,19 +81,6 @@ def _register_all() -> dict[str, Carrier]:
     def reset_config_dict() -> None:
         ParamsFactory.config_params = {}
         ParamsFactory._generation = 0
-
-    def reset_reactor_map() -> None:
-        EventReactorManager.reactor_map = ThreadSafeDict()
-
-    def reset_channel_map() -> None:
-        EventChannelRegister._channel_map = ThreadSafeDict()
-
-    def reset_worker_registry() -> None:
-        registry = get_worker_registry()
-        registry._worker_classes.clear()
-        registry._worker_instances.clear()
-        registry._worker_factories.clear()
-        registry._worker_metadata.clear()
 
     def reset_channel_manager() -> None:
         manager = get_channel_manager()
@@ -152,33 +135,30 @@ def _register_all() -> dict[str, Carrier]:
             names=("zoo_framework.core.params_factory.ParamsFactory.config_params",),
             reset=reset_config_dict,
         ),
-        # ---- 待收编（#50 切片二处理收编方式；先复位隔离） --------------------
+        # ---- 已收编进容器（变更 absorb-debt-carriers / #50 交付 1 方案 A） ------
         Carrier(
             canonical="reactor.event_reactor_manager:reactor_map",
-            category="待收编",
+            category="容器本身",
             reason=(
-                "类属性即进程级共享（源码注释自标【已知欠债】）；容器持有本类实例、"
-                "够不到类属性，收编方式在切片二裁定。复位用整实例替换（重绑定），"
+                "已由【已知欠债】收编：注册表降为 process_scoped 实例的属性，"
+                "容器 reset 即彻底复位；类级读取经元类代理转发到进程级实例，"
                 "故按规范名认领。"
             ),
             names=("zoo_framework.reactor.event_reactor_manager.EventReactorManager.reactor_map",),
-            reset=reset_reactor_map,
         ),
         Carrier(
             canonical="event.event_channel_register:_channel_map",
-            category="待收编",
-            reason="同 reactor_map：类属性、容器外、【已知欠债】，复位=整实例替换。",
+            category="容器本身",
+            reason="同 reactor_map：已收编为实例态，容器 reset 即彻底复位。",
             names=("zoo_framework.event.event_channel_register.EventChannelRegister._channel_map",),
-            reset=reset_channel_map,
         ),
         Carrier(
-            canonical="core.worker_registry:_global_registry",
-            category="待收编",
+            canonical="core.worker_registry:get_worker_registry",
+            category="容器本身",
             reason=(
-                "模块级单例（WorkerRegistry 非容器类型，扫描不可见，登记以声明 + 复位）。"
-                "复位=清空其内部四张表（对象不重绑定，与现行 conftest 语义一致）。"
+                "原模块级隐式单例 _global_registry 已收编：进程级入口经框架容器解析，"
+                "容器 reset 后重建新实例即完全复位（直接构造私有实例不受影响）。"
             ),
-            reset=reset_worker_registry,
         ),
         # ---- 执行设施（无用户可见状态，不随用例重建） ------------------------
         Carrier(
@@ -205,14 +185,14 @@ def _register_all() -> dict[str, Carrier]:
             ),
             reset=reset_channel_manager,
         ),
-        # ---- 常量与扫描机制自身 ----------------------------------------------
+        # ---- 待收编（登记后由后续切片处理） ------------------------------
         Carrier(
             canonical="fifo.single_fifo:SingleFIFO.index_list",
             category="待收编",
             reason=(
                 "类属性 dict 跨实例共享——single_fifo 文档自标【已知欠债】，#50 清单"
                 "未列（扫描机制上线后新发现）。本切片只声明归类，不随用例复位"
-                "（改复位语义超出范围）。"
+                "（改复位语义超出范围）；与 reactor_map 同形态，收编在后续变更。"
             ),
             watch=SingleFIFO.index_list,
         ),
