@@ -605,8 +605,8 @@ class TestModeValidation:
 
         assert WaiterConstant.WORKER_MODE_PROCESS not in WaiterConstant.IMPLEMENTED_WORKER_MODES
         assert WorkerConstant.RUN_MODE_PROCESS not in WorkerConstant.IMPLEMENTED_RUN_MODES
-        assert "未实现" in inspect.getsource(waiter_constant)
-        assert "未实现" in inspect.getsource(worker_constant)
+        assert "unimplemented" in inspect.getsource(waiter_constant)
+        assert "unimplemented" in inspect.getsource(worker_constant)
 
     def test_reject_policy_refuses_more_workers_than_pool_size(self):
         """reject 背压策略：超出资源池尺寸时拒绝，而不是静默扩容（原 SafeWaiter 语义）."""

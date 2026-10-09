@@ -6,35 +6,47 @@ from zoo_framework.utils import FileUtils
 
 
 class ParamsFactory:
-    # 【已知欠债】类属性即进程级共享状态（`get_params` 实际读取的配置字典），须由测试单独
-    # 替换（见 tests/test_config_resolution.py 的 fixture）。属容器外、未收编的载体；依据与
-    # 判据见 specs/scoped-container 的「框架自身的进程级共享 MUST 被显式归类」。
+    # [Known debt] the class attribute is process-level shared state (the
+    # config dict actually read by `get_params`), to be replaced separately
+    # by tests (see the fixture in tests/test_config_resolution.py). A
+    # carrier outside the container, not yet absorbed; rationale and
+    # criteria in specs/scoped-container's "process-level sharing created by
+    # the framework itself MUST be explicitly classified".
     config_params: dict = {}
 
-    # 配置载入世代（变更 aop-determinism / issue #51）：每次成功读入配置文件 +1。
-    # @params 的解析发生在导入期（包根 `from . import params` 使这无法晚于任何显式
-    # 载入），故"解析时配置还没读到"无法在导入现场拦——改在 Master 构造时核对：
-    # 解析发生在旧世代、而本 Master 刚读到了非空配置 ⇒ 这些类被冻结在默认值，
-    # 大声失败。从未有配置文件时世代永为 0，核对不触发——"全默认"是合法运行形态。
+    # The config-loading generation (aop-determinism / issue #51): +1 per
+    # successful config load.
+    # @params resolution happens at import time (the package root's
+    # `from . import params` prevents it from being later than any explicit
+    # load), so "the config had not been read at resolution time" cannot be
+    # caught on the spot - the check happens at Master construction instead:
+    # resolved in an older generation while this Master just read a non-empty
+    # config => those classes were frozen at defaults, fail loudly. Without a
+    # config file the generation stays 0 forever and the check never fires -
+    # "all defaults" is a legitimate run shape.
     _generation = 0
 
     def __init__(self, config_path="./config.json"):
         if not os.path.exists(config_path):
             return
 
-        # 配置文件的读写 MUST 显式指定编码：默认编码随平台变化（Windows 中文环境为 GBK），
-        # 会让同一份配置在不同平台上被解析成不同的值，且不抛异常。
+        # Reads and writes of the config MUST use an explicit encoding: the
+        # default varies by platform (GBK on Windows in a Chinese locale),
+        # which would parse the same config differently per platform, with
+        # no exception raised.
         ParamsFactory.config_params = json.loads(FileUtils.read_text(config_path))
         ParamsFactory._generation += 1
 
-        # 处理 exports
+        # Process the _exports
         self.load_exports()
 
     def load_exports(self):
         export_files = self.config_params.get("_exports")
-        # 用 `isinstance` 而非 `type(x) != type([])`：后者不构成检查器可识别的类型收窄
-        # （故基线此处一直报 union-attr），且会连带**拒绝 list 的子类**。
-        # 配置来自 JSON，产出的是精确 list，两种写法在本场景等价。
+        # Use `isinstance` rather than `type(x) != type([])`: the latter is
+        # not a type narrowing the checker recognizes (so the baseline kept
+        # reporting union-attr here) and would additionally **reject list
+        # subclasses**. Config comes from JSON, producing an exact list;
+        # both forms are equivalent in this scenario.
         if not isinstance(export_files, list):
             return
 
@@ -50,9 +62,10 @@ class ParamsFactory:
         ParamsFactory.config_params[export_name] = content
 
     def get_export_file(self, file_name):
-        """读取导出配置文件；读不到或解析失败时返回空字典."""
+        """Read an exported config file; return an empty dict on missing or broken parse."""
         content = {}
-        # 读不到或解析不了都按"空配置"处理，调用方只关心能否取到内容
+        # Both unreadable and unparseable count as "empty config"; callers
+        # only care whether content is obtainable
         with contextlib.suppress(Exception):
             content = json.loads(FileUtils.read_text(file_name))
 
@@ -60,7 +73,9 @@ class ParamsFactory:
 
     @classmethod
     def generation(cls) -> int:
-        """当前配置载入世代（@params 解析时记录，Master 构造时核对，#51）."""
+        """The current config-loading generation (recorded when @params
+        resolves, checked at Master construction, #51).
+        """
         return cls._generation
 
     @classmethod

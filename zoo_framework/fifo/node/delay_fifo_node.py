@@ -2,7 +2,7 @@ import time
 
 
 class DelayFIFONode:
-    """延迟FIFO节点."""
+    """A delayed FIFO node."""
 
     def __init__(self, value, index, expired_time, loop_times=1):
         self.value = value
@@ -11,10 +11,12 @@ class DelayFIFONode:
         self.index = index
 
     def is_expire(self):
-        """是否已过期.
+        """Whether expired.
 
-        ``expired_time`` MUST 是**单调时钟**时刻（``time.monotonic()`` 基准）。
-        用墙钟判定会让 NTP 校时或夏令时跳变把未到期的节点判成到期（或反之）。
+        ``expired_time`` MUST be a **monotonic-clock** instant (based on
+        ``time.monotonic()``). Judging by wall clock would let NTP
+        corrections or DST jumps misjudge not-yet-expired nodes as expired
+        (or vice versa).
         """
         if self.expired_time <= time.monotonic():
             return True

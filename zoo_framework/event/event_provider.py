@@ -5,7 +5,7 @@ from zoo_framework.fifo.node import EventNode
 
 @process_scoped(thread_safety=ThreadSafety.INSTANCE_GUARANTEED)
 class EventProvider:
-    """事件提供器."""
+    """The event provider."""
 
     _eventChannelRegister = EventChannelRegister()
 
@@ -14,15 +14,15 @@ class EventProvider:
         if channel:
             channel.push_event(event)
         else:
-            # 事件通道不存在，说明没有响应器
+            # The channel does not exist, meaning no reactor was bound
             raise Exception("channel not found")
 
     def refresh(self, event: EventNode):
-        """刷新事件."""
+        """Refresh an event."""
         channel: EventChannel = self._eventChannelRegister.get_channel(event.channel_name)
         if channel:
-            # 通道中是否存在该事件
+            # Whether the event already exists in the channel
             channel.refresh_event(event)
         else:
-            # 事件通道不存在，说明没有响应器
+            # The channel does not exist, meaning no reactor was bound
             raise Exception("channel not found")

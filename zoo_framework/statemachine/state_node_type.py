@@ -2,7 +2,7 @@ from enum import Enum
 
 
 class StateNodeType(Enum):
-    """状态节点类型."""
+    """The state node type."""
 
     string = "string"
     number = "number"
@@ -10,12 +10,12 @@ class StateNodeType(Enum):
     boolean = "boolean"
     array = "array"
 
-    # 节点分支，也就是字典类型
+    # Node branch, i.e. the dict type
     branch = "branch"
 
     @staticmethod
     def get_type_by_value(value):
-        """根据值获取类型."""
+        """Get the type by value."""
         if isinstance(value, str):
             return StateNodeType.string
         if isinstance(value, (int, float)):

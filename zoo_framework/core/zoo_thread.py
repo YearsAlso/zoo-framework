@@ -11,7 +11,7 @@ class ZooThread(threading.Thread):
 
     def run(self):
         # target function of the thread class
-        try:  # 用try/finally 的方式处理exception，从而kill thread
+        try:  # try/finally handles the exception to kill the thread
             while True:
                 LogUtils.debug("running " + self.name)
         finally:
@@ -21,17 +21,19 @@ class ZooThread(threading.Thread):
         # returns id of the respective thread
         if hasattr(self, "_thread_id"):
             return self._thread_id
-        # `_active` 是 CPython 的私有实现细节（typeshed 未声明），故经 getattr 取，
-        # 而不是加 type: ignore——后者会把这个事实藏起来。
+        # `_active` is a CPython private implementation detail (not declared
+        # in typeshed), so take it via getattr rather than papering over with
+        # an ignore directive - the latter would hide that fact.
         for id, thread in getattr(threading, "_active", {}).items():
             if thread is self:
                 return id
         return None
 
     def raise_exception(self):
-        """引发异常."""
+        """Raise the exception."""
         thread_id = self.get_id()
-        # 精髓就是这句话，给线程发过去一个exceptions，线程就那边响应完就停了
+        # The essence is this line: send the thread an exception, and the
+        # thread stops on the other side once it responds
         res = ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, ctypes.py_object(SystemExit))
         if res > 1:
             ctypes.pythonapi.PyThreadState_SetAsyncExc(thread_id, 0)
