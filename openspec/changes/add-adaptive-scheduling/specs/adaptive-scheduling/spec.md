@@ -1,94 +1,87 @@
 # Delta Spec: adaptive-scheduling
 
-> **⚠️ 状态：已延后（维护者 2026-10-09 决定）**——本 delta 未实施、不合并；
-> 属冻结的规划资产，重启条件见 proposal.md 文首状态块。
+> **状态：已重开——bandit 方案（维护者 2026-10-09 指示「用 bandit 替代 ML，ML 不再推进」）。**
+> 原本 RECORD ML / 特征日志 / 权重档案的 REQUIREMENTS 已整体替换为本文件内容；ML 版标题历史见 git。
 
 ## ADDED Requirements
 
-### Requirement: 特征日志采集 (Feature Log Collection)
+### Requirement: DualArmWorker MUST 在自身生命周期内闭环路由决策
 
-框架 SHALL 在任务结算后采集该次执行的特征记录：任务标识、特征向量（执行时长、错误结果、输入尺寸、派发瞬间的队列深度统计量）、实际选择的执行路径。特征记录 SHALL 异步批量追加到 JSONL 日志文件（独立于既有日志），单次采集操作 MUST 为 O(1) 且 MUST NOT 阻塞结算路径。日志写入失败 MUST NOT 影响任务执行与投递。
+系统 SHALL 提供 `DualArmWorker` 基类：子类声明 python 执行体与原生任务名两条语义等价的臂。基类在每次执行前按逐类统计决策走哪条臂，执行后以**实测时长**为奖励增量更新对应臂的统计。决策与更新 MUST 全部发生在 Worker 自身生命周期内（构造/执行/hooks），MUST NOT 修改 `WorkerDispatchCore` / 调度模型 / waiter 的语义与热路径；结果 MUST 照既有 `WorkerResult` → 单一结算收口投递，MUST NOT 新增投递点。
 
-#### Scenario: 任务完成后落一条特征记录
+#### Scenario: 双臂切换决策在 worker 内完成
 
-- **WHEN** adaptive 启用且一个任务在结算点完成（成功或失败）
-- **THEN** 恰好一条特征记录被加入待写缓冲
-- **AND** 记录包含任务标识、特征值、执行路径与结果状态
+- **WHEN** 一个 `DualArmWorker` 子类被派发执行
+- **THEN** 决策（哪条臂）在 `_execute()` 入口完成，调度内核与调度器完全无感知
+- **AND** 结果经既有 `BaseWorker.run()` → `WorkerResult` → `settle` 投递，恰好一次
 
-#### Scenario: 日志失败不伤任务
+#### Scenario: 奖励来自实测时长
 
-- **WHEN** 特征日志文件不可写（磁盘满/权限）
-- **THEN** 采集被跳过，任务执行与投递结果不受影响
+- **WHEN** 某次执行完成（无论走哪条臂）
+- **THEN** 该臂的统计按本次实测执行时长增量更新（均值），不存储单次样本
 
-#### Scenario: 记录格式自描述
+### Requirement: 探索策略 SHALL 为 ε-greedy 且决策 O(1)
 
-- **WHEN** 特征日志被训练项目读取
-- **THEN** 每条记录自带特征 schema 版本字段，训练项目可按版本识别字段含义
+决策 SHALL 按 ε-greedy：以 1−ε 概率选当前均值更优的臂，以 ε 概率随机探索（`adaptive:exploration` 可配，默认 0.05）。单次决策 MUST 为 O(1) 字典查询 + 常数次浮点比较，MUST NOT 引入特征向量、权重文件或训练依赖。探索参数 MUST 有保守默认值。
 
-### Requirement: 模型权重加载与校验 (Model Weight Loading)
+#### Scenario: 均值更优的臂被多数选择
 
-框架 SHALL 在启用推理前加载训练产生的模型权重文件，并校验其自描述头：模型格式版本、特征 schema 版本、校验和。校验失败（文件缺失、损坏、版本不匹配）SHALL 显式拒绝该权重（可记录日志）并退回静态默认路径，MUST NOT 静默使用不兼容权重。权重文件 MUST 支持运行期重载（新训练产出后无需重启框架）。
+- **WHEN** 某任务类的历史统计显示原生臂平均更快，且 ε=0
+- **THEN** 该类的后续决策稳定选原生臂
 
-#### Scenario: 兼容权重被加载
+#### Scenario: 探索概率按配置生效
 
-- **WHEN** 权重文件存在且格式版本与特征 schema 版本均匹配
-- **THEN** 权重被加载，后续派发决策使用该模型
+- **WHEN** ε=0.05 且进行大量决策
+- **THEN** 约 5% 的决策随机探索非优势臂（统计断言，固定随机种子）
 
-#### Scenario: 不兼容权重显式拒绝
+### Requirement: 原生臂不可用时 MUST 显式拒绝而非静默回退
 
-- **WHEN** 权重文件缺失、校验和不符或版本不匹配
-- **THEN** 该权重不被使用，框架记录拒绝原因并退回静态默认路径
-- **AND** 不出现「部分采用不兼容权重」的状态
+子类声明了原生臂但 `native:enabled` 为假、或原生扩展缺失/握手失败时，系统 MUST NOT 静默回退到 python 臂执行（否则配置错误被伪装成自适应决策），MUST 显式报错拒绝（复用 `native-task-execution` 的明确拒绝语义与错误族）。
 
-#### Scenario: 运行期重载
+#### Scenario: native 未启用时显式拒绝
 
-- **WHEN** 新权重文件落盘且重载被触发（手动或周期检查）
-- **THEN** 后续决策使用新权重，重载失败（如新文件损坏）时保持旧权重或退回静态默认，不中断派发
+- **WHEN** `DualArmWorker` 子类声明了原生任务，但配置 `native:enabled=false`
+- **THEN** 构造或首轮执行时收到显式错误，错误指明原生执行未启用，不产生任何一次静默的 python 臂执行
 
-### Requirement: 在线推理决策 (Online Inference Decision)
+#### Scenario: 扩展缺失时显式拒绝
 
-框架 SHALL 在任务派发前使用已加载权重推理该任务类的执行路径选择（native 或普通）。推理 MUST 为纯 stdlib 实现（线性 softmax：特征向量与权重一次点积），单次开销 MUST NOT 超过 10 µs（本机参考形态）。特征向量维度 SHALL 与权重文件的特征 schema 版本一致。native 臂 SHALL 仅在原生执行已启用时可选，否则二元决策退化。
-
-#### Scenario: 模型指向 native 时派往 native
-
-- **WHEN** 某任务类的特征经推理得到 native 路径更优，且原生执行已启用
-- **THEN** 该任务类被派往 native 路径
-
-#### Scenario: 原生执行未启用时 native 臂退化
-
-- **WHEN** 推理给出 native 选择但原生执行未启用
-- **THEN** 该任务类按普通路径派发（不报错、不等待）
-
-#### Scenario: 无模型时冷启动退化
-
-- **WHEN** adaptive 启用但尚无兼容权重文件
-- **THEN** 所有任务类按静态默认路径派发，与关闭状态行为一致
+- **WHEN** 原生扩展未安装但子类声明了原生臂
+- **THEN** 错误指明缺失的是扩展（复用 adapter 的拒绝信息），不静默回退
 
 ### Requirement: 异常退路 (Failure Fallback)
 
-自适应决策层 SHALL fail-open：特征提取、日志采集、权重加载、推理中任何环节的错误 MUST NOT 传导为任务失败；发生时 MUST 回退静态默认路径继续派发。决策层 MUST NOT 静默吞掉任务本身的成功/失败结果。
+自适应决策层 SHALL fail-open：决策、统计更新、（若启用）统计持久化中任何环节的错误 MUST NOT 传导为任务失败。双臂执行体自身的异常照既有 `BaseWorker` 契约（`_on_error` hook → 向上传播 → 结算收口 error 分支），MUST NOT 被决策层吞掉或改写。
 
 #### Scenario: 决策器异常不影响任务
 
-- **WHEN** 决策器在派发前抛出异常
-- **THEN** 任务仍按静态默认路径派发并正常完成
-- **AND** 任务结果（成功/失败/错误族）不受决策器异常影响
+- **WHEN** 决策层在执行前抛出异常
+- **THEN** 任务按 python 臂（静态默认）执行并正常完成，结果/错误族不受决策层异常影响
+
+#### Scenario: 双臂执行体异常照既有契约
+
+- **WHEN** 某条臂的执行体抛出异常
+- **THEN** 异常经 `_on_error` 原样向上传播，结算收口按 error 分支处理，与普通 Worker 无差异
 
 ### Requirement: 关闭时零影响 (Disabled Zero Impact)
 
-当 `adaptive:enabled` 为假（含缺省）时，框架 MUST 与本变更合入前的行为完全一致：不提取特征、不写日志、不加载权重、不推理、不产生额外锁竞争。配置解析 SHALL 遵守既有 `ParamsPath` 三段语义（首路径 → aliases → default，falsy 值被尊重）。
+当 `adaptive:enabled` 为假（含缺省）时，框架 MUST 与本变更合入前的行为完全一致：不决策、不取锁、不更新统计、不写任何文件；继承 `DualArmWorker` 的子类也 MUST 按纯 python 臂执行（native 臂声明在关闭时即按上一条的显式拒绝处理）。配置解析 SHALL 遵守既有 `ParamsPath` 三段语义（falsy 值被尊重）。
 
 #### Scenario: 关闭时调度路径与合入前一致
 
-- **WHEN** `adaptive:enabled=false`（或缺省）且框架按 `adaptive-scheduling` 合入后运行
-- **THEN** worker 派发、结算、投递行为与合入前逐字节等价（不进入任何 adaptive 代码分支）
-- **AND** 无新锁被获取
+- **WHEN** `adaptive:enabled=false`（或缺省）且存在继承 `DualArmWorker` 的 worker
+- **THEN** 该 worker 按 python 臂执行，不进入任何 bandit 代码分支、不获取锁
+- **AND** 派发/结算/投递与合入前行为一致
 
 ### Requirement: 配置键族 (Configuration Keys)
 
-框架 SHALL 提供 `adaptive:*` 配置键族，经 lazy import 在 `ParamsFactory` 读取 config.json 之后解析（纪律同 `native:*`）。至少包含：`adaptive:enabled`（总开关，默认 false）、特征日志文件路径、模型权重文件路径、日志缓冲阈值。所有键 MUST 有保守默认值。
+框架 SHALL 提供 `adaptive:*` 配置键族，经 lazy import 在 `ParamsFactory` 读取 config.json 之后解析（纪律同 `native:*`）：`adaptive:enabled`（总开关，默认 false）、`adaptive:exploration`（探索率，默认 0.05）、`adaptive:statsPath`（统计持久化路径，**默认空 = 不持久化**）。所有键 MUST 有保守默认值；MUST NOT 声明无消费者的死键。
 
 #### Scenario: 键族可配置且默认保守
 
 - **WHEN** config.json 不含任何 `adaptive:*` 键
 - **THEN** 框架以 adaptive:enabled=false 等默认值运行，行为与静态调度一致
+
+#### Scenario: 统计持久化默认关闭
+
+- **WHEN** `adaptive:statsPath` 未配置（默认空）且 adaptive 已启用
+- **THEN** 统计仅存于进程内存，不产生任何文件写入
