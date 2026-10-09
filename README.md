@@ -295,9 +295,12 @@ dispatch and the wake-up back to the scheduler. It is therefore negligible for
 millisecond-scale work and dominant for sub-100 µs work — pick your task granularity
 accordingly. `bench/DECISION.md` has the breakdown and the cross-platform caveats.
 
-![Framework overhead as a share of end-to-end latency](docs/assets/bench/overhead_ratio.png)
-*Snapshot of the 0.10.0 run — the maintained, version-by-version report lives at
-[zoo-bench](https://yearsalso.github.io/zoo-bench/).*
+![Each baseline relative to the framework under test](docs/assets/bench/relative_multiple.png)
+*End-to-end duration of each baseline relative to Zoo Framework (above 1.0 = Zoo
+faster): at concurrency 1 and the smallest body tier Zoo is **2.27× faster than
+`process_pool`**, and at parity with `apscheduler` / `asyncio` / bare threads once
+the body is ≳40 µs. Snapshot of the 0.10.0 run — the maintained, version-by-version
+report lives at [zoo-bench](https://yearsalso.github.io/zoo-bench/).*
 
 > **On the numbers above.** They are one-off evidence from the `adopt-rust-core` study,
 > measured on Windows only — do not compare them against Linux runs.
