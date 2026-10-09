@@ -1,22 +1,30 @@
-"""线程安全归属声明。
+"""Thread-safety ownership declaration.
 
-跨 Worker 共享可变对象是并发的脚枪，而 ``@cage`` 现状对此**完全沉默**——它共享的却
-正是有状态的 manager。因此本容器把归属作为**注册必填声明**：不给隐式默认值，因为
-隐式默认一个安全假设正是这类缺陷的温床。
+Sharing mutable objects across Workers is a footgun of concurrency, and the
+old ``@cage`` was **completely silent** about it - yet what it shared was
+exactly the stateful managers. This container therefore makes ownership a
+**mandatory declaration at registration**: no implicit default is offered,
+because implicitly defaulting to a safe assumption is precisely the breeding
+ground for this class of defect.
 
-三种取值（见 design D5）：
+The three values (see design D5):
 
-- ``CONTAINER_SERIALIZED``：由容器保证串行访问。适合自身不加锁、但可接受串行的项
-- ``INSTANCE_GUARANTEED``：由实例自身保证。适合不可变、或内部自带锁的项
-- ``SINGLE_THREAD``：仅限单线程作用域使用。用于既不串行也不自保的项
+- ``CONTAINER_SERIALIZED``: the container guarantees serialized access. Fits
+  items that do no locking of their own but can accept serialization
+- ``INSTANCE_GUARANTEED``: the instance guarantees it itself. Fits immutable
+  items, or items with an internal lock
+- ``SINGLE_THREAD``: single-thread scopes only. For items that are neither
+  serialized nor self-guarding
 
-声明是**如实**的断言，不是让容器替实例兜底：把 ``INSTANCE_GUARANTEED`` 写在一个
-没有锁的可变对象上，等于把未验证的安全假设写进代码，比不写更糟。
+The declaration is an **honest** assertion, not the container bailing the
+instance out: writing ``INSTANCE_GUARANTEED`` on a lock-free mutable object
+writes an unverified safety assumption into the code - worse than not
+writing one.
 """
 
 
 class ThreadSafety:
-    """线程安全归属的合法取值."""
+    """The legal values of thread-safety ownership."""
 
     CONTAINER_SERIALIZED = "container_serialized"
     INSTANCE_GUARANTEED = "instance_guaranteed"
@@ -25,12 +33,12 @@ class ThreadSafety:
     ALL = (CONTAINER_SERIALIZED, INSTANCE_GUARANTEED, SINGLE_THREAD)
 
     DESCRIPTIONS = {
-        CONTAINER_SERIALIZED: "由容器保证串行访问",
-        INSTANCE_GUARANTEED: "由实例自身保证",
-        SINGLE_THREAD: "仅限单线程作用域使用",
+        CONTAINER_SERIALIZED: "serialized access guaranteed by the container",
+        INSTANCE_GUARANTEED: "guaranteed by the instance itself",
+        SINGLE_THREAD: "single-thread scopes only",
     }
 
     @classmethod
     def describe(cls, value: str) -> str:
-        """取该取值的说明文字；未知取值返回原值."""
+        """Get the description for a value; unknown values return as-is."""
         return cls.DESCRIPTIONS.get(value, str(value))

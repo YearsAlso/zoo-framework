@@ -3,41 +3,48 @@ from zoo_framework.core.container import ThreadSafety, process_scoped
 from .event_reactor import EventReactor
 
 
-# 声明为"仅限单线程"而不是"实例自身保证"：基类 EventReactor 的 retry_strategy /
-# retry_times 是执行期读取的可变字段，而 worker_names / on_result 由调用方在派发之外
-# 赋值，两者之间没有栅栏（清点时记为 F4）。当前不出事只是因为赋值都发生在启动/绑定期
-# 的单线程阶段——那是时序上的侥幸，不是保证。
+# Declared SINGLE_THREAD rather than INSTANCE_GUARANTEED: the base class
+# EventReactor's retry_strategy / retry_times are mutable fields read during
+# execution, while worker_names / on_result are assigned by the caller outside
+# dispatch, with no barrier between the two (recorded as F4 in the census).
+# Nothing breaks today only because the assignments all happen in the
+# single-threaded startup/binding phase - that is timing luck, not a guarantee.
 @process_scoped(thread_safety=ThreadSafety.SINGLE_THREAD)
 class WaiterResultReactor(EventReactor):
-    """Waiter 结果响应器.
+    """The Waiter result reactor.
 
-    订阅统一的结果主题（``WaiterConstant.WORKER_RESULT_TOPIC``）。响应器自身不做业务
-    处理，它的职责有两个：
+    Subscribes to the unified result topic
+    (``WaiterConstant.WORKER_RESULT_TOPIC``). The reactor itself does no
+    business processing; it has two duties:
 
-    - 让该主题成为事件管道上的一等公民——``bind_topic_reactor`` 需要有注册对象
-    - 提供按 Worker 名筛选的入口：设置 ``worker_names`` 后只接收指定 Worker 的结果
+    - make that topic a first-class citizen on the event pipeline -
+      ``bind_topic_reactor`` needs a registered target
+    - provide a filter-by-worker-name entry point: set ``worker_names`` to
+      receive results from only the named Workers
 
-    ``worker_names`` 为 None 表示接收全部 Worker 的结果。已接收的结果通过可选的
-    ``on_result`` 回调转交，响应器本身不累积结果，避免长期运行下无限增长。
+    ``worker_names`` being None means receive from all Workers. Received
+    results are handed over via the optional ``on_result`` callback; the
+    reactor itself never accumulates results, avoiding unbounded growth
+    over long runs.
     """
 
     def __init__(self):
         super().__init__("WaiterResultReactor")
         self._event_timeout = 0
-        # 只接收这些 Worker 的结果；None 表示不过滤
+        # Receive results from only these Workers; None means no filtering
         self.worker_names: list[str] | None = None
-        # 可选的接收回调，签名为 (WorkerResult) -> None
+        # The optional receive callback, signature (WorkerResult) -> None
         self.on_result = None
         self.set_event_callback(self._on_result)
 
     def accepts(self, result) -> bool:
-        """判断该结果是否应被本响应器接收.
+        """Decide whether this result should be accepted by the reactor.
 
         Args:
-            result: Worker 的执行结果
+            result: the Worker execution result
 
         Returns:
-            是否接收
+            whether to accept
         """
         if self.worker_names is None:
             return True
