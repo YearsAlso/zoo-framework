@@ -198,6 +198,9 @@ class TestBanditPolicy:
         for _ in range(20):
             policy.record("Fast", ARM_NATIVE, 0.01)
             policy.record("Fast", ARM_PYTHON, 0.5)
+        # 断言前提 = 纯利用态（spec 场景写明 ε=0）：默认 ε=0.05 有 5% 概率随机
+        # 探索成 python 臂——概率性断言在 CI 上会周期性翻红（issue 已复现）
+        policy._classes["Fast"].epsilon = 0
         assert policy.decide("Fast") == ARM_NATIVE
 
     def test_per_class_epsilon_override(self, monkeypatch):
@@ -689,7 +692,10 @@ class TestPersistence:
         assert snap["Fast"][ARM_NATIVE]["n"] == 20
         assert snap["Fast"][ARM_NATIVE]["mean"] == pytest.approx(0.01)
         assert snap["Fast"][ARM_PYTHON]["mean"] == pytest.approx(0.5)
-        # 决策与「从未重启」的等价形态一致：稳定选 native
+        # 决策与「从未重启」的等价形态一致：稳定选 native——先归零探索
+        # （恢复的先验正好验证了 restore 后 ν 快臂识别不受影响；ε=0.05 下
+        # 裸断言是概率性的，CI 已翻红）
+        second._classes["Fast"].epsilon = 0
         assert second.decide("Fast") == ARM_NATIVE
 
     def test_corrupted_file_treated_as_no_prior(self, monkeypatch, tmp_path):
