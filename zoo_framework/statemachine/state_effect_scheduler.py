@@ -4,14 +4,16 @@ from .state_node_index_factory import StateNodeIndexFactory
 
 
 class StateEffectScheduler:
-    """状态节点副作用调度器."""
+    """The state effect scheduler."""
 
     # TODO: 通过管道管理器
     _event_channel = EventChannelManager().get_channel(__name__)
 
-    # 历史上的类属性 `_response_list: set = set()` 已删（变更 declare-debt-carriers）：
-    # 全仓库零读写的死状态，却是一个类级可变共享——扫描登记机制上线后暴露，
-    # 与其登记一个死载体不如直接移除。
+    # The historical class attribute `_response_list: set = set()` was
+    # deleted (declare-debt-carriers): dead state with zero reads or writes
+    # repo-wide, yet a class-level mutable shared - exposed once the scan
+    # registration mechanism came online; removing it outright was better
+    # than registering a dead carrier.
 
     def __init__(self, state_machine):
         self.state_machine = state_machine
@@ -19,9 +21,10 @@ class StateEffectScheduler:
         self.state_effect_index = StateNodeIndexFactory.create_index(self.state_machine)
 
     def add_state_effect(self, state_effect):
-        """添加状态节点副作用
-        :param state_effect: 状态节点副作用
-        :return:
+        """Add a state effect.
+
+        Args:
+            state_effect: the state effect
         """
         if state_effect.state not in self.state_effect_map:
             self.state_effect_map[state_effect.state] = set()
@@ -29,31 +32,38 @@ class StateEffectScheduler:
         self.state_effect_index.add_state_effect(state_effect)
 
     def remove_state_effect(self, state_effect):
-        """移除状态节点副作用
-        :param state_effect: 状态节点副作用
-        :return:
+        """Remove a state effect.
+
+        Args:
+            state_effect: the state effect
         """
         if state_effect.state in self.state_effect_map:
             self.state_effect_map[state_effect.state].remove(state_effect)
             self.state_effect_index.remove_state_effect(state_effect)
 
     def get_state_effect(self, state):
-        """获取状态节点副作用
-        :param state: 状态节点
-        :return:
+        """Get the state effects for a state.
+
+        Args:
+            state: the state node
         """
         return self.state_effect_map.get(state, set())
 
     def get_state_effect_index(self):
-        """获取状态节点副作用索引
-        :return:
+        """Get the state effect index.
+
+        Returns:
+            the state effect index
         """
         return self.state_effect_index
 
     def execute_state_effect(self, state, *args, **kwargs):
-        """执行状态节点副作用
-        :param state: 状态节点
-        :return:
+        """Execute the state effects for a state.
+
+        Args:
+            state: the state node
+            *args: positional arguments passed to each effect
+            **kwargs: keyword arguments passed to each effect
         """
         state_effect_set = self.get_state_effect(state)
         for state_effect in state_effect_set:
