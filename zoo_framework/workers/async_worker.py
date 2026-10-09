@@ -57,7 +57,7 @@ class _BackgroundTask:
         """
         self._thread.join(timeout)
         if self._thread.is_alive():
-            raise TimeoutError("后台异步任务尚未结束")
+            raise TimeoutError("background async task has not finished yet")
 
         exception = self._container.get("exception")
         if exception is not None:
@@ -154,9 +154,10 @@ class AsyncWorker(BaseWorker, metaclass=ABCMeta):
             return asyncio.run(self._execute_async(*args, **kwargs))
 
         raise RuntimeError(
-            "execute() 不能在已运行的事件循环中调用——它无法同步等待协程结果，"
-            "返回未 await 的 Task 会让协程静默不执行。请在协程中直接 await "
-            "worker.async_execute(...)"
+            "execute() cannot be called inside a running event loop - it "
+            "cannot synchronously wait on a coroutine's result, and returning "
+            "an un-awaited Task would let the coroutine silently never run. "
+            "Please directly await worker.async_execute(...) inside a coroutine."
         )
 
     def _get_semaphore(self) -> asyncio.Semaphore:
