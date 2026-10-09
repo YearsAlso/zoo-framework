@@ -30,4 +30,4 @@
 - [x] 4.1 集成场景（有真扩展的本机）：声明双臂的 worker 混合执行 → 统计收敛（大帧原生臂均值更快并稳定被选）；验证：可复现统计断言（固定种子）
 - [x] 4.2 决策 μs 级验收：decide+record 单次 < 1µs（本机参考形态，bench 同次运行内对照）；验证：测量数据落档（`bench/demo_bandit_gain.py` 表3：decide 0.35µs + record 0.29µs ≈ 0.64µs/帧，收敛验证表2 双类目与包络规则同侧）
 - [x] 4.3 docs/ 更新：adaptive 一节——`DualArmWorker` 使用方式、`adaptive:*` 键族、与 `native:*` 的独立关系
-- [ ] 4.4 `/opsx:archive` + spec-syncer 核对 `openspec/specs/adaptive-scheduling/spec.md` 与实现一致；结果回调 issue（adaptive 线归属 issue 确认后追加）
+- [x] 4.4 `/opsx:archive` + spec-syncer 核对 `openspec/specs/adaptive-scheduling/spec.md` 与实现一致；结果回调 issue（adaptive 线归属 issue 确认后追加）
