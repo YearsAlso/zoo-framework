@@ -1,0 +1,21 @@
+[package]
+name = "zoo_framework_native"
+version = "0.1.0"
+edition = "2021"
+description = "zoo-framework 原生任务执行扩展（可选安装，契约版本 1）"
+
+[lib]
+name = "zoo_framework_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+# 与 bench/pyo3_probe 同版本带（0.23）：probe 已实测 allow_threads 释放 GIL 与
+# panic=unwind 边界兜底可用；升级须重测边界行为（native/DECISION.md 读数边界）。
+pyo3 = { version = "0.23", features = ["extension-module"] }
+
+[profile.release]
+# 与 probe 同纪律：panic MUST NOT 导致 Python 进程 abort。
+# unwind 保持，PyO3 在 FFI 边界把 panic 转为 PanicException，
+# 适配器侧再兜底映射为 NativePanic（contract.py D3 语义）。
+panic = "unwind"
+opt-level = 3
