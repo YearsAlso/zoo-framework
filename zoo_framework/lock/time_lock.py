@@ -2,34 +2,39 @@ from .base_lock import BaseLock
 
 
 class TimeLock(BaseLock):
-    """按剩余次数放行的计数闸门（与 CountLock 语义相同）.
+    """A count-gated permit holder (same semantics as CountLock).
 
-    历史说明：本类旧文档声称具备超时与回调语义，但实现中从未提供超时计时或
-    回调调用——``__init__`` 接收的 ``callback`` 只被保存、从未被调用，
-    ``timeout`` 实际被当作剩余放行次数递减。此处按实际行为如实描述，避免
-    文档与实现不符。
+    Historical note: this class's old docstring claimed timeout and callback
+    semantics, but the implementation never provided a timeout clock or any
+    callback invocation - the ``callback`` taken by ``__init__`` was only
+    stored, never called, and ``timeout`` actually behaves as the remaining
+    permit count being decremented. Described here as the actual behavior,
+    keeping documentation faithful to the implementation.
 
-    注意：与 ``CountLock`` 一样，本类覆写了 ``acquire`` / ``release``，因此
-    **不提供互斥、也不线程安全**，实际并未使用 ``BaseLock`` 持有的那把锁。
-    它仅适用于单线程内的次数控制。
+    Note: like ``CountLock``, this class overrides ``acquire`` / ``release``,
+    so it provides **neither mutual exclusion nor thread safety**, and the
+    lock held by ``BaseLock`` is not actually used. It only fits permit
+    counting within a single thread.
     """
 
     def __init__(self, timeout=1, callback=None):
-        """初始化计数闸门.
+        """Initialize the count gate.
 
         Args:
-            timeout: 剩余放行次数（参数名沿用历史，语义实为次数）
-            callback: 历史遗留参数，当前实现不会调用它
+            timeout: the remaining permit count (the parameter name follows
+                history; the semantics are actually a count)
+            callback: a legacy parameter; the current implementation never
+                calls it
         """
         super().__init__()
         self._timeout = timeout
         self._callback = callback
 
     def acquire(self, blocking=True, timeout=-1):
-        """尝试放行一次.
+        """Try to spend one permit.
 
         Returns:
-            还有剩余额度时为 True，否则为 False
+            True when quota remains, False otherwise
         """
         if self._timeout > 0:
             self._timeout -= 1
@@ -37,7 +42,7 @@ class TimeLock(BaseLock):
         return False
 
     def release(self):
-        """归还一次额度."""
+        """Return one permit."""
         self._timeout += 1
         return True
 
