@@ -1,6 +1,7 @@
-"""持久化调度器 - 解耦持久化逻辑.
+"""Persistence scheduler - decouples persistence logic.
 
-P1 任务：将 StateMachineWorker 中的持久化逻辑移到独立的调度器中
+P1 task: move the persistence logic out of StateMachineWorker into an
+independent scheduler.
 """
 
 import os
@@ -15,32 +16,33 @@ from zoo_framework.utils import FileUtils, LogUtils
 
 
 class PersistenceStrategy(ABC):
-    """持久化策略基类.
+    """Persistence strategy base class.
 
-    定义持久化的接口，支持不同的持久化实现。
+    Defines the persistence interface, supporting different persistence
+    implementations.
     """
 
     @abstractmethod
     def save(self, data: Any, filepath: str) -> bool:
-        """保存数据."""
+        """Save the data."""
         pass
 
     @abstractmethod
     def load(self, filepath: str) -> Any | None:
-        """加载数据."""
+        """Load the data."""
         pass
 
     @abstractmethod
     def validate(self, filepath: str) -> bool:
-        """验证数据完整性."""
+        """Validate the data integrity."""
         pass
 
 
 class PicklePersistenceStrategy(PersistenceStrategy):
-    """Pickle 持久化策略."""
+    """Pickle persistence strategy."""
 
     def save(self, data: Any, filepath: str) -> bool:
-        """使用 Pickle 保存数据."""
+        """Save the data with Pickle."""
         try:
             # 写入临时文件
             temp_path = filepath + ".tmp"
@@ -59,7 +61,7 @@ class PicklePersistenceStrategy(PersistenceStrategy):
             return False
 
     def load(self, filepath: str) -> Any | None:
-        """使用 Pickle 加载数据."""
+        """Load the data with Pickle."""
         try:
             with open(filepath, "rb") as f:
                 return pickle.load(f)  # nosec B301 — 见文件头的 pickle 说明
@@ -68,7 +70,7 @@ class PicklePersistenceStrategy(PersistenceStrategy):
             return None
 
     def validate(self, filepath: str) -> bool:
-        """验证 Pickle 文件完整性."""
+        """Validate the Pickle file integrity."""
         try:
             with open(filepath, "rb") as f:
                 content = f.read()
@@ -82,20 +84,20 @@ class PicklePersistenceStrategy(PersistenceStrategy):
 
 
 class FileChecksumValidator:
-    """文件校验和验证器.
+    """File checksum validator.
 
-    P1 任务：实现文件校验功能
+    P1 task: implement the file checksum feature.
     """
 
     @staticmethod
     def calculate_checksum(filepath: str) -> str:
-        """计算文件校验和（MD5）.
+        """Compute the file checksum (MD5).
 
         Args:
-            filepath: 文件路径
+            filepath: the file path
 
         Returns:
-            MD5 校验和字符串
+            The MD5 checksum string
         """
         import hashlib
 
@@ -110,38 +112,38 @@ class FileChecksumValidator:
 
     @staticmethod
     def verify_checksum(filepath: str, expected_checksum: str) -> bool:
-        """验证文件校验和.
+        """Verify the file checksum.
 
         Args:
-            filepath: 文件路径
-            expected_checksum: 期望的校验和
+            filepath: the file path
+            expected_checksum: the expected checksum
 
         Returns:
-            校验是否通过
+            Whether the verification passes
         """
         actual_checksum = FileChecksumValidator.calculate_checksum(filepath)
         return actual_checksum == expected_checksum
 
     @staticmethod
     def save_checksum(filepath: str, checksum: str) -> None:
-        """保存校验和到文件.
+        """Save the checksum to a file.
 
         Args:
-            filepath: 原文件路径
-            checksum: 校验和值
+            filepath: the original file path
+            checksum: the checksum value
         """
         checksum_path = filepath + ".checksum"
         FileUtils.write_text(checksum_path, checksum)
 
     @staticmethod
     def load_checksum(filepath: str) -> Any | None:
-        """从文件加载校验和.
+        """Load the checksum from a file.
 
         Args:
-            filepath: 原文件路径
+            filepath: the original file path
 
         Returns:
-            校验和值，如果不存在返回 None
+            The checksum value, or None if it does not exist
         """
         checksum_path = filepath + ".checksum"
         if not os.path.exists(checksum_path):
@@ -151,9 +153,9 @@ class FileChecksumValidator:
 
 
 class BackupManager:
-    """备份管理器.
+    """Backup manager.
 
-    P1 任务：实现文件备份和切片功能
+    P1 task: implement file backup and rotation.
     """
 
     def __init__(self, backup_dir: str = "backups", max_backups: int = 5):
@@ -161,13 +163,13 @@ class BackupManager:
         self.max_backups = max_backups
 
     def create_backup(self, filepath: str) -> str | None:
-        """创建文件备份.
+        """Create a file backup.
 
         Args:
-            filepath: 原文件路径
+            filepath: the original file path
 
         Returns:
-            备份文件路径，失败返回 None
+            The backup file path, or None on failure
         """
         if not os.path.exists(filepath):
             return None
@@ -202,13 +204,13 @@ class BackupManager:
             return None
 
     def restore_backup(self, filepath: str) -> bool:
-        """从备份恢复文件.
+        """Restore the file from a backup.
 
         Args:
-            filepath: 原文件路径
+            filepath: the original file path
 
         Returns:
-            是否恢复成功
+            Whether the restore succeeded
         """
         file_dir = os.path.dirname(filepath)
         backup_dir = os.path.join(file_dir, self.backup_dir)
@@ -249,11 +251,11 @@ class BackupManager:
             return False
 
     def _cleanup_old_backups(self, backup_dir: str, filename: str) -> None:
-        """清理旧备份文件.
+        """Clean up old backup files.
 
         Args:
-            backup_dir: 备份目录
-            filename: 原文件名
+            backup_dir: the backup directory
+            filename: the original file name
         """
         backup_files = []
 
@@ -279,15 +281,16 @@ class BackupManager:
 
 
 class PersistenceScheduler:
-    """持久化调度器.
+    """Persistence scheduler.
 
-    P1 任务：解耦持久化逻辑，由调度器决定何时持久化
+    P1 task: decouple the persistence logic; the scheduler decides when to
+    persist.
 
-    职责：
-    - 管理持久化时机
-    - 执行数据保存和加载
-    - 处理备份和恢复
-    - 验证数据完整性
+    Responsibilities:
+    - manage the persistence timing
+    - perform data save and load
+    - handle backup and restore
+    - validate the data integrity
     """
 
     def __init__(
@@ -314,7 +317,7 @@ class PersistenceScheduler:
         self._scheduler_thread: threading.Thread | None = None
 
     def start(self) -> None:
-        """启动持久化调度器."""
+        """Start the persistence scheduler."""
         if self._running:
             return
 
@@ -327,7 +330,7 @@ class PersistenceScheduler:
         LogUtils.info("✅ Persistence scheduler started")
 
     def stop(self) -> None:
-        """停止持久化调度器."""
+        """Stop the persistence scheduler."""
         self._running = False
 
         # 最后保存一次
@@ -340,7 +343,7 @@ class PersistenceScheduler:
         LogUtils.info("🛑 Persistence scheduler stopped")
 
     def _scheduler_loop(self) -> None:
-        """调度循环."""
+        """Scheduling loop."""
         import time
 
         while self._running:
@@ -352,10 +355,10 @@ class PersistenceScheduler:
                 LogUtils.error(f"❌ Scheduler error: {e}")
 
     def load(self) -> Any | None:
-        """加载数据.
+        """Load the data.
 
         Returns:
-            加载的数据，如果文件不存在或损坏返回 None
+            The loaded data, or None if the file is missing or corrupted
         """
         with self._file_lock:
             if not FileUtils.file_exists(self.filepath):
@@ -382,13 +385,13 @@ class PersistenceScheduler:
             return data
 
     def save(self, force: bool = False) -> bool:
-        """保存数据.
+        """Save the data.
 
         Args:
-            force: 是否强制保存（忽略 dirty 标记）
+            force: whether to force the save (ignore the dirty flag)
 
         Returns:
-            是否保存成功
+            Whether the save succeeded
         """
         with self._file_lock:
             if not force and not self._dirty:
@@ -419,15 +422,15 @@ class PersistenceScheduler:
             return success
 
     def mark_dirty(self) -> None:
-        """标记数据为已修改."""
+        """Mark the data as modified."""
         self._dirty = True
 
     def update_data(self, data: Any, auto_save: bool = False) -> None:
-        """更新数据.
+        """Update the data.
 
         Args:
-            data: 新数据
-            auto_save: 是否立即保存
+            data: the new data
+            auto_save: whether to save immediately
         """
         self._data = data
         self._dirty = True
@@ -436,11 +439,11 @@ class PersistenceScheduler:
             self.save()
 
     def get_data(self) -> Any | None:
-        """获取当前数据."""
+        """Get the current data."""
         return self._data
 
     def is_dirty(self) -> bool:
-        """检查数据是否被修改."""
+        """Check whether the data was modified."""
         return self._dirty
 
 

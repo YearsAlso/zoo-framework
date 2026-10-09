@@ -1,6 +1,6 @@
-"""Worker 注册器 - 重构 Worker 注册机制.
+"""Worker registry - reworked Worker registration mechanism.
 
-P2 优化：重构 Worker 注册，支持更灵活的注册方式
+P2 optimization: rework Worker registration to support more flexible registration styles.
 """
 
 import inspect
@@ -15,11 +15,14 @@ from zoo_framework.workers import BaseWorker
 
 
 def _requires_constructor_args(cls: type) -> bool:
-    """该类是否**必须**带参构造——延迟实例化（无参调用）的前提是否成立.
+    """Whether the class **must** be constructed with arguments - the premise for lazy instantiation (a no-arg call) to hold.
 
-    延迟实例化路径会 `cls()` 无参调用，故"可无参构造"是它的隐含前提。原先这个前提
-    无人校验：注册一个必须带参的类（`BaseWorker` 本身就是）会一路通过注册，
-    直到第一次实例化才抛 `TypeError`。此处把隐含前提变成**注册期可校验**的条件。
+    The lazy instantiation path calls `cls()` with no arguments, so
+    "constructible without arguments" is its implicit premise. That premise
+    used to be unchecked: registering a class that requires arguments
+    (`BaseWorker` itself is one) sailed through registration and only raised
+    `TypeError` at first instantiation. This turns the implicit premise into a
+    condition checked at **registration time**.
     """
     try:
         # 读 `cls.__init__` 会被判"不健全"（子类的 __init__ 可能与基类签名不兼容）——
@@ -41,39 +44,41 @@ def _requires_constructor_args(cls: type) -> bool:
 
 
 class WorkerRegistration(ABC):
-    """Worker 注册抽象基类.
+    """Worker registration abstract base class.
 
-    P2 优化：定义 Worker 注册的接口
+    P2 optimization: define the Worker registration interface.
     """
 
     @abstractmethod
     def register(self, name: str, worker_class: type[BaseWorker]) -> None:
-        """注册 Worker."""
+        """Register a Worker."""
         pass
 
     @abstractmethod
     def get_worker(self, name: str) -> Any | None:
-        """获取 Worker 实例."""
+        """Get the Worker instance."""
         pass
 
     @abstractmethod
     def get_all_workers(self) -> dict[str, BaseWorker]:
-        """获取所有 Worker."""
+        """Get all Workers."""
         pass
 
 
 class WorkerRegistry:
-    """Worker 注册表.
+    """Worker registry.
 
-    P2 优化：重构 Worker 注册机制，支持：
-    - 类注册和实例注册
-    - 装饰器注册
-    - 延迟实例化
-    - 依赖注入
+    P2 optimization: rework the Worker registration mechanism to support:
+    - class registration and instance registration
+    - decorator registration
+    - lazy instantiation
+    - dependency injection
 
-    线程安全归属（变更 absorb-debt-carriers / #50 收编的前提）：全部读-改-写由实例
-    内一把可重入锁保护，`INSTANCE_GUARANTEED` 声明如实；此前四张裸 dict 在
-    运行期注册与派发并发访问下并无自保。
+    Thread-safety ownership (the premise of being absorbed in change
+    absorb-debt-carriers / #50): all read-modify-writes are protected by one
+    reentrant lock in the instance, so the `INSTANCE_GUARANTEED` declaration
+    is honest; the four bare dicts previously had no self-protection under
+    concurrent registration and dispatch at runtime.
     """
 
     def __init__(self):
@@ -86,14 +91,14 @@ class WorkerRegistry:
     def register_class(
         self, name: str, worker_class: type[BaseWorker], metadata: dict | None = None
     ) -> None:
-        """注册 Worker 类（延迟实例化）.
+        """Register a Worker class (lazy instantiation).
 
-        P2 优化：支持延迟实例化，节省资源
+        P2 optimization: support lazy instantiation to save resources.
 
         Args:
-            name: Worker 名称
-            worker_class: Worker 类
-            metadata: 元数据（优先级、标签等）
+            name: the Worker name
+            worker_class: the Worker class
+            metadata: metadata (priority, tags, etc.)
         """
         if not issubclass(worker_class, BaseWorker):
             raise TypeError(f"Must inherit from BaseWorker: {worker_class}")
@@ -114,12 +119,12 @@ class WorkerRegistry:
     def register_instance(
         self, name: str, worker_instance: BaseWorker, metadata: dict | None = None
     ) -> None:
-        """注册 Worker 实例.
+        """Register a Worker instance.
 
         Args:
-            name: Worker 名称
-            worker_instance: Worker 实例
-            metadata: 元数据
+            name: the Worker name
+            worker_instance: the Worker instance
+            metadata: metadata
         """
         if not isinstance(worker_instance, BaseWorker):
             raise TypeError(f"Must be BaseWorker instance: {worker_instance}")
@@ -132,14 +137,14 @@ class WorkerRegistry:
     def register_factory(
         self, name: str, factory: Callable[[], BaseWorker], metadata: dict | None = None
     ) -> None:
-        """注册 Worker 工厂函数.
+        """Register a Worker factory function.
 
-        P2 优化：支持工厂模式创建 Worker
+        P2 optimization: support creating Workers via the factory pattern.
 
         Args:
-            name: Worker 名称
-            factory: 工厂函数
-            metadata: 元数据
+            name: the Worker name
+            factory: the factory function
+            metadata: metadata
         """
         with self._lock:
             self._worker_factories[name] = factory
@@ -147,15 +152,15 @@ class WorkerRegistry:
         LogUtils.info(f"🏭 Worker factory '{name}' registered")
 
     def get_worker(self, name: str) -> Any | None:
-        """获取 Worker 实例.
+        """Get a Worker instance.
 
-        按优先级查找：实例 -> 工厂 -> 类
+        Lookup order: instance -> factory -> class.
 
         Args:
-            name: Worker 名称
+            name: the Worker name
 
         Returns:
-            Worker 实例
+            The Worker instance
         """
         # 1. 检查是否有实例（读-改-写全程持锁；可重入，内部不回调外部代码）
         with self._lock:
@@ -179,12 +184,13 @@ class WorkerRegistry:
             return None
 
     def get_all_workers(self) -> dict[str, BaseWorker]:
-        """获取所有 Worker 实例.
+        """Get all Worker instances.
 
-        自动实例化所有已注册但未实例化的 Worker
+        Automatically instantiates every registered-but-not-instantiated
+        Worker.
 
         Returns:
-            Worker 字典
+            The Worker dict
         """
         # 实例化所有延迟加载的 Worker（持锁；get_worker 同线程重入）
         with self._lock:
@@ -199,10 +205,10 @@ class WorkerRegistry:
             return self._worker_instances.copy()
 
     def unregister(self, name: str) -> None:
-        """注销 Worker.
+        """Unregister a Worker.
 
         Args:
-            name: Worker 名称
+            name: the Worker name
         """
         # 如果存在实例，先销毁（持锁；_destroy 为用户钩子，同线程重入安全由 RLock 保证）
         with self._lock:
@@ -218,27 +224,27 @@ class WorkerRegistry:
         LogUtils.info(f"🗑️ Worker '{name}' unregistered")
 
     def get_metadata(self, name: str) -> dict | None:
-        """获取 Worker 元数据.
+        """Get the Worker metadata.
 
         Args:
-            name: Worker 名称
+            name: the Worker name
 
         Returns:
-            元数据字典
+            The metadata dict
         """
         with self._lock:
             return self._worker_metadata.get(name)
 
     def get_workers_by_tag(self, tag: str) -> list[str]:
-        """根据标签获取 Worker 名称列表.
+        """Get Worker names by tag.
 
-        P2 优化：支持按标签筛选 Worker
+        P2 optimization: support filtering Workers by tag.
 
         Args:
-            tag: 标签
+            tag: the tag
 
         Returns:
-            Worker 名称列表
+            The Worker name list
         """
         with self._lock:
             snapshot = list(self._worker_metadata.items())
@@ -250,13 +256,13 @@ class WorkerRegistry:
         return result
 
     def get_workers_by_priority(self, min_priority: int) -> list[str]:
-        """根据优先级获取 Worker 名称列表.
+        """Get Worker names by priority.
 
         Args:
-            min_priority: 最小优先级
+            min_priority: the minimum priority
 
         Returns:
-            Worker 名称列表
+            The Worker name list
         """
         with self._lock:
             snapshot = list(self._worker_metadata.items())
@@ -284,7 +290,7 @@ register_process_instance(WorkerRegistry, thread_safety=ThreadSafety.INSTANCE_GU
 
 
 def get_worker_registry() -> WorkerRegistry:
-    """获取进程级 Worker 注册表（框架容器内的唯一实例）."""
+    """Get the process-level Worker registry (the single instance in the framework container)."""
     # 容器按 WorkerRegistry 注册（工厂即类本身），解析结果必为本类实例；
     # 压制的是 resolve 的 Any 签名，不是未验证的假设。
     return process_instance(WorkerRegistry)  # type: ignore[no-any-return]

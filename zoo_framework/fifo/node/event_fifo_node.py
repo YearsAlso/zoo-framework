@@ -7,22 +7,22 @@ from zoo_framework.core.run_identity import current_identity
 
 
 class PriorityLevel(Enum):
-    """优先级等级.
+    """Priority level.
 
-    P2 优化：定义标准优先级等级
+    P2 optimization: define standard priority levels.
     """
 
-    CRITICAL = 1000  # 关键/紧急
-    HIGH = 500  # 高优先级
-    NORMAL = 100  # 正常
-    LOW = 10  # 低优先级
-    BACKGROUND = 1  # 后台任务
+    CRITICAL = 1000  # critical/urgent
+    HIGH = 500  # high priority
+    NORMAL = 100  # normal
+    LOW = 10  # low priority
+    BACKGROUND = 1  # background task
 
 
 class EventPriorityCalculator:
-    """事件优先级计算器.
+    """Event priority calculator.
 
-    P2 优化：实现加权优先级算法，防止优先级反转
+    P2 optimization: implement a weighted priority algorithm to prevent priority inversion.
     """
 
     @staticmethod
@@ -32,20 +32,22 @@ class EventPriorityCalculator:
         wait_time_weight: float = 0.3,
         max_wait_time: float = 300.0,  # 5分钟
     ) -> float:
-        """计算综合优先级分数.
+        """Compute the combined priority score.
 
-        算法：综合优先级 = 基础优先级 + 等待时间加成
+        Algorithm: combined priority = base priority + wait-time bonus.
 
-        等待时间加成会随时间增加而提高，防止低优先级任务饿死
+        The wait-time bonus grows with elapsed time, preventing low-priority
+        tasks from starving.
 
         Args:
-            priority: 基础优先级
-            create_time: 创建时刻（**单调时钟**基准，见 ``EventNode.create_time``）
-            wait_time_weight: 等待时间权重 (0-1)
-            max_wait_time: 最大等待时间（秒）
+            priority: the base priority
+            create_time: the creation instant (on the **monotonic clock**
+                basis, see ``EventNode.create_time``)
+            wait_time_weight: the wait-time weight (0-1)
+            max_wait_time: the maximum wait time in seconds
 
         Returns:
-            综合优先级分数（越高越优先）
+            The combined priority score (higher wins)
         """
         current_time = time.monotonic()
         wait_time = max(0, current_time - create_time)
@@ -60,32 +62,32 @@ class EventPriorityCalculator:
 
     @staticmethod
     def get_urgency_level(priority: int) -> str:
-        """根据优先级获取紧急程度描述.
+        """Describe the urgency level for a priority.
 
         Args:
-            priority: 优先级值
+            priority: the priority value
 
         Returns:
-            紧急程度描述
+            The urgency description
         """
         if priority >= PriorityLevel.CRITICAL.value:
-            return "🔴 紧急"
+            return "critical"
         if priority >= PriorityLevel.HIGH.value:
-            return "🟠 高"
+            return "high"
         if priority >= PriorityLevel.NORMAL.value:
-            return "🟡 中"
+            return "normal"
         if priority >= PriorityLevel.LOW.value:
-            return "🟢 低"
-        return "⚪ 后台"
+            return "low"
+        return "background"
 
 
 class EventNode:
-    """事件节点 - P2 优化版本.
+    """Event node - P2 optimized version.
 
-    优化内容：
-    1. 改进优先级计算算法
-    2. 添加防止优先级反转机制
-    3. 添加优先级等级枚举
+    Optimizations:
+    1. improved the priority computation algorithm
+    2. added an anti-priority-inversion mechanism
+    3. added the priority level enum
     """
 
     # 事件主题
@@ -129,16 +131,17 @@ class EventNode:
         priority: int = 0,
         priority_level: PriorityLevel | None = None,
     ):
-        """初始化事件节点.
+        """Initialize the event node.
 
-        P2 优化：支持使用 PriorityLevel 设置优先级
+        P2 optimization: supports setting the priority via a PriorityLevel.
 
         Args:
-            topic: 事件主题
-            content: 事件内容
-            channel_name: 通道名称
-            priority: 优先级数值
-            priority_level: 优先级等级（可选，优先级高于 priority 参数）
+            topic: the event topic
+            content: the event content
+            channel_name: the channel name
+            priority: the priority value
+            priority_level: the priority level (optional; takes precedence
+                over the priority argument)
         """
         self.topic = topic
         self.content = content
@@ -177,34 +180,34 @@ class EventNode:
         return not self.__eq__(other)
 
     def __lt__(self, other) -> bool:
-        """小于比较 - 用于排序.
+        """Less-than comparison - used for sorting.
 
-        P2 优化：支持直接比较，用于优先队列
+        P2 optimization: supports direct comparison, for the priority queue.
         """
         if not isinstance(other, EventNode):
             return NotImplemented
         return self.get_effective_priority() < other.get_effective_priority()
 
     def __gt__(self, other) -> bool:
-        """大于比较 - 用于排序."""
+        """Greater-than comparison - used for sorting."""
         if not isinstance(other, EventNode):
             return NotImplemented
         return self.get_effective_priority() > other.get_effective_priority()
 
     def __index__(self) -> int:
-        """返回优先级索引.
+        """Return the priority index.
 
-        P2 优化：使用加权优先级算法
+        P2 optimization: uses the weighted priority algorithm.
         """
         return int(self.get_effective_priority())
 
     def get_effective_priority(self) -> float:
-        """获取有效优先级.
+        """Get the effective priority.
 
-        P2 优化：使用 PriorityCalculator 计算
+        P2 optimization: computed via PriorityCalculator.
 
         Returns:
-            有效优先级分数
+            The effective priority score
         """
         return EventPriorityCalculator.calculate(
             priority=self.priority,
@@ -214,23 +217,23 @@ class EventNode:
         )
 
     def get_urgency(self) -> str:
-        """获取紧急程度描述.
+        """Get the urgency description.
 
         Returns:
-            紧急程度字符串
+            The urgency string
         """
         return EventPriorityCalculator.get_urgency_level(self.priority)
 
     def set_fail_response(self, fail_response: Callable[..., Any]):
-        """设置失败响应."""
+        """Set the failure response."""
         self.fail_response = fail_response
 
     def set_reactor_name(self, reactor_name: str):
-        """设置响应者名称."""
+        """Set the reactor name."""
         self.reactor_name = reactor_name
 
     def set_response_mechanism(self, response_mechanism: int, reactor_name: str | None = None):
-        """设置响应机制."""
+        """Set the response mechanism."""
         self.response_mechanism = response_mechanism
         if response_mechanism == 4:
             if reactor_name is None:
@@ -238,44 +241,47 @@ class EventNode:
             self.reactor_name = reactor_name
 
     def get_topic(self) -> str:
-        """获取事件主题."""
+        """Get the event topic."""
         return self.topic
 
     def get_content(self) -> str:
-        """获取事件参数."""
+        """Get the event content."""
         return self.content
 
     def set_timeout(self, timeout: int, timeout_response: Callable[..., Any] | None = None):
-        """设置超时时间."""
+        """Set the timeout."""
         self.timeout = timeout
         self.timeout_response = timeout_response
 
     def set_deadline(self, deadline: float | None):
-        """设置绝对截止期.
+        """Set the absolute deadline.
 
         Args:
-            deadline: 绝对时刻（**单调时钟**基准）；None 表示取消截止期
+            deadline: the absolute instant (**monotonic clock** basis); None
+                cancels the deadline
         """
         self.deadline = deadline
 
     def set_identity(self, run_id: str | None, session_id: str | None = None) -> None:
-        """显式设置运行标识.
+        """Set the run identity explicitly.
 
-        覆盖入队时从上下文盖章的值，供不在运行上下文内的生产方显式标注。
+        Overrides the values stamped from the context at enqueue time, for
+        producers acting outside a run context.
 
         Args:
-            run_id: 运行标识
-            session_id: 会话标识
+            run_id: the run identity
+            session_id: the session identity
         """
         self.run_id = run_id
         self.session_id = session_id
 
     def is_expire(self) -> bool:
-        """是否过期.
+        """Whether the node is expired.
 
-        **截止期优先于相对超时**：给出 ``deadline`` 时以它判定；否则按 ``timeout``
-        与创建时刻的间隔判定。二者与 ``create_time`` 同基准（单调时钟），
-        MUST NOT 混入墙钟。
+        **The deadline takes precedence over the relative timeout**: given a
+        ``deadline``, it decides; otherwise the interval between ``timeout``
+        and the creation instant decides. Both share the ``create_time`` basis
+        (monotonic clock) and MUST NOT mix in the wall clock.
         """
         now = time.monotonic()
 
@@ -288,28 +294,29 @@ class EventNode:
         return 0 < self.timeout < (now - self.create_time)
 
     def expire_callback(self):
-        """过期回调."""
+        """Expire callback."""
         if self.timeout_response is not None:
             self.timeout_response(self)
 
     def get_retry_times(self) -> int:
-        """获取剩余重试次数."""
+        """Get the remaining retry count."""
         return self.retry_times
 
     def set_retry_times(self, retry_times: int) -> None:
-        """设置剩余重试次数.
+        """Set the remaining retry count.
 
-        消费路径据此决定事件在无法投递时是回队重试还是记入死信。
+        The consume path decides from this whether an undeliverable event
+        requeues for retry or is moved to dead-letter.
 
         Args:
-            retry_times: 剩余重试次数；<=0 表示不再重试
+            retry_times: the remaining retry count; <=0 means no more retries
         """
         self.retry_times = max(0, int(retry_times))
 
     def increment_retry(self) -> None:
-        """增加重试次数.
+        """Increment the retry count.
 
-        P2 新增：自动增加重试次数
+        Added in P2: increments the retry count automatically.
         """
         self.retry_times += 1
 
