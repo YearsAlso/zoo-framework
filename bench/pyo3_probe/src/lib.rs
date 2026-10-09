@@ -4,7 +4,7 @@
 //! 测量的三件事：
 //!   1. Python -> Rust 的调用往返成本
 //!   2. Rust -> Python 的回调成本（持有 GIL）
-//!   3. Python::allow_threads 释放并重新获取 GIL 的往返成本
+//!   3. Python::detach 释放并重新获取 GIL 的往返成本
 //! 外加一条必然 panic 的路径，用于验证崩溃隔离（design D3）。
 
 use std::hint::black_box;
@@ -26,7 +26,7 @@ fn call_python(py: Python<'_>, callable: Py<PyAny>) -> PyResult<()> {
 /// 释放并重新获取 GIL 的往返成本.
 #[pyfunction]
 fn allow_threads_roundtrip(py: Python<'_>) {
-    py.allow_threads(|| {});
+    py.detach(|| {});
 }
 
 /// 细粒度形态：N 次跨界调用，每次只调用一次 Python 回调.
@@ -45,7 +45,7 @@ fn fine_grained(py: Python<'_>, n: usize, callable: Py<PyAny>) -> PyResult<()> {
 /// 会趋近于零，比值失去意义。
 #[pyfunction]
 fn coarse_grained(py: Python<'_>, n: usize, callable: Py<PyAny>) -> PyResult<()> {
-    py.allow_threads(|| {
+    py.detach(|| {
         let mut acc: u64 = 0;
         for i in 0..n as u64 {
             let term = black_box(i).wrapping_mul(black_box(i.wrapping_add(1)));
@@ -138,10 +138,10 @@ impl RustDispatcher {
             .ok_or_else(|| pyo3::exceptions::PyRuntimeError::new_err("dispatcher 已停机"))?;
 
         runtime.spawn(async move {
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 let _ = task.call0(py);
             });
-            Python::with_gil(|py| {
+            Python::attach(|py| {
                 let _ = completion.call0(py);
             });
         });
@@ -153,7 +153,7 @@ impl RustDispatcher {
     fn shutdown(&mut self, py: Python<'_>) {
         // shutdown_timeout 会消费 Runtime，因此从 Option 中取出
         if let Some(runtime) = self.runtime.take() {
-            py.allow_threads(|| {
+            py.detach(|| {
                 runtime.shutdown_timeout(std::time::Duration::from_secs(5));
             });
         }
