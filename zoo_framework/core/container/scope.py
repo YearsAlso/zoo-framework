@@ -1,19 +1,25 @@
-"""作用域表达。
+"""Scope expression.
 
-作用域是"跨 Worker 复用同一个对象"的边界：同一作用域内同一注册项解析到同一实例，
-不同作用域解析到不同实例。之所以需要它，是因为**进程级全局单例**在多会话场景下是
-错的——两个用户的 agent 会共享同一个工具客户端（串会话数据），两台设备会共享同一个
-连接句柄（写错设备）。
+A scope is the boundary of "reusing the same object across Workers": within
+the same scope the same registration resolves to the same instance, across
+scopes to different instances. It is needed because a **process-level global
+singleton** is wrong in multi-session scenarios - two users' agents would
+share one tool client (cross-session data), two devices would share one
+connection handle (writing the wrong device).
 
-作用域以**显式句柄**表达（见 design D3）。调用方传入句柄，MUST NOT 从上下文变量隐式
-读取：`ThreadPoolExecutor` 提交的任务不继承调用方的上下文变量，隐式读取一旦落空，
-后果不是"丢标识"而是**取到别的会话的对象**，且是静默的。
+A scope is expressed as an **explicit handle** (see design D3). The caller
+passes the handle in and MUST NOT read it implicitly from context variables:
+tasks submitted by `ThreadPoolExecutor` do not inherit the caller's context
+variables, and when an implicit read falls through, the consequence is not a
+"lost identity" but **silently getting another session's object**.
 
-三种作用域：
+Three scopes:
 
-- 进程级：全进程唯一，跨会话仍是同一实例
-- 会话级：每个会话一个；会话边界由 ``core/run_identity`` 的会话标识承载
-- 原型级：每次解析都新建，不缓存
+- process-level: unique in the whole process, the same instance even across
+  sessions
+- session-level: one per session; the session boundary is carried by the
+  session identity of ``core/run_identity``
+- prototype-level: a fresh build on every resolution, not cached
 """
 
 from typing import Any
@@ -22,7 +28,7 @@ PROCESS_SCOPE_KEY = ("process",)
 
 
 class ScopeKind:
-    """作用域种类."""
+    """Scope kinds."""
 
     PROCESS = "process"
     SESSION = "session"
@@ -32,36 +38,42 @@ class ScopeKind:
 
 
 class Scope:
-    """作用域句柄.
+    """Scope handle.
 
-    句柄是不可变的标识，可安全地跨线程传递；它**不**携带实例缓存——缓存归容器所有。
+    The handle is an immutable identity, safe to pass across threads; it
+    does **not** carry the instance cache - the cache belongs to the
+    container.
 
     Attributes:
-        kind: 作用域种类，取值见 ``ScopeKind``
-        session_id: 会话标识；仅会话级作用域携带，其余为 None
+        kind: the scope kind, see ``ScopeKind`` for values
+        session_id: the session identity; carried only by a session scope,
+            None otherwise
     """
 
     __slots__ = ("kind", "session_id")
 
     def __init__(self, kind: str, session_id: str | None = None):
-        """构造作用域句柄。
+        """Construct a scope handle.
 
         Args:
-            kind: 作用域种类
-            session_id: 会话标识；仅会话级需要
+            kind: the scope kind
+            session_id: the session identity; only a session scope needs it
 
         Raises:
-            ValueError: 种类无法识别，或会话标识与种类不匹配（缺或多）
+            ValueError: the kind is unrecognized, or the session identity
+                does not match the kind (missing or extra)
         """
         if kind not in ScopeKind.ALL:
             raise ValueError(f"unknown scope kind {kind!r}; expected one of {list(ScopeKind.ALL)}")
 
-        # 会话级没有会话标识就无从区分会话，缓存会退化成进程级——这是静默的语义降级，
-        # 故在此明确拒绝，而不是补一个默认标识
+        # Without a session id, a session scope cannot tell sessions apart and
+        # the cache would degenerate to process level - a silent semantic
+        # downgrade, so reject it here rather than fill in a default identity
         if kind == ScopeKind.SESSION and not session_id:
             raise ValueError("a session scope requires a session id")
 
-        # 非会话级带上会话标识，说明调用方以为自己在隔离而实际没有，同样明确拒绝
+        # A non-session scope carrying a session id means the caller believed
+        # it was isolating when it was not; reject that explicitly too
         if kind != ScopeKind.SESSION and session_id is not None:
             raise ValueError(f"a {kind} scope does not accept a session id, got {session_id!r}")
 
@@ -70,35 +82,39 @@ class Scope:
 
     @classmethod
     def process(cls) -> "Scope":
-        """进程级作用域句柄."""
+        """The process-level scope handle."""
         return cls(ScopeKind.PROCESS)
 
     @classmethod
     def session(cls, session_id: str) -> "Scope":
-        """会话级作用域句柄.
+        """The session-level scope handle.
 
         Args:
-            session_id: 会话标识，通常取自 ``RunIdentity.session_id``
+            session_id: the session identity, usually taken from
+                ``RunIdentity.session_id``
         """
         return cls(ScopeKind.SESSION, session_id)
 
     @classmethod
     def prototype(cls) -> "Scope":
-        """原型级作用域句柄（每次解析新建）."""
+        """The prototype-level scope handle (a fresh build per resolution)."""
         return cls(ScopeKind.PROTOTYPE)
 
     @classmethod
     def of(cls, identity: Any) -> "Scope":
-        """由运行标识派生会话作用域.
+        """Derive a session scope from a run identity.
 
-        这是**显式**调用：句柄仍由调用方传入容器，只是省去了手工取 ``session_id``。
-        标识为 None 时明确拒绝，而不是退回进程级——那会静默地把两个会话合成一个。
+        This is an **explicit** call: the handle is still passed into the
+        container by the caller; it only saves the manual extraction of
+        ``session_id``. When the identity is None it is rejected explicitly,
+        not falling back to the process level - that would silently merge two
+        sessions into one.
 
         Args:
-            identity: ``RunIdentity`` 实例
+            identity: a ``RunIdentity`` instance
 
         Raises:
-            ValueError: 标识为 None 或缺少会话标识
+            ValueError: the identity is None or carries no session identity
         """
         if identity is None:
             raise ValueError(
@@ -113,7 +129,7 @@ class Scope:
 
     @property
     def cache_key(self) -> tuple | None:
-        """该作用域的缓存主体；原型级不缓存，返回 None."""
+        """The cache subject of the scope; a prototype scope does not cache and returns None."""
         if self.kind == ScopeKind.PROTOTYPE:
             return None
         if self.kind == ScopeKind.PROCESS:

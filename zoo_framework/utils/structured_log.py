@@ -1,6 +1,6 @@
-"""结构化日志配置.
+"""Structured log configuration.
 
-P2: 可观测性提升 - 使用 structlog 实现结构化日志
+P2: observability improvement - structured logging via structlog.
 """
 
 import logging
@@ -9,8 +9,8 @@ from typing import Any
 
 from .log_utils import SafeStreamHandler
 
-# 尝试导入 structlog，如果不可用则回退到标准库
-# 运行时安装: pip install structlog
+# Try importing structlog; fall back to the standard library if unavailable.
+# Install at runtime: pip install structlog
 try:
     import structlog
 except Exception:
@@ -21,21 +21,24 @@ else:
 
 
 class StructuredLogUtils:
-    """结构化日志工具.
+    """Structured log utility.
 
-    P2 优化：提供 JSON 格式的结构化日志，便于日志收集和分析
+    P2 optimization: JSON-formatted structured logs, easing log collection
+    and analysis.
 
-    特性：
-    - 结构化 JSON 日志输出
-    - 自动上下文绑定
-    - 性能指标自动收集
-    - 支持日志级别动态调整
+    Features:
+    - structured JSON log output
+    - automatic context binding
+    - automatic performance metric collection
+    - dynamic log-level adjustment
     """
 
     _instance: "StructuredLogUtils | None" = None
     _initialized = False
-    # 声明为 Any：structlog 可用时是 BoundLogger，不可用时是标准库 Logger，
-    # 两条路径的共同点只有"有 debug/info/... 方法"，任何具体类型都会把另一条路径排除掉。
+    # Declared as Any: when structlog is available it is a BoundLogger, when
+    # not it is a standard-library Logger; the only common ground of the two
+    # paths is having debug/info/... methods, and any concrete type would
+    # exclude the other path.
     _logger: Any = None
 
     def __new__(cls) -> "StructuredLogUtils":
@@ -53,14 +56,14 @@ class StructuredLogUtils:
         self._setup_logging()
 
     def _setup_logging(self) -> None:
-        """配置日志系统."""
+        """Configure the logging system."""
         if STRUCTLOG_AVAILABLE:
             self._setup_structlog()
         else:
             self._setup_standard_logging()
 
     def _setup_structlog(self) -> None:
-        """配置 structlog."""
+        """Configure structlog."""
         structlog.configure(
             processors=[
                 structlog.stdlib.filter_by_level,
@@ -71,7 +74,7 @@ class StructuredLogUtils:
                 structlog.processors.StackInfoRenderer(),
                 structlog.processors.format_exc_info,
                 structlog.processors.UnicodeDecoder(),
-                structlog.processors.JSONRenderer(),  # JSON 输出
+                structlog.processors.JSONRenderer(),  # JSON output
             ],
             context_class=dict,
             logger_factory=structlog.stdlib.LoggerFactory(),
@@ -82,10 +85,11 @@ class StructuredLogUtils:
         self._logger = structlog.get_logger("zoo_framework")
 
     def _setup_standard_logging(self) -> None:
-        """配置标准日志作为后备.
+        """Configure standard logging as the fallback.
 
-        控制台输出使用 SafeStreamHandler：在非 UTF-8 控制台下最坏情况是含非 ASCII
-        字符的字形降级，MUST NOT 是整条日志连同时间戳一起消失。
+        Console output uses SafeStreamHandler: on a non-UTF-8 console the
+        worst case is glyph degradation of non-ASCII characters; it MUST NOT
+        be the whole log line vanishing together with the timestamp.
         """
         handler = SafeStreamHandler(sys.stdout)
         handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
@@ -93,31 +97,33 @@ class StructuredLogUtils:
         self._logger = logging.getLogger("zoo_framework")
 
     def bind(self, **context: Any) -> "StructuredLogUtils":
-        """绑定上下文变量.
+        """Bind context variables.
 
-        使用示例：
+        Usage example:
             log = StructuredLogUtils().bind(worker="StateMachineWorker", task_id="123")
             log.info("Task started")
-            # 输出: {"event": "Task started", "worker": "StateMachineWorker", "task_id": "123"}
+            # output: {"event": "Task started", "worker": "StateMachineWorker", "task_id": "123"}
 
         Args:
-            **context: 上下文键值对
+            **context: the context key-value pairs
 
         Returns:
-            返回自身，支持链式调用
+            Itself, supporting chained calls
         """
         self._context.update(context)
-        # 补一个显式 `is not None`：`hasattr(None, "bind")` 在运行期本就为 False，故行为不变；
-        # 但静态检查无法从 hasattr 收窄 `Any | None`，补判空只为让这处既有防护可见。
+        # An explicit `is not None`: hasattr(None, "bind") is already False at
+        # runtime, so behavior is unchanged; but static checking cannot narrow
+        # `Any | None` from hasattr, so the added None check only makes this
+        # existing guard visible.
         if STRUCTLOG_AVAILABLE and self._logger is not None and hasattr(self._logger, "bind"):
             self._logger = self._logger.bind(**context)
         return self
 
     def unbind(self, *keys: str) -> "StructuredLogUtils":
-        """解绑上下文变量.
+        """Unbind context variables.
 
         Args:
-            *keys: 要解绑的键名
+            *keys: the key names to unbind
         """
         for key in keys:
             self._context.pop(key, None)
@@ -126,60 +132,60 @@ class StructuredLogUtils:
         return self
 
     def debug(self, event: str, **kwargs: Any) -> None:
-        """DEBUG 级别日志."""
+        """DEBUG level log."""
         self._log("debug", event, **kwargs)
 
     def info(self, event: str, **kwargs: Any) -> None:
-        """INFO 级别日志."""
+        """INFO level log."""
         self._log("info", event, **kwargs)
 
     def warning(self, event: str, **kwargs: Any) -> None:
-        """WARNING 级别日志."""
+        """WARNING level log."""
         self._log("warning", event, **kwargs)
 
     def error(self, event: str, **kwargs: Any) -> None:
-        """ERROR 级别日志."""
+        """ERROR level log."""
         self._log("error", event, **kwargs)
 
     def exception(self, event: str, **kwargs: Any) -> None:
-        """EXCEPTION 级别日志（包含异常信息）."""
+        """EXCEPTION level log (with exception info)."""
         self._log("exception", event, **kwargs)
 
     def _log(self, level: str, event: str, **kwargs: Any) -> None:
-        """内部日志方法."""
-        # 添加 emoji 标记
+        """Internal log method."""
+        # Add emoji markers
         emoji_map = {"debug": "🐛", "info": "ℹ️", "warning": "⚠️", "error": "❌", "exception": "💥"}
 
-        # 添加 zoo 主题 emoji
+        # Add zoo-themed emojis
         zoo_emojis = {"worker": "🦁", "cage": "🏠", "event": "🥘", "master": "👨‍🌾", "plugin": "🔌"}
 
-        # 合并上下文
+        # Merge the context
         log_data = {"event": event, "emoji": emoji_map.get(level, ""), **self._context, **kwargs}
 
-        # 添加主题 emoji
+        # Add topic emojis
         for key, emoji in zoo_emojis.items():
             if key in log_data:
                 log_data[f"{key}_emoji"] = emoji
 
-        # 记录日志
+        # Emit the log
         logger_method = getattr(self._logger, level)
         if STRUCTLOG_AVAILABLE:
             logger_method(**log_data)
         else:
-            # 标准库日志格式化
+            # Standard-library log formatting
             extra = " ".join([f"{k}={v}" for k, v in log_data.items() if k != "event"])
             logger_method(f"{log_data.get('emoji', '')} {event} | {extra}")
 
     def metric(self, name: str, value: float, unit: str = "", **tags: Any) -> None:
-        """记录指标.
+        """Record a metric.
 
-        P2: 可观测性 - 自动记录性能指标
+        P2: observability - record performance metrics automatically.
 
         Args:
-            name: 指标名称
-            value: 指标值
-            unit: 单位
-            **tags: 标签
+            name: the metric name
+            value: the metric value
+            unit: the unit
+            **tags: the tags
         """
         self.info(
             "metric_recorded",
@@ -191,13 +197,13 @@ class StructuredLogUtils:
 
 
 def get_logger(name: str | None = None) -> StructuredLogUtils:
-    """获取结构化日志器.
+    """Get a structured logger.
 
     Args:
-        name: 日志器名称
+        name: the logger name
 
     Returns:
-        结构化日志工具实例
+        A structured log utility instance
     """
     logger = StructuredLogUtils()
     if name:
@@ -207,7 +213,7 @@ def get_logger(name: str | None = None) -> StructuredLogUtils:
 
 # 兼容性：保留旧的 LogUtils 接口
 class LogUtilsCompatibility:
-    """兼容旧版 LogUtils 接口."""
+    """Compatible with the legacy LogUtils interface."""
 
     _logger: StructuredLogUtils | None = None
 
