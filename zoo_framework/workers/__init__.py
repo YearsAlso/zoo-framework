@@ -1,4 +1,5 @@
 from .base_worker import BaseWorker
+from .dual_arm_worker import DualArmWorker
 from .event_worker import EventWorker
 from .state_machine_work import StateMachineWorker
 from .worker_props import WorkerProps
@@ -21,6 +22,7 @@ except ImportError:
 
 __all__ = [
     "BaseWorker",
+    "DualArmWorker",
     "EventWorker",
     "StateMachineWorker",
     "WorkerProps",

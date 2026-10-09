@@ -389,6 +389,55 @@ classDiagram
 - 平均执行时间
 - 健康评分
 
+### 9. 🎯 自适应调度 - 双臂路由
+
+**职责**：按 Worker 类在线学习「原生执行 / Python 执行」哪条更快，逐类选择
+
+```mermaid
+classDiagram
+    class DualArmWorker {
+        <<base>>
+        +str native_task_name
+        +BanditPolicy policy
+        +_execute()
+        +_execute_python()
+        +_prepare_native_input()
+    }
+
+    class BanditPolicy {
+        +decide(worker_class_name)
+        +record(worker_class_name, arm, duration)
+        +snapshot()
+        +restore(classes)
+        +flush_stats()
+    }
+
+    class EpsilonGreedy {
+        +float epsilon
+        +decide(rng)
+        +record(arm, duration)
+        +restore(stats)
+    }
+
+    class StatsStore {
+        +str path
+        +flush(snapshot)
+        +load()
+    }
+
+    DualArmWorker --> BanditPolicy : 决策/更新
+    BanditPolicy --> EpsilonGreedy : 逐类持有
+    BanditPolicy --> StatsStore : 持久化
+```
+
+**工作方式**：
+- 子类声明 python 执行体 `_execute_python()` 与可选的原生任务名 `native_task_name` 两条语义等价的臂
+- 每次执行前 ε-greedy 决策走哪条臂，执行后以实测时长增量更新对应臂均值
+- 决策与更新全部在 Worker 自身生命周期内闭环，调度内核零感知
+- 关闭（`adaptive:enabled=false`，默认）时按纯 python 臂执行，不进分支、不取锁
+- 显式拒绝：声明了原生臂但 `native:enabled=false` 或扩展缺失 → 构造期报错，不静默回退
+- fail-open：决策/统计/持久化任何错误不传导为任务失败
+
 ---
 
 ## 🔄 数据流
@@ -459,6 +508,7 @@ sequenceDiagram
 | ScopedContainer | 按注册项的锁 + `ThreadSafety` 声明 | 按作用域持有共享实例；**不替实例加锁** |
 | StateScope | StateIndex | 状态隔离 |
 | PersistenceScheduler | RLock | 文件操作安全 |
+| EpsilonGreedy / BanditPolicy | Lock | 两臂统计读-改-写；`adaptive:enabled=false` 时不取锁 |
 
 ### 最佳实践
 
@@ -518,10 +568,15 @@ zoo_framework/
 │   ├── master.py          → workers, statemachine, plugin
 │   ├── waiter.py          → workers
 │   ├── worker_registry.py → workers
-│   └── persistence_scheduler.py → utils
+│   ├── persistence_scheduler.py → utils
+│   └── adaptive/          → core.params_factory, utils（lazy import 纪律）
+│       ├── bandit.py          （ε-greedy 两臂统计）
+│       ├── policy.py          （逐类决策进程级单例）
+│       └── stats_store.py     （统计持久化，默认关闭）
 ├── workers/
 │   ├── base_worker.py     → utils
 │   ├── async_worker.py    → base_worker
+│   ├── dual_arm_worker.py → base_worker, core/adaptive
 │   └── state_machine_work.py → statemachine
 ├── statemachine/
 │   ├── state_machine_manager.py → utils

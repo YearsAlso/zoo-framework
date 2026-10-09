@@ -1,0 +1,2 @@
+# Rust 构建产物不入库（同 bench/pyo3_probe 的纪律）
+/target/
