@@ -1,22 +1,29 @@
 from ..params_factory import ParamsFactory
 from ..params_path import ParamsPath
 
-# 解析缓存：进程级共享，须由测试单独清空（见 tests/test_config_resolution.py 的 fixture）。
-# 【已知欠债】属容器外、未收编的载体；依据与判据见 specs/scoped-container 的
-# 「框架自身的进程级共享 MUST 被显式归类」。
+# Resolution cache: process-level shared state, to be cleared separately by
+# tests (see the fixture in tests/test_config_resolution.py).
+# [Known debt] a carrier outside the container, not yet absorbed; rationale
+# and criteria in specs/scoped-container's "process-level sharing created by
+# the framework itself MUST be explicitly classified".
 config_params: dict = {}
 
-# 每个参数类解析时所处的配置载入世代（变更 aop-determinism / #51）。
-# 解析发生在导入期，无法在导入现场知道"稍后会有配置被读到"；把当时的世代
-# 记下来，Master 构造读到配置后即可核对哪些类被冻结在默认值。
+# The config-loading generation each parameter class was resolved in
+# (aop-determinism / #51).
+# Resolution happens at import time, where "a config will be read later"
+# cannot be known on the spot; recording the generation at that moment lets
+# Master, after reading the config, check which classes were frozen at
+# defaults.
 _resolved_generation: dict[str, int] = {}
 
 
 def _cache_key(cls) -> str:
-    """解析缓存的键：限定名（模块 + 限定名）.
+    """The resolution-cache key: the qualified name (module + qualname).
 
-    MUST NOT 只用裸类名——两个定义位置不同的同名参数类会命中同一条记录，
-    后定义者**跳过解析**、直接复用前者的配置值，且发生在 import 期、无任何提示。
+    MUST NOT be the bare class name alone - two same-named parameter classes
+    defined in different places would hit the same record, and the later
+    definition would **skip resolution** and silently reuse the former's
+    config values, all at import time with no hint.
     """
     return f"{cls.__module__}.{cls.__qualname__}"
 
@@ -42,18 +49,21 @@ def params(cls):
 
 
 def stale_param_classes() -> list[str]:
-    """列出"在从未读到配置的世代里解析过"的参数类（#51）.
+    """List parameter classes resolved in a generation that never read a config (#51).
 
-    判据是 `gen == 0`（解析时配置文件不存在/未被读到）而不是 `gen < 当前世代`：
-    后者会把"首次查询时顺带读到配置、取值本来就正确"的类也误判——那正是框架大
-    多数值的正常工作形态。调用方（`Master.__init__`）仅在成功读到非零世代配置时
-    才核对，因此"全程无配置文件"的合法运行不触发。
+    The criterion is `gen == 0` (no config file existed / was read at
+    resolution time), not `gen < the current generation`: the latter would
+    also misjudge classes that "read the config incidentally on the first
+    query, whose values were already correct" - that is exactly the normal
+    working shape for most framework values. The caller (`Master.__init__`)
+    checks only after successfully reading a nonzero-generation config, so a
+    legitimate "no config file at any point" run does not trigger it.
     """
     return [key for key, gen in _resolved_generation.items() if gen == 0]
 
 
 def _resolve(params_path: ParamsPath):
-    """按首选路径 → 别名 → 默认值的顺序解析配置项。"""
+    """Resolve a config item in the order primary path -> aliases -> default."""
     value = ParamsFactory().get_params(params_path.get_value(), default_value=None)
     if value is not None:
         return value
