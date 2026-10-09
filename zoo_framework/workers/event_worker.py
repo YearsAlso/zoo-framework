@@ -12,26 +12,37 @@ if TYPE_CHECKING:
 
 
 class EventWorker(BaseWorker):
-    """事件 Worker.
+    """Event Worker.
 
-    消费循环的关键约束：从队列取出的事件 MUST 有确定去向——被投递、被回队、
-    或被记入死信。静默丢弃是本类历史上最主要的事件丢失来源。
+    The key constraint of the consume loop: every event taken from the
+    queue MUST have a settled destination - delivered, requeued, or moved to
+    dead-letter. Silent dropping was historically this class's main source of
+    event loss.
 
-    注意：本类**不得**加任何"替换类"的装饰器（历史的 `@cage` 正是如此，已删除）。
-    `WorkerRegistry.register_class` 用 `issubclass` 校验契约，把类换成函数就会让它抛
-    `TypeError: issubclass() arg 1 must be a class`。单例与实例缓存由
-    `WorkerRegistry._worker_instances` 承担，无需第二套机制——所以本类也不加
-    `@process_scoped`：那会把"每 Worker 一实例"的归属从 `WorkerRegistry` 挪走。
+    Note: this class MUST NOT be decorated with any class-replacing decorator
+    (the historical `@cage` did exactly that and was deleted).
+    `WorkerRegistry.register_class` validates the contract with `issubclass`;
+    swapping the class for a function would make it raise
+    `TypeError: issubclass() arg 1 must be a class`. The singleton and the
+    instance cache are owned by `WorkerRegistry._worker_instances`, with no
+    second mechanism needed - so this class also does not take
+    `@process_scoped`: that would move the "one instance per Worker"
+    ownership away from `WorkerRegistry`.
     """
 
     def __init__(self):
-        # EventParams 惰性导入且需先于 props 组装：节拍参与 BaseWorker.__init__。
-        # 解析发生在首次导入、早于配置载入会冻结成默认值（见 #51）——本类由
-        # WorkerRegistry 在运行期构造，该顺序成立。
+        # EventParams is imported lazily and must precede the props assembly:
+        # the tempo participates in BaseWorker.__init__.
+        # Resolution happens at first import; freezing into the defaults
+        # would occur if it were earlier than the config load (see #51) -
+        # this class is constructed by WorkerRegistry at runtime, so the
+        # order holds.
         from zoo_framework.params import EventParams
 
-        # is_loop 由 BaseWorker 以属性形式暴露、以 _props 为唯一真源；
-        # 此处 MUST NOT 再用实例属性遮蔽它（属性无 setter，赋值会直接抛 AttributeError）。
+        # is_loop is exposed by BaseWorker as a property with _props as the
+        # sole source of truth; here it MUST NOT be shadowed by an instance
+        # attribute (the property has no setter, assignment raises
+        # AttributeError directly).
         BaseWorker.__init__(
             self,
             {
@@ -41,18 +52,21 @@ class EventWorker(BaseWorker):
             },
         )
 
-        # 事件处理器注册器
+        # Event channel manager
         self.eventChannelManager: EventChannelManager = EventChannelManager()
 
-        # 响应器投递执行器：实例级建一次（align-execution-primitives D1）。
-        # 替代历史的 gevent.spawn/joinall：greenlet 系原语在 free-threaded 构建上
-        # 不可用，且实测单次派发 38.1 µs 远高于线程提交。
+        # Reactor dispatch executor: built once per instance
+        # (align-execution-primitives D1). Replaces the historical
+        # gevent.spawn/joinall: greenlet primitives are unavailable on
+        # free-threaded builds, and a single dispatch measured 38.1 us, far
+        # above a thread submit.
         self._executor = ThreadPoolExecutor(
             max_workers=EventParams.EVENT_EXECUTOR_WORKERS,
             thread_name_prefix="zoo-event-reactor",
         )
-        # 销毁路径经 BaseWorker.__del__ 调用；wait=False 与 greenlet 时代一致：
-        # 不做强杀也不无限等待在飞响应器。
+        # The destroy path is invoked via BaseWorker.__del__; wait=False
+        # matches the greenlet era: no forced kill and no unbounded wait for
+        # in-flight reactors.
         self._destroy_func = partial(self._executor.shutdown, wait=False, cancel_futures=True)
 
     def _execute(self):
@@ -60,61 +74,63 @@ class EventWorker(BaseWorker):
 
         channel_names = self.eventChannelManager.get_all_channel_name()
         dispatched: list[Future] = []
-        # TODO：获得除去失败事件通道的所有事件通道
+        # TODO: get all event channels except failed ones
         for channel_name in channel_names:
-            # get_channel 的实现在未命中时会就地创建再返回，故它**不会**返回 None；
-            # 原先那处 `if channel is None: continue` 因此是死分支（类型检查已证），已删。
+            # get_channel creates-and-returns in place on a miss, so it will **never** return None;
+            # the old `if channel is None: continue` was therefore dead code (proven by type checking) and was removed.
             channel: EventChannel = self.eventChannelManager.get_channel(channel_name)
-            # 获得所有的事件通道
-            # 本轮只消费开始时就已在队列中的事件：回队的事件留到下一轮再处理，
-            # 否则重试额度会在同一次消费循环里被瞬间耗尽，重试形同虚设。
+            # Get all the event channels
+            # This round only consumes events already queued at round start: requeued events wait for the next round,
+            # otherwise the retry quota is exhausted within one consume loop and retrying is void.
             pending = channel.size()
             while pending > 0:
                 pending -= 1
                 event_node: EventNode | None = channel.pop_value()
-                # size() 与 pop_value() 之间存在空档：并发生产者可能在此期间取走元素。
-                # 取出为空表示本轮已无事件，必须结束循环——对 None 调用任何方法都会抛异常。
+                # A race window exists between size() and pop_value(): a concurrent producer may take elements in between.
+                # An empty pop means no events this round; the loop must end - any method call on None raises.
                 if event_node is None:
                     break
-                # 判断事件是否过期
+                # Decide whether the event is expired
                 if event_node.is_expire():
                     event_node.expire_callback()
                     continue
-                # 获得事件反应器
+                # Get the event reactors
                 try:
                     reactors = self.eventChannelManager.get_channel_reactors(event_node)
                 except Exception as e:
-                    # 事件已被取出，异常路径同样必须有确定去向
-                    channel.push_dead_letter(event_node, reason=f"查询响应器失败: {e}")
+                    # The event was already popped; the exception path also needs a settled destination
+                    channel.push_dead_letter(event_node, reason=f"failed to look up reactors: {e}")
                     continue
-                # 如果这里为空，需要查看node 是否有重试次数，如果有重试次数，需要重新放入队列
-                # `not reactors` 同时覆盖 None 与 []：get_channel_reactors 的返回类型是
-                # `list[EventReactor] | None`，None 表示"没有匹配的响应器"，与空列表同义。
-                # （此处原先写 len(reactors) == 0，靠 None 触发 TypeError 被上面的 except
-                # 兜住——那是用异常做控制流，且把"无匹配"错报成"查询响应器失败"。）
+                # If empty here, check the node's retry quota; with quota left it must go back to the queue.
+                # `not reactors` covers both None and []: get_channel_reactors returns
+                # `list[EventReactor] | None`, where None means "no matching reactor", same as an
+                # empty list. (This used to be written len(reactors) == 0, with a None-triggered
+                # TypeError caught by the except above - exceptions as control flow, misreporting
+                # "no match" as "failed to look up reactors".)
                 if not reactors:
-                    self._requeue_or_dead_letter(channel, event_node, reason="没有匹配的响应器")
+                    self._requeue_or_dead_letter(channel, event_node, reason="no matching reactor")
                     continue
                 for reactor in reactors:
-                    # 执行事件反应器：EventReactor 的公开入口是 execute(topic, content)。
+                    # Run the event reactor: EventReactor's public entry is execute(topic, content).
                     f = self._executor.submit(reactor.execute, event_node.topic, event_node.content)
                     dispatched.append(f)
 
         if len(dispatched) > 0:
-            # 有界等待本轮派发结果；超时项与异常项均转交可观测上报
+            # A bounded wait for this round's dispatch results; timeouts and exceptions both go to observable reporting
             wait(dispatched, timeout=EventParams.EVENT_JOIN_TIMEOUT)
             self._report_unfinished(dispatched)
 
     @staticmethod
     def _requeue_or_dead_letter(channel, event_node, reason: str = "") -> None:
-        """事件未能投递时的确定去向.
+        """The settled destination when an event cannot be delivered.
 
-        还有重试额度就递减并回队，否则记入死信——两条路径都可观测，不存在静默丢弃。
+        With retry quota left, decrement it and requeue; otherwise move to
+        dead-letter - both paths are observable, no silent dropping.
 
         Args:
-            channel: 事件所属通道
-            event_node: 未能投递的事件
-            reason: 未能投递的原因
+            channel: the channel the event belongs to
+            event_node: the event that could not be delivered
+            reason: the reason it could not be delivered
         """
         remaining = event_node.get_retry_times()
         if remaining > 0:
@@ -126,13 +142,15 @@ class EventWorker(BaseWorker):
 
     @staticmethod
     def _report_unfinished(dispatched: list[Future]) -> None:
-        """上报 join 超时后仍在运行的响应器，并上报已结束的响应器抛出的异常.
+        """Report reactors still running past the join timeout, and exceptions carried by finished reactors.
 
-        超时未结束者的结果不会被回收，MUST 可观测，而非随超时静默消失；
-        已结束者携带的异常 MUST NOT 被吞掉（greenlet 时代它们静默消失）。
+        The results of ones unfinished at timeout are not collected and MUST
+        be observable, not silently vanish with the timeout; exceptions
+        carried by finished ones MUST NOT be swallowed (in the greenlet era
+        they vanished silently).
 
         Args:
-            dispatched: 本轮派发的全部 future
+            dispatched: all futures dispatched in this round
         """
         unfinished = [f for f in dispatched if not f.done()]
         if unfinished:
@@ -144,7 +162,7 @@ class EventWorker(BaseWorker):
         for f in dispatched:
             if not f.done():
                 continue
-            # done() 后取 exception() 不阻塞；未抛异常时为 None。
+            # After done(), exception() does not block; None when no exception was raised.
             exc = f.exception()
             if exc is not None:
                 LogUtils.warning(
