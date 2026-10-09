@@ -1,11 +1,14 @@
-"""异步 Worker 支持.
+"""Async Worker support.
 
-P2: 异步 IO 优化 - 支持异步 Worker 实现
+P2: async IO optimization - async Worker implementations.
 
-与调度体系的接合点只有一个：``_execute``。调度器通过 ``BaseWorker.run()`` 调用它，
-而调度线程不具备运行中的事件循环，因此它必须用 ``asyncio.run`` 直接驱动协程。
-未覆写该方法会让异步 Worker 在调度器下只执行基类的空实现——占着线程空睡
-``delay_time`` 后返回空结果，业务逻辑完全不被执行。
+The only integration point with the scheduling system is ``_execute``. The
+scheduler calls it through ``BaseWorker.run()`` and the scheduling thread has
+no running event loop, so it must drive the coroutine directly with
+``asyncio.run``. Not overriding the method makes an async Worker run only the
+base class' empty implementation under the scheduler - it occupies the
+thread, sleeps ``delay_time`` and returns an empty result while the business
+logic never executes.
 """
 
 import asyncio
@@ -21,18 +24,20 @@ from zoo_framework.workers import BaseWorker
 
 
 class AsyncWorkerType(Enum):
-    """异步 Worker 类型."""
+    """Async Worker types."""
 
-    COROUTINE = "coroutine"  # 协程 Worker
-    TASK = "task"  # 任务 Worker
-    CALLBACK = "callback"  # 回调 Worker
+    COROUTINE = "coroutine"  # coroutine Worker
+    TASK = "task"  # task Worker
+    CALLBACK = "callback"  # callback Worker
 
 
 class _BackgroundTask:
-    """后台异步任务的句柄.
+    """A handle to a background async task.
 
-    提供 ``done()`` 与 ``result()``；``result()`` 会把后台协程抛出的异常重新抛出，
-    而不是返回空值——静默丢失异常会让失败伪装成"没有结果"。
+    Provides ``done()`` and ``result()``; ``result()`` re-raises an exception
+    thrown by the background coroutine instead of returning an empty value -
+    silently swallowing the exception would disguise the failure as "no
+    result".
     """
 
     def __init__(self, thread: threading.Thread, container: dict):
@@ -40,15 +45,15 @@ class _BackgroundTask:
         self._container = container
 
     def done(self) -> bool:
-        """后台任务是否已结束."""
+        """Whether the background task has finished."""
         return not self._thread.is_alive()
 
     def result(self, timeout: float | None = None) -> Any:
-        """取回后台任务的结果.
+        """Collect the background task's result.
 
         Raises:
-            TimeoutError: 超时后任务仍未结束
-            BaseException: 后台协程抛出的异常
+            TimeoutError: the task has not finished when the timeout elapses
+            BaseException: an exception raised by the background coroutine
         """
         self._thread.join(timeout)
         if self._thread.is_alive():
@@ -62,81 +67,86 @@ class _BackgroundTask:
 
 
 class AsyncWorker(BaseWorker, metaclass=ABCMeta):
-    """异步 Worker 基类.
+    """Async Worker base class.
 
-    特性：
-    - 原生协程支持
-    - 自动事件循环管理
-    - 支持同步和异步两种执行模式
+    Features:
+    - native coroutine support
+    - automatic event loop management
+    - both synchronous and asynchronous execution modes
 
-    抽象约束由 ``ABCMeta`` 强制：未实现 ``async_execute`` 的子类无法被实例化。
+    The abstract constraint is enforced by ``ABCMeta``: a subclass that does
+    not implement ``async_execute`` cannot be instantiated.
     """
 
     def __init__(self, name: str | None = None):
-        # 保留 name 这一公开签名，内部转成属性字典再交给 BaseWorker——BaseWorker
-        # 以 _props 字典承载配置，直接传字符串会让 name / is_loop 等属性访问崩溃。
+        # Keep `name` as the public signature but convert it into the props dict
+        # for BaseWorker - BaseWorker carries config in the _props dict, and
+        # passing a bare string would crash the name / is_loop property access.
         super().__init__({"is_loop": False, "delay_time": 1, "name": name})
         self._loop: asyncio.AbstractEventLoop | None = None
         self._async_type = AsyncWorkerType.COROUTINE
-        self._max_concurrent = 10  # 最大并发数
+        self._max_concurrent = 10  # max concurrency
         self._semaphore: asyncio.Semaphore | None = None
 
     async def async_init(self) -> None:
-        """异步初始化.
+        """Async initialization.
 
-        子类可重写此方法进行异步资源初始化
+        Subclasses may override this to initialize async resources.
         """
         LogUtils.info(f"✅ AsyncWorker '{self.name}' initialized")
 
     async def async_destroy(self, timeout: float | None = None) -> None:
-        """异步销毁.
+        """Async teardown.
 
-        子类可重写此方法进行异步资源清理
+        Subclasses may override this to clean up async resources.
 
         Args:
-            timeout: 超时时间
+            timeout: the timeout
         """
         LogUtils.info(f"🛑 AsyncWorker '{self.name}' destroyed")
 
     @abstractmethod
     async def async_execute(self, *args, **kwargs) -> Any:
-        """异步执行方法（子类必须实现）.
+        """The async execution method (subclasses MUST implement).
 
         Args:
-            *args: 位置参数
-            **kwargs: 关键字参数
+            *args: positional arguments
+            **kwargs: keyword arguments
 
         Returns:
-            执行结果
+            The execution result
         """
         raise NotImplementedError("Subclasses must implement async_execute")
 
     def _execute(self):
-        """调度路径的唯一入口.
+        """The only entry point on the scheduling path.
 
-        调度线程是普通线程，不具备运行中的事件循环，因此直接驱动一次协程。
-        返回值会经 ``BaseWorker.run()`` 进入 ``WorkerResult``。
+        The scheduling thread is an ordinary thread with no running event loop,
+        so the coroutine is driven directly here. The return value flows into
+        ``WorkerResult`` through ``BaseWorker.run()``.
 
         Returns:
-            异步执行体的业务返回值
+            The business return value of the async execution body
         """
         return asyncio.run(self._execute_async())
 
     def execute(self, *args, **kwargs) -> Any:
-        """同步执行入口.
+        """The synchronous execution entry point.
 
-        MUST 在没有运行中事件循环的线程中调用。在事件循环内调用时直接返回一个
-        无人 await 的 Task 会让协程静默不执行，因此此处明确拒绝并给出替代用法。
+        MUST be called from a thread with no running event loop. Calling it
+        inside an event loop and returning a Task that nobody awaits would
+        silently skip the coroutine, so this refuses explicitly and states the
+        alternative.
 
         Args:
-            *args: 位置参数
-            **kwargs: 关键字参数
+            *args: positional arguments
+            **kwargs: keyword arguments
 
         Returns:
-            执行结果
+            The execution result
 
         Raises:
-            RuntimeError: 在已运行的事件循环中调用
+            RuntimeError: called inside a running event loop
         """
         try:
             asyncio.get_running_loop()
@@ -150,13 +160,14 @@ class AsyncWorker(BaseWorker, metaclass=ABCMeta):
         )
 
     def _get_semaphore(self) -> asyncio.Semaphore:
-        """按当前事件循环获取并发信号量.
+        """Get the concurrency semaphore for the current event loop.
 
-        ``asyncio.Semaphore`` 会绑定到创建时的事件循环，跨循环复用会失败，
-        因此按循环惰性重建，而不是在构造或初始化时一次性创建。
+        ``asyncio.Semaphore`` binds to the event loop it was created on, and
+        reusing it across loops fails; so it is rebuilt lazily per loop instead
+        of being created once at construction or initialization.
 
         Returns:
-            当前循环下的信号量
+            The semaphore under the current loop
         """
         loop = asyncio.get_running_loop()
         if self._semaphore is None or self._loop is not loop:
@@ -165,12 +176,13 @@ class AsyncWorker(BaseWorker, metaclass=ABCMeta):
         return self._semaphore
 
     async def _execute_async(self, *args, **kwargs) -> Any:
-        """内部异步执行."""
-        # 耗时是区间量，MUST 用单调时钟——墙钟跳变会产生负的或用巨的耗时
+        """Internal async execution."""
+        # Duration is an interval quantity and MUST use the monotonic clock -
+        # wall-clock jumps would produce negative or wildly wrong durations
         start_time = time.monotonic()
 
         try:
-            # 使用信号量限制并发
+            # Limit concurrency with the semaphore
             async with self._get_semaphore():
                 result = await self.async_execute(*args, **kwargs)
 
@@ -185,23 +197,25 @@ class AsyncWorker(BaseWorker, metaclass=ABCMeta):
             raise
 
     def run_in_background(self, *args, **kwargs) -> _BackgroundTask:
-        """在后台运行.
+        """Run in the background.
 
-        工作线程为守护线程：未完成的后台任务 MUST NOT 阻止解释器退出。
+        The worker thread is a daemon: unfinished background tasks MUST NOT
+        prevent interpreter exit.
 
         Args:
-            *args: 位置参数
-            **kwargs: 关键字参数
+            *args: positional arguments
+            **kwargs: keyword arguments
 
         Returns:
-            _BackgroundTask: 可通过 done() / result() 观察后台任务
+            _BackgroundTask: the background task, observable via done() /
+                result()
         """
         result_container: dict = {}
 
         def run_async():
             try:
                 result_container["result"] = asyncio.run(self._execute_async(*args, **kwargs))
-            except BaseException as e:  # 异常保留给 result() 重抛
+            except BaseException as e:  # kept for result() to re-raise
                 result_container["exception"] = e
 
         thread = threading.Thread(target=run_async, daemon=True, name=f"zoo-async-{self.name}")
@@ -211,9 +225,9 @@ class AsyncWorker(BaseWorker, metaclass=ABCMeta):
 
 
 class AsyncEventWorker(AsyncWorker):
-    """异步事件 Worker.
+    """Async event Worker.
 
-    支持异步处理事件的 Worker
+    A Worker supporting asynchronous event handling.
     """
 
     def __init__(self, name: str = "AsyncEventWorker"):
@@ -221,25 +235,25 @@ class AsyncEventWorker(AsyncWorker):
         self._handlers: dict[str, Callable[..., Awaitable[Any]]] = {}
 
     def register_handler(self, event_type: str, handler: Callable[..., Awaitable[Any]]) -> None:
-        """注册异步事件处理器.
+        """Register an async event handler.
 
         Args:
-            event_type: 事件类型
-            handler: 异步处理函数
+            event_type: the event type
+            handler: the async handler function
         """
         self._handlers[event_type] = handler
         LogUtils.info(f"🎯 Handler registered for '{event_type}'")
 
     async def async_execute(self, event_type: str, *args, **kwargs) -> Any:
-        """执行异步事件处理.
+        """Run the async event handling.
 
         Args:
-            event_type: 事件类型
-            *args: 位置参数
-            **kwargs: 关键字参数
+            event_type: the event type
+            *args: positional arguments
+            **kwargs: keyword arguments
 
         Returns:
-            处理结果
+            The handling result
         """
         if event_type not in self._handlers:
             raise ValueError(f"No handler registered for event type: {event_type}")
@@ -249,9 +263,9 @@ class AsyncEventWorker(AsyncWorker):
 
 
 class AsyncStateMachineWorker(AsyncWorker):
-    """异步状态机 Worker.
+    """Async state machine Worker.
 
-    支持异步状态转换的 Worker
+    A Worker supporting asynchronous state transitions.
     """
 
     def __init__(self, name: str = "AsyncStateMachineWorker"):
@@ -260,24 +274,24 @@ class AsyncStateMachineWorker(AsyncWorker):
         self._current_state = "idle"
 
     def register_transition(self, state: str, handler: Callable[..., Awaitable[Any]]) -> None:
-        """注册状态转换处理器.
+        """Register a state transition handler.
 
         Args:
-            state: 状态名称
-            handler: 异步处理函数
+            state: the state name
+            handler: the async handler function
         """
         self._state_transitions[state] = handler
 
     async def async_execute(self, target_state: str, *args, **kwargs) -> Any:
-        """执行异步状态转换.
+        """Run the async state transition.
 
         Args:
-            target_state: 目标状态
-            *args: 位置参数
-            **kwargs: 关键字参数
+            target_state: the target state
+            *args: positional arguments
+            **kwargs: keyword arguments
 
         Returns:
-            转换结果
+            The transition result
         """
         if target_state not in self._state_transitions:
             raise ValueError(f"No transition registered for state: {target_state}")
@@ -289,15 +303,17 @@ class AsyncStateMachineWorker(AsyncWorker):
         return result
 
     def get_current_state(self) -> str:
-        """获取当前状态."""
+        """Get the current state."""
         return self._current_state
 
 
 class AsyncWorkerPool:
-    """异步 Worker 池.
+    """Async Worker pool.
 
-    管理多个异步 Worker 的池。并发信号量按当前事件循环惰性创建——在构造时创建会
-    把信号量绑定到当时的事件循环，使池无法在另一个循环中复用。
+    A pool managing several async Workers. The concurrency semaphore is created
+    lazily per the current event loop - creating it at construction would bind
+    the semaphore to the then-current loop and stop the pool from being reused
+    on another loop.
     """
 
     def __init__(self, max_workers: int = 10):
@@ -307,7 +323,7 @@ class AsyncWorkerPool:
         self._loop: asyncio.AbstractEventLoop | None = None
 
     def _get_semaphore(self) -> asyncio.Semaphore:
-        """按当前事件循环获取信号量."""
+        """Get the semaphore for the current event loop."""
         loop = asyncio.get_running_loop()
         if self._semaphore is None or self._loop is not loop:
             self._semaphore = asyncio.Semaphore(self._max_workers)
@@ -315,34 +331,34 @@ class AsyncWorkerPool:
         return self._semaphore
 
     async def submit(self, worker: AsyncWorker, *args, **kwargs) -> Any:
-        """提交任务到 Worker 池.
+        """Submit a task to the Worker pool.
 
         Args:
-            worker: 异步 Worker
-            *args: 位置参数
-            **kwargs: 关键字参数
+            worker: the async Worker
+            *args: positional arguments
+            **kwargs: keyword arguments
 
         Returns:
-            执行结果
+            The execution result
         """
         async with self._get_semaphore():
             return await worker._execute_async(*args, **kwargs)
 
     async def map(self, worker: AsyncWorker, items: list) -> list:
-        """批量处理.
+        """Process items in bulk.
 
         Args:
-            worker: 异步 Worker
-            items: 待处理项列表
+            worker: the async Worker
+            items: the items to process
 
         Returns:
-            结果列表
+            The list of results
         """
         tasks = [self.submit(worker, item) for item in items]
         return await asyncio.gather(*tasks)
 
 
-# 导出公共 API
+# Public API exports
 __all__ = [
     "AsyncEventWorker",
     "AsyncStateMachineWorker",

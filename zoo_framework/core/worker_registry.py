@@ -102,8 +102,8 @@ class WorkerRegistry:
         # 第一次实例化时才以 TypeError 暴露（BaseWorker 本身就是这种类）。
         if _requires_constructor_args(worker_class):
             raise TypeError(
-                f"{worker_class} 需要构造参数，无法延迟实例化；"
-                f"请改用 register_instance 或 register_factory"
+                f"{worker_class} requires constructor arguments and cannot be lazily instantiated;"
+                f"use register_instance or register_factory instead"
             )
 
         with self._lock:

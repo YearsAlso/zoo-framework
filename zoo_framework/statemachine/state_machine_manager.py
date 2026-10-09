@@ -60,7 +60,7 @@ class StateMachineManager:
                 self._state_scope_map = ThreadSafeDict(state_machine)
             else:
                 raise TypeError(
-                    f"状态机入参只能是 dict 或 ThreadSafeDict，收到 {type(state_machine).__name__}"
+                    f"the state machine argument must be a dict or ThreadSafeDict, got {type(state_machine).__name__}"
                 )
         self._local_store_loaded = True
 

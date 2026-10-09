@@ -97,7 +97,7 @@ class EventChannel:
             reason: 未能投递的原因，用于排查
         """
         LogUtils.error(
-            f"事件进入死信 channel={self.channel_name} "
+            f"event moved to dead-letter channel={self.channel_name} "
             f"topic={getattr(event, 'topic', None)} reason={reason}",
             EventChannel.__name__,
         )

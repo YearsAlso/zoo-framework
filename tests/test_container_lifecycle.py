@@ -466,7 +466,7 @@ class TestSingleThreadIsEnforced:
         assert outcome, "外部线程没有返回结果"
         kind, message = outcome[0]
         assert kind == "refused", "跨线程取用被静默放行"
-        assert "仅限单线程" in message
+        assert "single-thread only" in message
         assert ThreadSafety.INSTANCE_GUARANTEED in message
         assert ThreadSafety.CONTAINER_SERIALIZED in message
 

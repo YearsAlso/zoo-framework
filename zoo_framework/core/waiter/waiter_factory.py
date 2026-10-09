@@ -32,7 +32,7 @@ class WaiterFactory:
         """
         if name is not None and name not in WaiterConstant.IMPLEMENTED_WORKER_MODES:
             raise ValueError(
-                f"无法识别的调度模型 {name!r}；可选的模型为 "
+                f"unknown scheduling model {name!r}; available models are "
                 f"{list(WaiterConstant.IMPLEMENTED_WORKER_MODES)}"
             )
         return BaseWaiter(model_name=name)

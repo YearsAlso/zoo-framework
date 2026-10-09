@@ -270,7 +270,7 @@ def reset_process_state() -> None:
         except Exception as exc:  # 汇总后统一报，避免一项失败吞掉其余复位
             failures.append(f"{name}: {exc!r}")
     if failures:
-        raise RuntimeError("进程级载体复位失败：\n" + "\n".join(failures))
+        raise RuntimeError("process-level carrier reset failed:\n" + "\n".join(failures))
 
 
 def known_carrier_ids() -> set[int]:

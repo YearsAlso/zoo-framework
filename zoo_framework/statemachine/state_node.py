@@ -147,7 +147,7 @@ class StateNode:
             # done() 后取 exception() 不阻塞；与 gevent.joinall 一致不重抛。
             exc = f.exception()
             if exc is not None:
-                LogUtils.warning(f"状态 effect 执行抛出异常: {exc!r}", "StateNode")
+                LogUtils.warning(f"state effect raised an exception: {exc!r}", "StateNode")
 
     def _update_version(self) -> None:
         """更新状态节点的版本号."""

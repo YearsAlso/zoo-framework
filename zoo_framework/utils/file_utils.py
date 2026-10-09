@@ -33,8 +33,8 @@ class FileUtils:
         except UnicodeDecodeError:
             fallback = locale.getpreferredencoding(False)
             LogUtils.warning(
-                f"文件 {path} 不是 UTF-8 编码，已按平台默认编码 {fallback} 读取；"
-                "建议将该文件迁移为 UTF-8",
+                f"file {path} is not UTF-8; it was read with the platform default encoding {fallback};"
+                "consider migrating the file to UTF-8",
                 cls.__name__,
             )
             return raw.decode(fallback, errors="replace")

@@ -234,7 +234,7 @@ class EventNode:
         self.response_mechanism = response_mechanism
         if response_mechanism == 4:
             if reactor_name is None:
-                raise ValueError("响应机制为4时，响应者名称不能为空")
+                raise ValueError("reactor name must not be empty when response_mechanism is 4")
             self.reactor_name = reactor_name
 
     def get_topic(self) -> str:

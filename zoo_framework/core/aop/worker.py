@@ -10,9 +10,9 @@ from zoo_framework.workers import WorkerRegister
 worker_register: WorkerRegister = WorkerRegister()
 
 _DEPRECATION_TEXT = (
-    "@worker 不接通调度：它注册进不被 Master 读取的 legacy WorkerRegister，"
-    "实例从不会是被派发的对象。请改用 Master.register_worker(name, worker_class)；"
-    "本模块将在下一个 minor 版本删除。"
+    "@worker does not hook into dispatch: it registers into the legacy WorkerRegister, "
+    "which Master never reads, so registered instances are never dispatched. "
+    "Use Master.register_worker(name, worker_class) instead; this module will be removed in the next minor version."
 )
 
 

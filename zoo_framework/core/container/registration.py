@@ -25,7 +25,7 @@ def qualified_name(cls: type) -> str:
         TypeError: 入参不是类
     """
     if not isinstance(cls, type):
-        raise TypeError(f"注册项标识只能由类推导，收到 {cls!r}")
+        raise TypeError(f"registration id can only be derived from a class, got {cls!r}")
     return f"{cls.__module__}.{cls.__qualname__}"
 
 

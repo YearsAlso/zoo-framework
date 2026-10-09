@@ -54,16 +54,16 @@ class Scope:
             ValueError: 种类无法识别，或会话标识与种类不匹配（缺或多）
         """
         if kind not in ScopeKind.ALL:
-            raise ValueError(f"无法识别的作用域 {kind!r}；可选 {list(ScopeKind.ALL)}")
+            raise ValueError(f"unknown scope kind {kind!r}; expected one of {list(ScopeKind.ALL)}")
 
         # 会话级没有会话标识就无从区分会话，缓存会退化成进程级——这是静默的语义降级，
         # 故在此明确拒绝，而不是补一个默认标识
         if kind == ScopeKind.SESSION and not session_id:
-            raise ValueError("会话级作用域必须携带会话标识")
+            raise ValueError("a session scope requires a session id")
 
         # 非会话级带上会话标识，说明调用方以为自己在隔离而实际没有，同样明确拒绝
         if kind != ScopeKind.SESSION and session_id is not None:
-            raise ValueError(f"{kind} 作用域不接受会话标识，收到 {session_id!r}")
+            raise ValueError(f"a {kind} scope does not accept a session id, got {session_id!r}")
 
         self.kind = kind
         self.session_id = session_id
@@ -101,10 +101,14 @@ class Scope:
             ValueError: 标识为 None 或缺少会话标识
         """
         if identity is None:
-            raise ValueError("无运行标识，无法派生会话作用域（MUST NOT 静默退回进程级）")
+            raise ValueError(
+                "no run identity: cannot derive a session scope (MUST NOT silently fall back to the process scope)"
+            )
         session_id = getattr(identity, "session_id", None)
         if not session_id:
-            raise ValueError(f"运行标识 {identity!r} 不带会话标识，无法派生会话作用域")
+            raise ValueError(
+                f"run identity {identity!r} carries no session id: cannot derive a session scope"
+            )
         return cls.session(session_id)
 
     @property

@@ -53,9 +53,9 @@ def configure(topic: str):
     def inner(func):
         if _sealed:
             LogUtils.warning(
-                f"@configure('{topic}') 的注册发生在已构造的 Master 之后："
-                "当前实例不会消费它，只有下一个 Master() 构造时才会被执行；"
-                "若进程内不再构造 Master，这条注册将不会产生任何效果。"
+                f"@configure('{topic}') was registered after a Master was already constructed:"
+                "the current instance will not consume it; it only takes effect when the next Master() is constructed;"
+                "if no further Master is constructed in this process, this registration has no effect."
             )
         # 将传入的函数以主题为键存储到线程安全字典中
         config_funcs[topic] = func

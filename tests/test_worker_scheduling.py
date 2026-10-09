@@ -878,7 +878,9 @@ class TestEventPipelineReliability:
         EventWorker()._execute()
         # 消费循环在超时处返回，不被慢响应器挂死
         assert time.monotonic() - start < 0.4
-        assert any("join 超时后仍未结束" in w for w in warnings), "超时未完成的响应器未被可观测上报"
+        assert any("still running after the join timeout" in w for w in warnings), (
+            "超时未完成的响应器未被可观测上报"
+        )
 
     def test_reactor_exception_is_logged(self, monkeypatch):
         """Scenario: 响应器异常被可观测上报（greenlet 时代它们静默消失）."""
@@ -910,7 +912,7 @@ class TestEventPipelineReliability:
         # 异常不传播出消费循环；本轮其余事件不受影响
         EventWorker()._execute()
 
-        assert any("响应器执行抛出异常" in w for w in warnings), "响应器异常被吞掉，未被可观测上报"
+        assert any("a reactor raised" in w for w in warnings), "响应器异常被吞掉，未被可观测上报"
 
 
 class TestReactorRegistrationIdempotency:

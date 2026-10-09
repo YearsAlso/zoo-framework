@@ -113,7 +113,7 @@ class EventReactor:
         elif self.retry_strategy in self._UNLIMITED_ATTEMPT_STRATEGIES:
             attempts = None  # 无上限，仅在成功时返回
         else:
-            raise Exception(f"未知的事件重试策略: {self.retry_strategy}")
+            raise Exception(f"unknown event retry strategy: {self.retry_strategy}")
 
         while attempts is None or attempts > 0:
             if attempts is not None:
@@ -123,7 +123,7 @@ class EventReactor:
                     # 未设置回调时给出可读原因；它同样落进下面的 except，走既有的
                     # "报错 + 重试"路径（原先这里会抛 "NoneType is not callable"，
                     # 语义相同但读不出原因）。
-                    raise ValueError(f"响应器 {self.reactor_name} 未设置事件回调")
+                    raise ValueError(f"reactor {self.reactor_name} has no event callback set")
                 self.handle_callback(req)
                 return
             except Exception as e:

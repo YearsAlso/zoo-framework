@@ -137,7 +137,7 @@ class EventWorker(BaseWorker):
         unfinished = [f for f in dispatched if not f.done()]
         if unfinished:
             LogUtils.warning(
-                f"{len(unfinished)} 个响应器在 join 超时后仍未结束，其结果未被回收",
+                f"{len(unfinished)} reactors were still running after the join timeout; their results were not collected",
                 "EventWorker",
             )
 
@@ -147,4 +147,6 @@ class EventWorker(BaseWorker):
             # done() 后取 exception() 不阻塞；未抛异常时为 None。
             exc = f.exception()
             if exc is not None:
-                LogUtils.warning(f"响应器执行抛出异常且结果未被回收: {exc!r}", "EventWorker")
+                LogUtils.warning(
+                    f"a reactor raised and its result was not collected: {exc!r}", "EventWorker"
+                )
