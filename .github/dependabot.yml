@@ -1,0 +1,30 @@
+# 依赖自动更新（#92 / Scorecard Dependency-Update-Tool）
+#
+# 两条线：
+# - github-actions：配合 Pinned-Dependencies（#91）——动作已钉 commit SHA，
+#   Dependabot 会以「同 tag 新 SHA」方式提 PR，升级即核对评论里的 tag 对应关系
+# - pip：运行时与 dev 依赖清单（pyproject.toml）。uv.lock 的重锁（#93）不在
+#   Dependabot 能力内（它只改清单文件），锁文件的刷新仍靠发布流程或人工
+#
+# 与 CI 门禁（mypy/ruff/pytest 硬门禁）天然配合：升级 PR 自动被测试验证。
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies
+    groups:
+      actions-minor:
+        update-types:
+          - 'minor'
+          - 'patch'
+
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    labels:
+      - dependencies

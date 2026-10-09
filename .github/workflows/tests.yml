@@ -9,6 +9,10 @@ on:
   pull_request:
     branches: [ main, dev ]
 
+# Scorecard Token-Permissions：顶层只读；本工作流纯只读（codecov 报告走其自身的 OIDC）
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
@@ -21,10 +25,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -37,7 +41,8 @@ jobs:
         run: pytest --cov=zoo_framework --cov-report=term-missing --cov-report=html --cov-report=xml --cov-fail-under=30
 
       - name: Upload coverage report
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@ab904c41d6ece82784817410c45d8b8c02684457  # v3
+        # codecov v3 经 GITHUB_TOKEN 上传；若以后升级 v4+ 需补 CODECOV_TOKEN
         with:
           files: ./coverage.xml
           flags: unittests
@@ -46,7 +51,7 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
 
       - name: Upload HTML coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02  # v4
         with:
           name: coverage-report-${{ matrix.os }}-py${{ matrix.python-version }}
           path: htmlcov/

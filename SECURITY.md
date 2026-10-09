@@ -9,14 +9,16 @@
 
 ### Supported versions
 
-Zoo Framework is pre-1.0 (`0.5.3-beta`). Only the latest `0.5.x` release receives security
-fixes; there is no LTS line and no back-porting to earlier minors.
+Zoo Framework is pre-1.0. Only the latest minor line (the newest release on PyPI) receives
+security fixes; there is no LTS line and no back-porting to earlier minors. This table is
+written so it does not need a manual edit at every version bump.
 
 | Version | Supported |
 |---|---|
-| Latest `0.5.x` release | ✅ |
-| Older `0.5.x` releases | ❌ upgrade to the latest |
-| `< 0.5` | ❌ |
+| Latest release on PyPI | ✅ |
+| The latest minor line (e.g. `0.9.x` when latest is `0.9.n`) | ✅ security fixes; recent fixes only |
+| Older minor lines (e.g. `0.8.x` when latest is `0.9.x`) | ❌ upgrade to the latest |
+| `1.0` and later (future) | ✅ |
 
 ### Reporting a vulnerability
 
@@ -87,14 +89,16 @@ protect the host from it. Running untrusted code as a Worker is out of scope.
 
 ### 支持的版本
 
-Zoo Framework 尚未发布 1.0（当前 `0.5.3-beta`）。只有最新的 `0.5.x` 版本会收到安全修复；
-项目没有 LTS 分支，也不会向更早的次版本回迁补丁。
+Zoo Framework 尚未发布 1.0。只有最新的 minor 线（PyPI 上最新发布的那个次版本段）会收到
+安全修复；项目没有 LTS 分支，也不会向更早的次版本回迁补丁。本表刻意写成不随版本号 bump
+漂移的形式，无需随每次发版手改。
 
 | 版本 | 是否支持 |
 |---|---|
-| 最新的 `0.5.x` 版本 | ✅ |
-| 更早的 `0.5.x` 版本 | ❌ 请升级到最新版 |
-| `< 0.5` | ❌ |
+| PyPI 上的最新发布 | ✅ |
+| 最新 minor 线（如最新为 `0.9.n` 时的整个 `0.9.x`） | ✅ 仅安全修复 |
+| 更早的 minor 线（如最新为 `0.9.x` 时的 `0.8.x`） | ❌ 请升级到最新版 |
+| 未来的 `1.0` 及以后 | ✅ |
 
 ### 报告漏洞
 

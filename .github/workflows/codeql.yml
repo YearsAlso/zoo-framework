@@ -1,0 +1,54 @@
+# OpenSSF Scorecard SAST（#89）
+#
+# Scorecard 的 SAST 检查只认白名单工具：CodeQL / SonarCloud 等。仓库自有的
+# bandit 扫描不算数（quality.yml security 作业与这里是互补关系，不是重复）。
+# 评分逻辑：~30 个近期合并 PR 中能溯源到 CodeQL 分析即给分。
+#
+# 与 scorecard.yml 的 upload-sarif 不同：那上传的是 Scorecard 自身的 SARIF；
+# 这里上传 CodeQL 的警报 SARIF。两者共用 code-scanning 列表，互不冲突。
+#
+# 版本钉法与 scorecard.yml 同纪律：commit SHA + 注释 tag。
+
+name: CodeQL
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+  schedule:
+    # 每周一 02:00 UTC（覆盖无 PR 的 push 线）
+    - cron: '0 2 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze (python)
+    runs-on: ubuntu-latest
+    permissions:
+      # CodeQL 上传警报 SARIF 到 code-scanning 需要
+      security-events: write
+      # 高级存取/自由运行查询需要（CodeQL 模板默认授权）
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+
+      - name: Setup Python 3.13
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: '3.13'
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d  # v4.38.2
+        with:
+          languages: python
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d  # v4.38.2
+        with:
+          category: '/language:python'
