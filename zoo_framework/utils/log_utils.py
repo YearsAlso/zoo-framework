@@ -2,16 +2,21 @@ import logging
 
 
 class SafeStreamHandler(logging.StreamHandler):
-    """不会因字符编码而丢弃整行日志的流处理器.
+    """A stream handler that never discards a whole log line over character encoding.
 
-    ``logging`` 的默认实现在 ``emit`` 抛异常时会调用 ``handleError``，结果是**整条日志
-    连同时间戳一起消失**，只在 stderr 留下一段 ``--- Logging error ---`` 与堆栈。
-    本处理器把消息按目标流能表示的编码写出，无法表示的字符降级为可还原的转义序列，
-    从而保证行内容与时间戳始终被写出。
+    When ``emit`` raises, logging's default implementation calls
+    ``handleError``, and the result is **the whole log line vanishing
+    together with the timestamp**, leaving only a
+    ``--- Logging error ---`` and a stack trace on stderr. This handler
+    writes the message in an encoding the target stream can represent and
+    degrades unrepresentable characters to reversible escape sequences, so
+    the line content and its timestamp are always written.
 
-    适用于非 UTF-8 的控制台（例如 Windows 中文环境的 ``cp936``）上的含 emoji 或中文的日志。
+    Intended for logs with emoji or Chinese on non-UTF-8 consoles (e.g.
+    ``cp936`` in a Chinese Windows environment).
 
-    语义边界：字形可能被降级（emoji 会变成代表其码位的转义序列），但**不会丢行**。
+    Semantic boundary: glyphs may be degraded (emoji become escape sequences
+    standing for their code points), but **no line is ever lost**.
     """
 
     def emit(self, record: logging.LogRecord) -> None:
@@ -19,8 +24,9 @@ class SafeStreamHandler(logging.StreamHandler):
             message = self.format(record)
             stream = self.stream
             encoding = getattr(stream, "encoding", None) or "utf-8"
-            # 先按目标编码做一次允许失败的编码，把无法表示的字符替换为转义序列，
-            # 再解码回字符串——此时写出必然成功
+            # Encode once against the target encoding, letting it fail, and
+            # replace unrepresentable characters with escape sequences, then
+            # decode back to a string - the write afterwards cannot fail
             safe = message.encode(encoding, errors="backslashreplace").decode(
                 encoding, errors="replace"
             )
@@ -33,19 +39,22 @@ class SafeStreamHandler(logging.StreamHandler):
 
 
 class IdentityFilter(logging.Filter):
-    """把当前运行标识写入日志记录的结构化字段.
+    """Write the current run identity into structured fields of the log record.
 
-    字段名为 ``run_id`` / ``session_id``。它**不改变格式串**，因此既有的文本输出
-    一字不变，但记录上多了两个可被程序化提取的字段——例如按 ``run_id`` 过滤出
-    一次运行产生的全部日志。
+    The fields are ``run_id`` / ``session_id``. It **does not change the
+    format string**, so existing text output is byte-identical, but records
+    gain two fields extractable programmatically - e.g. filtering by
+    ``run_id`` to pick out all logs of one run.
 
-    取值来自**当前上下文**的运行标识（见 :mod:`zoo_framework.core.run_identity`）。
-    未绑定标识时两个字段为 ``None``，MUST NOT 编造值。
+    The values come from the run identity of the **current context** (see
+    :mod:`zoo_framework.core.run_identity`). When no identity is bound, both
+    fields are ``None``; a value MUST NOT be invented.
     """
 
     def filter(self, record: logging.LogRecord) -> bool:
-        # 延迟导入：本模块在包导入早期被加载，而 run_identity 位于 core 包内，
-        # 顶层导入会卷入 core.__init__ 的导入顺序
+        # Deferred import: this module is loaded early in the package import;
+        # run_identity lives inside the core package, and a top-level import
+        # would drag in core.__init__'s import order
         from zoo_framework.core.run_identity import current_identity
 
         identity = current_identity()
@@ -55,10 +64,11 @@ class IdentityFilter(logging.Filter):
 
 
 def _install_identity_filter() -> None:
-    """把标识过滤器挂到根日志器上.
+    """Attach the identity filter to the root logger.
 
-    幂等：重复导入或重复调用都不会挂第二个。``LogUtils`` 走的是根日志器，因此
-    过滤器挂在根上即可覆盖框架自身的全部日志。
+    Idempotent: repeated imports or calls never attach a second one.
+    ``LogUtils`` logs through the root logger, so attaching at the root
+    covers all of the framework's own logs.
     """
     root = logging.getLogger()
     if not any(isinstance(existing, IdentityFilter) for existing in root.filters):

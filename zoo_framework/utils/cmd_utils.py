@@ -2,35 +2,41 @@ import os
 
 
 class CmdUtils:
-    """执行 shell 命令的工具.
+    """A utility for running shell commands.
 
-    【安全说明——这是**有意保留**，不是遗漏】本类的契约就是"把调用方给的命令串交给
-    shell 执行"（见各方法的 ``cmd`` 参数），因此 `os.popen` / `os.system` 触发的
-    **B605（start_process_with_a_shell，shell 注入面）是这一契约的固有属性**，不是
-    可改掉的实现细节：能保住契约的替代写法（如 `shlex.split` + `subprocess.run(shell=False)`）
-    会丢掉管道、重定向、`&&` 等 shell 语义，属**语义变更**，不在这里替作者决定；而
-    `os.system` 的返回值语义（退出码）与 `popen().read()` 的（标准输出）也不相同。
-    故按仓库既有做法（见 `persistence_scheduler.py` 对 pickle 的处理）用**定向 `# nosec`**
-    收口，并把风险写在这里而不是抹掉。
+    [Security note - this is **deliberately retained**, not an oversight] The
+    contract of this class is exactly "hand the caller's command string to
+    the shell" (see the ``cmd`` argument of each method), so the **B605
+    (start_process_with_a_shell, the shell-injection surface) raised by
+    `os.popen` / `os.system` is inherent to that contract**, not a removable
+    implementation detail: an alternative that preserved the contract (e.g.
+    `shlex.split` + `subprocess.run(shell=False)`) would drop pipes,
+    redirections, `&&` and the rest of the shell semantics - a **semantic
+    change** we do not decide for the author here; besides, `os.system`'s
+    return semantics (exit code) differ from `popen().read()`'s (stdout).
+    So, following the repo's established pattern (see
+    `persistence_scheduler.py` on pickle), this is closed with a **targeted
+    `# nosec`**, and the risk is written here rather than erased.
 
-    **风险边界**：本类在仓库内**零调用点**（仅经 `utils/__init__` 的 `__all__` 导出，
-    属公开 API）。真正的风险取决于**调用方**是否把不可信输入拼进 ``cmd`` ——
-    这个判断在调用方，不在本类。
+    **Risk boundary**: this class has **zero call sites in the repo** (only
+    exported via `utils/__init__`'s `__all__`, i.e. public API). The real
+    risk depends on whether the **caller** splices untrusted input into
+    ``cmd`` - that judgment belongs to the caller, not this class.
     """
 
     @classmethod
     def cmd_read(cls, cmd: str) -> str:
-        """执行cmd命令."""
+        """Run the cmd command."""
         with os.popen(cmd) as p:  # nosec B605
             response = p.read()
         return response.strip()
 
     @classmethod
     def cmd_write(cls, cmd: str) -> None:
-        """执行cmd命令."""
+        """Run the cmd command."""
         os.system(cmd)  # nosec B605
 
     @classmethod
     def cmd_write_with_result(cls, cmd: str) -> int:
-        """执行cmd命令."""
+        """Run the cmd command."""
         return os.system(cmd)  # nosec B605

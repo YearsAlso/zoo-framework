@@ -1,11 +1,14 @@
-"""注册项。
+"""A registration.
 
-一个注册项记录"如何构造某个类型的实例、它属于哪个作用域、它的线程安全归属是什么"。
-标识取**模块 + 限定名**而不是裸类名（见 design D2）：裸类名会让两个同名但定义位置
-不同的类互相覆盖，且解析到错的对象时**不报错**。
+A registration records "how to build an instance of a type, which scope it
+belongs to, and its thread-safety ownership". The id is taken as **module +
+qualified name** rather than the bare class name (see design D2): the bare
+name would let two same-named classes defined in different places overwrite
+each other, silently, when resolving to the wrong object.
 
-类型契约由本对象守住：``registered_type`` 始终是注册时提供的那个类，容器既不替换它
-也不返回代理对象，因此 ``isinstance`` / ``issubclass`` 照常可用。
+The type contract is guarded by this object: ``registered_type`` is always
+the class provided at registration; the container neither replaces it nor
+returns a proxy, so ``isinstance`` / ``issubclass`` keep working as usual.
 """
 
 from collections.abc import Callable
@@ -13,16 +16,16 @@ from typing import Any
 
 
 def qualified_name(cls: type) -> str:
-    """取类型在进程内唯一的标识（模块 + 限定名）.
+    """Get the process-unique identity of a type (module + qualified name).
 
     Args:
-        cls: 待标识的类
+        cls: the class to identify
 
     Returns:
-        形如 ``pkg.mod.Outer.Inner`` 的标识
+        An identity like ``pkg.mod.Outer.Inner``
 
     Raises:
-        TypeError: 入参不是类
+        TypeError: the argument is not a class
     """
     if not isinstance(cls, type):
         raise TypeError(f"registration id can only be derived from a class, got {cls!r}")
@@ -30,15 +33,18 @@ def qualified_name(cls: type) -> str:
 
 
 class Registration:
-    """一个注册项.
+    """A registration.
 
     Attributes:
-        name: 注册项标识（进程内唯一）
-        registered_type: 注册时提供的类型；用于类型契约，可为 None（按名注册时）
-        scope_kind: 所属作用域种类
-        thread_safety: 线程安全归属声明
-        explicit_name: 标识是否为显式指定（而非由类推导）
-        on_release: 释放该实例时调用的销毁钩子；签名 ``(instance) -> None``
+        name: the registration id (unique within the process)
+        registered_type: the type given at registration; carries the type
+            contract, may be None (when registered by name)
+        scope_kind: which scope kind it belongs to
+        thread_safety: the thread-safety ownership declaration
+        explicit_name: whether the id was given explicitly (rather than
+            derived from the class)
+        on_release: the release hook called when the instance is released;
+            signature ``(instance) -> None``
     """
 
     __slots__ = (
@@ -70,7 +76,7 @@ class Registration:
         self.on_release = on_release
 
     def create(self) -> Any:
-        """按注册时给出的方式构造一个实例."""
+        """Build one instance in the way given at registration."""
         return self.factory()
 
     def __repr__(self) -> str:
