@@ -20,14 +20,14 @@
 
 ## 3. 接线与开关
 
-- [ ] 3.1 `adaptive:enabled=false`（默认）时 `DualArmWorker` 纯 python 臂执行、零 bandit 分支、零锁；验证：关闭开关下派发/结算与合入前等价
-- [ ] 3.2 `adaptive:enabled=true` 时决策生效；`native:enabled` 与 `adaptive:enabled` 独立判定（各自显式拒绝，无级联假设）；验证：四态组合矩阵用例
-- [ ] 3.3 统计持久化：`adaptive:statsPath` 配置时 JSONL 快照（PersistenceScheduler 原子写 + 校验和先例，~40 行）；验证：落盘/重启加载为先验、写失败 fail-open
-- [ ] 3.4 全量门禁：pytest 全绿、ruff/mypy 零错、bandit（安全扫描）零高危、`openspec validate add-adaptive-scheduling --strict` 通过
+- [x] 3.1 `adaptive:enabled=false`（默认）时 `DualArmWorker` 纯 python 臂执行、零 bandit 分支、零锁；验证：关闭开关下派发/结算与合入前等价
+- [x] 3.2 `adaptive:enabled=true` 时决策生效；`native:enabled` 与 `adaptive:enabled` 独立判定（各自显式拒绝，无级联假设）；验证：四态组合矩阵用例
+- [x] 3.3 统计持久化：`adaptive:statsPath` 配置时 JSONL 快照（PersistenceScheduler 原子写 + 校验和先例，~40 行）；验证：落盘/重启加载为先验、写失败 fail-open
+- [x] 3.4 全量门禁：pytest 全绿（834）、ruff/mypy 零错、bandit（安全扫描）零高危（B311 ε-greedy 探索 nosec 豁免——非加密用途）、`openspec validate add-adaptive-scheduling --strict` 通过
 
 ## 4. 端到端验收
 
-- [ ] 4.1 集成场景（有真扩展的本机）：声明双臂的 worker 混合执行 → 统计收敛（大帧原生臂均值更快并稳定被选）；验证：可复现统计断言（固定种子）
+- [x] 4.1 集成场景（有真扩展的本机）：声明双臂的 worker 混合执行 → 统计收敛（大帧原生臂均值更快并稳定被选）；验证：可复现统计断言（固定种子）
 - [x] 4.2 决策 μs 级验收：decide+record 单次 < 1µs（本机参考形态，bench 同次运行内对照）；验证：测量数据落档（`bench/demo_bandit_gain.py` 表3：decide 0.35µs + record 0.29µs ≈ 0.64µs/帧，收敛验证表2 双类目与包络规则同侧）
-- [ ] 4.3 docs/ 更新：adaptive 一节——`DualArmWorker` 使用方式、`adaptive:*` 键族、与 `native:*` 的独立关系
+- [x] 4.3 docs/ 更新：adaptive 一节——`DualArmWorker` 使用方式、`adaptive:*` 键族、与 `native:*` 的独立关系
 - [ ] 4.4 `/opsx:archive` + spec-syncer 核对 `openspec/specs/adaptive-scheduling/spec.md` 与实现一致；结果回调 issue（adaptive 线归属 issue 确认后追加）

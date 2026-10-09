@@ -142,6 +142,49 @@ class MyStateWorker(StateMachineWorker):
         sm.add_state("my_machine", "idle")
 ```
 
+### DualArmWorker
+
+双臂 Worker 基类：以在线自学的 ε-greedy 决策在「原生执行 / Python 执行」两条
+语义等价的臂之间逐 Worker 类选择。**默认关闭**（`adaptive:enabled=false`）——
+关闭时按纯 python 臂执行，与普通 Worker 无差异。
+
+```python
+from zoo_framework.workers import DualArmWorker
+
+
+class ModbusWorker(DualArmWorker):
+    """原生臂看门人：声明原生任务名后，框架按逐类统计自动选臂."""
+
+    def __init__(self, props: dict):
+        props = {**props, "native_task_name": "modbus.poll"}  # 声明原生臂
+        super().__init__(props)
+
+    def _execute_python(self):
+        """python 臂执行体（必须实现）"""
+        return self._poll_modbus_python()
+
+    def _prepare_native_input(self) -> bytes:
+        """原生臂载荷（可选钩子；默认取 props["input"]）"""
+        return self._build_request_bytes()
+```
+
+**配置键族**（`config.json`，全部有保守默认值）：
+
+| 键 | 默认 | 含义 |
+|----|------|------|
+| `adaptive:enabled` | `false` | 自适应决策总开关；关闭 = 零分支零锁 |
+| `adaptive:exploration` | `0.05` | ε-greedy 探索率 |
+| `adaptive:explorationOverride:<Worker类>:<值>` | 全局值 | 按类覆盖探索率 |
+| `adaptive:statsPath` | `""`（空 = 不持久化） | 两臂统计的 JSON 快照路径（原子写 + MD5 校验，重启恢复为先验） |
+
+**两条硬语义**：
+
+- **显式拒绝**：声明了 `native_task_name` 但 `native:enabled=false`（或扩展缺失）
+  → 构造期报错，绝不静默回退 python 臂；`native:enabled` 与 `adaptive:enabled`
+  相互独立判定
+- **fail-open**：决策/统计/持久化任何异常都不传导为任务失败；双臂执行体自身的
+  异常照 `BaseWorker` 契约 `_on_error` 传播
+
 ---
 
 ## 🏠 Cage API

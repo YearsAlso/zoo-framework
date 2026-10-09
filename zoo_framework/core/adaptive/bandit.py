@@ -53,7 +53,7 @@ class EpsilonGreedy:
             best = self._best_arm(native_stats, python_stats)
 
         if rng is None:
-            rng = random.Random()
+            rng = random.Random()  # nosec B311 — ε-greedy 调度探索，非加密用途
         if rng.random() < self.epsilon:
             return ARM_NATIVE if rng.random() < 0.5 else ARM_PYTHON
         return best
@@ -91,6 +91,23 @@ class EpsilonGreedy:
             n, mean = self._stats[arm]
             # 增量均值：mean += (x - mean) / (n+1)，与全量均值数学等价
             self._stats[arm] = (n + 1, mean + (duration - mean) / (n + 1))
+
+    def restore(self, stats: dict[str, tuple[int, float]]) -> None:
+        """整臂回填统计（重启先验；设计 D4）.
+
+        Args:
+            stats: 臂名 -> (n, mean)。只回填两臂键族之内的条目（多余的忽略——
+                落盘文件可能来自臂名族不同的旧版本），非法键不报错
+        """
+        with self._lock:
+            for arm, (n, mean) in stats.items():
+                if arm in self._stats:
+                    self._stats[arm] = (int(n), float(mean))
+
+    def snapshot_stats(self) -> dict[str, tuple[int, float]]:
+        """两臂统计（restore 的对称形态；snapshot 的紧凑版，测试断言用）."""
+        with self._lock:
+            return dict(self._stats)
 
     # ---------------------------------------------------------------- 视图
 

@@ -16,6 +16,7 @@ snapshot() 新 dict；fake 侧记录调用当时实参，验证期只读快照�
 """
 
 import importlib
+import json
 import random
 import threading
 import time
@@ -560,3 +561,206 @@ class TestDualArmWorker:
         core.run_and_settle(worker)
         assert len(policy.records) == 0, "关闭态不触决策器"
         assert core.is_inflight(worker) is False, "结算后不再在飞（恰好一次结算语义未被破坏）"
+
+
+# =============================================================================
+# 开关矩阵与关闭等价（tasks 3.1 / 3.2）
+# =============================================================================
+
+
+class TestSwitchMatrix:
+    """native:enabled × adaptive:enabled 四态组合（独立判定，无级联假设）."""
+
+    def _worker_cls(self):
+        from zoo_framework.workers import DualArmWorker
+
+        class Demo(DualArmWorker):
+            def _execute_python(self):
+                return {"from": "python"}
+
+        return Demo
+
+    def test_matrix_adaptive_on_native_on_routes_by_bandit(self, monkeypatch):
+        """(adaptive=T, native=T)：决策生效——决策 python 臂则原生执行体不被触碰."""
+        _set_adaptive_enabled(monkeypatch, True)
+        _set_native_enabled(monkeypatch, True)
+        policy = FakePolicy(ARM_PYTHON)
+        adapter = FakeNativeAdapter()
+        _use_fake_adapter(monkeypatch, adapter)
+        worker = self._worker_cls()({"name": "M", "native_task_name": "t"}, policy=policy)
+        assert worker._execute() == {"from": "python"}
+        assert adapter.executed == []
+        assert policy.records == [("Demo", ARM_PYTHON)]
+
+    def test_matrix_adaptive_on_native_off_rejected_construction(self, monkeypatch):
+        """(adaptive=T, native=F)：native 的显式拒绝不因 adaptive 开着而翻面."""
+        _set_adaptive_enabled(monkeypatch, True)
+        _set_native_enabled(monkeypatch, False)
+        adapter = FakeNativeAdapter()
+        _use_fake_adapter(monkeypatch, adapter)
+        with pytest.raises(RuntimeError, match="native:enabled"):
+            self._worker_cls()({"name": "M", "native_task_name": "t"})
+
+    def test_matrix_adaptive_off_native_on_runs_python_per_spec(self, monkeypatch):
+        """(adaptive=F, native=T)：按 spec 关闭态逐字语义——纯 python 臂执行，
+        bandit 分支零触达（native 声明的可用性检查是构造期独立的，已在
+        test_native_disabled / test_native_extension 用例覆盖拒绝形态）."""
+        _set_adaptive_enabled(monkeypatch, False)
+        _set_native_enabled(monkeypatch, True)
+        adapter = FakeNativeAdapter()
+        _use_fake_adapter(monkeypatch, adapter)
+        policy = FakePolicy(ARM_NATIVE)  # 关闭态 MUST NOT 被触达——预置决策臂若被问即红
+        worker = self._worker_cls()({"name": "M", "native_task_name": "t"}, policy=policy)
+        assert worker._execute() == {"from": "python"}
+        assert adapter.executed == []
+        assert policy.records == []
+
+    def test_matrix_adaptive_off_native_off_pure_python(self, monkeypatch):
+        """(adaptive=F, native=F)：与合入前行为一致（纯 python，无 bandit 痕迹）.
+
+        声明 native 臂 + native:enabled=false → 按显式拒绝语义构造期报错
+        （拒绝是 native 键族**独立**判定，与 adaptive 无级联假设）；带无声明
+        形态的同名 worker 走纯 python。
+        """
+        _set_adaptive_enabled(monkeypatch, False)
+        _set_native_enabled(monkeypatch, False)
+        adapter = FakeNativeAdapter()
+        _use_fake_adapter(monkeypatch, adapter)
+        # 声明 + 关开关 → 显式拒绝（构造期）
+        with pytest.raises(RuntimeError, match="native:enabled"):
+            self._worker_cls()({"name": "M", "native_task_name": "t"})
+        # 无声明 → 纯 python，零决策零记录
+        policy = FakePolicy(ARM_NATIVE)
+        worker = self._worker_cls()({"name": "M"}, policy=policy)
+        assert worker._execute() == {"from": "python"}
+        assert adapter.executed == []
+        assert policy.records == []
+
+
+class TestPersistence:
+    """adaptive:statsPath JSONL 快照（tasks 3.3）：落盘 / 重启先验 / 写失败 fail-open."""
+
+    def test_default_empty_path_writes_nothing(self, monkeypatch, tmp_path):
+        """Scenario: statsPath 未配置 → 统计仅存内存，不产生任何文件写入."""
+        from zoo_framework.core.params_factory import ParamsFactory
+
+        # 显式打桩「adaptive 键族存在、statsPath 缺席」的配置——
+        # 单例恢复与 flush_stats() 的缺省存储都经 get_stats_store() 现查此配置
+        monkeypatch.setattr(
+            ParamsFactory,
+            "config_params",
+            {"adaptive": {}},
+            raising=False,
+        )
+        reset_bandit_policy()
+        policy = get_bandit_policy()
+        policy.record("X", ARM_NATIVE, 0.1)
+        # flush 成功恒 True（无事发生不算失败），且统计在内存可复述
+        assert policy.flush_stats() is True
+        assert policy.snapshot()["X"][ARM_NATIVE]["n"] == 1
+        # 路径空 = StatsStore 全空操作：tmp 下确实一个文件都没落（有牙齿：空目录）
+        assert list(tmp_path.iterdir()) == []
+
+    def test_flush_writes_json_and_restart_restores_prior(self, monkeypatch, tmp_path):
+        """Scenario: flush 落盘 → 新单例恢复为先验（n/mean 整手臂逐项等值）."""
+        from zoo_framework.core.adaptive import get_stats_store
+        from zoo_framework.core.params_factory import ParamsFactory
+
+        store = get_stats_store(str(tmp_path / "adaptive_stats.json"))
+        # 打桩 config 而非 AdaptiveParams.STATS_PATH 类属性——单例恢复路径经
+        # get_stats_store() 现查 ParamsFactory 配置（类属性在导入期已冻结为字面值）
+        monkeypatch.setattr(
+            ParamsFactory,
+            "config_params",
+            {"adaptive": {"statsPath": str(tmp_path / "adaptive_stats.json")}},
+            raising=False,
+        )
+
+        policy = get_bandit_policy()
+        for _ in range(20):
+            policy.record("Fast", ARM_NATIVE, 0.01)
+            policy.record("Fast", ARM_PYTHON, 0.5)
+        assert store.flush(policy.snapshot()) is True
+
+        # 重启形态：复位单例后按落盘先验重建
+        reset_bandit_policy()
+        second = get_bandit_policy()
+        snap = second.snapshot()
+        assert snap["Fast"][ARM_NATIVE]["n"] == 20
+        assert snap["Fast"][ARM_NATIVE]["mean"] == pytest.approx(0.01)
+        assert snap["Fast"][ARM_PYTHON]["mean"] == pytest.approx(0.5)
+        # 决策与「从未重启」的等价形态一致：稳定选 native
+        assert second.decide("Fast") == ARM_NATIVE
+
+    def test_corrupted_file_treated_as_no_prior(self, monkeypatch, tmp_path):
+        """损坏（字段被改/结构不合法）→ 按无先验处理，不抛给调用方."""
+        from zoo_framework.core.adaptive import get_stats_store
+
+        store = get_stats_store(str(tmp_path / "bad.json"))
+        policy = get_bandit_policy()
+        policy.record("W", ARM_NATIVE, 0.2)
+        store.flush(policy.snapshot())
+
+        # 事后篡改：正文与校验和不再一致
+        path = tmp_path / "bad.json"
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        doc["classes"]["W"][ARM_NATIVE]["mean"] = 999.0
+        path.write_text(json.dumps(doc), encoding="utf-8")
+
+        reset_bandit_policy()
+        second_store = get_stats_store(str(path))
+        assert second_store.load() is None  # 校验不匹配 → None（无先验）
+        restored = get_bandit_policy()
+        assert restored.snapshot() == {}  # 新单例不携带被篡改的统计
+
+    def test_unknown_arms_in_file_ignored(self, monkeypatch, tmp_path):
+        """落盘文件含未知臂名（旧版本产物）→ 忽略该条目，两臂语义不破."""
+        from zoo_framework.core.adaptive import get_stats_store
+
+        path = tmp_path / "legacy.json"
+        doc = {
+            "version": 1,
+            "classes": {"Old": {ARM_NATIVE: {"n": 5, "mean": 0.1}, "gpu": {"n": 3, "mean": 0.01}}},
+            "checksum": "",
+        }
+        body = json.dumps({"version": 1, "classes": doc["classes"]}, ensure_ascii=False)
+        import hashlib
+
+        doc["checksum"] = hashlib.md5(body.encode(), usedforsecurity=False).hexdigest()
+        path.write_text(json.dumps(doc), encoding="utf-8")
+
+        store = get_stats_store(str(path))
+        restored = store.load()
+        assert restored is not None
+        assert set(restored["Old"]) == {ARM_NATIVE, "gpu"}  # 数据层保真（load 不裁剪）
+        # 语义层过滤发生在 policy.restore：未知臂不进两臂统计
+        policy = get_bandit_policy()
+        policy.restore(restored)
+        snap = policy.snapshot()["Old"]
+        assert set(snap) == {ARM_NATIVE, ARM_PYTHON}  # "gpu" 被忽略，缺臂保持 0 样本
+        assert snap[ARM_NATIVE]["n"] == 5
+        assert snap[ARM_PYTHON]["n"] == 0
+
+    def test_flush_failure_fails_open(self, monkeypatch, tmp_path):
+        """写失败（目录不存在）→ 返回 False、内存态不受影响、无异常抛出."""
+        from zoo_framework.core.adaptive import get_stats_store
+
+        store = get_stats_store(str(tmp_path / "no_such_dir" / "stats.json"))
+        policy = get_bandit_policy()
+        policy.record("F", ARM_NATIVE, 0.3)
+        assert store.flush(policy.snapshot()) is False
+        assert policy.snapshot()["F"][ARM_NATIVE]["mean"] == pytest.approx(0.3)
+
+    def test_factory_reads_adaptive_stats_path_config(self, monkeypatch, tmp_path):
+        """``adaptive:statsPath`` 配置经 get_stats_store() 缺省构造生效."""
+        from zoo_framework.core.adaptive import get_stats_store
+        from zoo_framework.core.params_factory import ParamsFactory
+
+        target = str(tmp_path / "cfg_stats.json")
+        monkeypatch.setattr(
+            ParamsFactory, "config_params", {"adaptive": {"statsPath": target}}, raising=False
+        )
+        store = get_stats_store()
+        assert store.path == target
+        assert store.flush({"C": {ARM_NATIVE: {"n": 1, "mean": 0.5}}}) is True
+        assert (tmp_path / "cfg_stats.json").exists()

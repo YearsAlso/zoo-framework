@@ -18,6 +18,7 @@ from zoo_framework.core import process_state
 from zoo_framework.core.params_factory import ParamsFactory
 
 from .bandit import ARM_NATIVE, ARM_PYTHON, EpsilonGreedy
+from .stats_store import StatsStore
 
 # 进程级单例（get_bandit_policy / reset_bandit_policy）——与 native adapter 同形态
 _policy_singleton: "BanditPolicy | None" = None
@@ -44,6 +45,7 @@ class BanditPolicy:
         from zoo_framework.params import AdaptiveParams
 
         self.epsilon = AdaptiveParams.EXPLORATION if epsilon is None else epsilon
+        self._explicit_epsilon = epsilon
         self._lock = threading.Lock()
         self._classes: dict[str, EpsilonGreedy] = {}
 
@@ -77,7 +79,13 @@ class BanditPolicy:
         with self._lock:
             greedy = self._classes.get(worker_class_name)
             if greedy is None:
-                greedy = EpsilonGreedy(epsilon=self._resolve_epsilon(worker_class_name))
+                # 显式注入的 epsilon 优先（测试/调用方指明即不给配置覆盖的机会）；
+                # None 时按类目键族解析
+                if self._explicit_epsilon is not None:
+                    epsilon = self._explicit_epsilon
+                else:
+                    epsilon = self._resolve_epsilon(worker_class_name)
+                greedy = EpsilonGreedy(epsilon=epsilon)
                 self._classes[worker_class_name] = greedy
             return greedy
 
@@ -99,14 +107,54 @@ class BanditPolicy:
         with self._lock:
             return {name: greedy.snapshot() for name, greedy in self._classes.items()}
 
+    def restore(self, classes: dict[str, dict[str, tuple[int, float]]]) -> None:
+        """整表回填统计（重启先验；design D4）.
+
+        Args:
+            classes: 类目名 -> 臂名 -> (n, mean)。已知类目整臂覆盖、未知类目建档
+                （探索率照 ``_resolve_epsilon`` 语义解析）；臂名族之外的条目忽略
+        """
+        for name, stats in classes.items():
+            greedy = self._greedy_for(name)
+            greedy.restore(stats)
+
+    def flush_stats(self, store: "StatsStore | None" = None) -> bool:
+        """把当前快照经 StatsStore 落盘（``adaptive:statsPath`` 的消费入口）.
+
+        Args:
+            store: 显式 StatsStore（测试注入用）；None 时构造缺省（读配置路径）
+
+        Returns:
+            是否成功（未配置路径恒 True；写失败 False——spec fail-open）
+        """
+        if store is None:
+            from .stats_store import get_stats_store
+
+            store = get_stats_store()
+        return bool(store.flush(self.snapshot()))
+
 
 def get_bandit_policy() -> BanditPolicy:
-    """进程级决策单例的访问入口（首次访问时创建）."""
+    """进程级决策单例的访问入口（首次访问时创建，并按落盘先验恢复）.
+
+    先验恢复（design D4）：``adaptive:statsPath`` 已配置且文件可合法解析时，
+    首次建档即回填——统计跨重启延续；路径空/文件缺失/损坏 = 全新统计。
+    """
     global _policy_singleton
     with _policy_lock:
         if _policy_singleton is None:
             _policy_singleton = BanditPolicy()
+            _restore_from_store(_policy_singleton)
         return _policy_singleton
+
+
+def _restore_from_store(policy: BanditPolicy) -> None:
+    """把落盘快照回填进新建的单例（fail-open：任何失败只留日志）."""
+    from .stats_store import get_stats_store
+
+    restored = get_stats_store().load()
+    if restored:
+        policy.restore(restored)
 
 
 def reset_bandit_policy() -> None:

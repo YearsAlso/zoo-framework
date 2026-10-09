@@ -15,6 +15,7 @@ CI / 干净环境没有原生扩展时这些用例不伪装通过也不误报失
 """
 
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -128,3 +129,159 @@ class TestExecutionEquivalence:
         adapter = NativeAdapter()
         with pytest.raises(NativeInvalidInput, match="未注册"):
             adapter.execute("nonexistent.task", b"\x01\x03\x00\x00")
+
+
+# =============================================================================
+# add-adaptive-scheduling tasks 4.1：DualArmWorker 收敛集成场景（真实扩展）
+# =============================================================================
+
+
+class TestDualArmWorkerConvergence:
+    """声明双臂的 worker 混合执行 → 统计收敛并稳定选实测更快的一侧.
+
+    场景（tasks 4.1）：大帧（250 字节载荷）原生臂明显更快；小帧（5 字节）
+    Python 参考实现更省（原生边界往返吞掉原生收益）。两类各跑固定次数后，
+    bandit 统计必须与实测均值同侧，且 ε=0 决策稳定选更快臂。
+
+    统计隔离：每个用例自持 BanditPolicy 实例（不取进程单例），跨用例零残留。
+    """
+
+    MIXED_RUNS = 20
+
+    def setup_method(self, monkeypatch=None):
+        """打桩 native:enabled=true（构造期现查 config）+ adaptive:enabled=true.
+
+        adaptive 开关在 ``_execute`` 里读的是已被 @params 冻结为字面值的类属性，
+        直接 monkeypatch 该属性才生效（经 @params 重新解析是空操作）。
+        """
+        from zoo_framework.core.params_factory import ParamsFactory
+        from zoo_framework.params import AdaptiveParams
+
+        self._monkeypatch = pytest.MonkeyPatch()
+        self._monkeypatch.setattr(
+            ParamsFactory, "config_params", {"native": {"enabled": True}}, raising=False
+        )
+        self._monkeypatch.setattr(AdaptiveParams, "ADAPTIVE_ENABLED", True, raising=False)
+
+    def teardown_method(self):
+        self._monkeypatch.undo()
+
+    @staticmethod
+    def _big_frame() -> bytes:
+        return reference.build_frame(bytes([0x21, 0x03, 0xFA]) + bytes(i % 256 for i in range(250)))
+
+    @staticmethod
+    def _small_frame() -> bytes:
+        return reference.build_frame(bytes([0x01, 0x03, 0x02, 0x12, 0x34]))
+
+    def _start_policy(self, epsilon: float = 0.5):
+        from zoo_framework.core.adaptive import BanditPolicy
+
+        return BanditPolicy(epsilon=epsilon)
+
+    @staticmethod
+    def _faster_arm(snap: dict) -> str:
+        """按臂均值判快侧（均值小 = 快）；无样本侧视为慢."""
+        import math
+
+        native_mean = snap["native"]["mean"] if snap["native"]["n"] else math.inf
+        python_mean = snap["python"]["mean"] if snap["python"]["n"] else math.inf
+        return "native" if native_mean <= python_mean else "python"
+
+    def _run_both_arms(self, frame: bytes, policy, runs: int):
+        """用同一个 DualArmWorker 混合跑两类帧的各 10 次，喂出两类统计.
+
+        key = 类名（同名类共享统计，这正是逐类学习语义）；大帧 / 小帧分属
+        两个 worker 子类，各得独立类目。
+        """
+        from zoo_framework.core.adaptive import ARM_NATIVE
+        from zoo_framework.workers import DualArmWorker
+
+        class BigFrameWorker(DualArmWorker):
+            def __init__(self):
+                super().__init__(
+                    {"native_task_name": TASK_NAME, "input": self._big_frame()}, policy=policy
+                )
+
+            @staticmethod
+            def _big_frame():
+                return TestDualArmWorkerConvergence._big_frame()
+
+            def _execute_python(self):
+                return reference.parse_response(self._props["input"])
+
+        class SmallFrameWorker(DualArmWorker):
+            def __init__(self):
+                super().__init__(
+                    {"native_task_name": TASK_NAME, "input": self._small_frame()}, policy=policy
+                )
+
+            @staticmethod
+            def _small_frame():
+                return TestDualArmWorkerConvergence._small_frame()
+
+            def _execute_python(self):
+                return reference.parse_response(self._props["input"])
+
+        big, small = BigFrameWorker(), SmallFrameWorker()
+        for _ in range(runs):
+            big._execute()
+            small._execute()
+        big_snap = policy.snapshot()["BigFrameWorker"]
+        small_snap = policy.snapshot()["SmallFrameWorker"]
+        # 两类都被结构喂到了 python 臂之外（等价前置：双臂输出一致由本文件已有用例保证）
+        assert big_snap[ARM_NATIVE]["n"] > 0
+        assert small_snap["python"]["n"] > 0
+        return big_snap, small_snap
+
+    def test_convergence_matches_measured_faster_arm(self):
+        """大帧类收敛到更快臂（ε=0 决策与实测均值同侧）."""
+        adapter = NativeAdapter()
+        adapter.ensure_ready()
+        policy = self._start_policy()
+        big_snap, small_snap = self._run_both_arms(self._big_frame(), policy, self.MIXED_RUNS)
+
+        # 稳态断言：类目臂 ε=0（纯利用）——决策的探索概率记在逐类目
+        # EpsilonGreedy.epsilon 上（policy 级只是建档默认值，事后改无效）
+        policy._classes["BigFrameWorker"].epsilon = 0
+        policy._classes["SmallFrameWorker"].epsilon = 0
+        assert policy.decide("BigFrameWorker") == self._faster_arm(big_snap)
+        assert policy.decide("SmallFrameWorker") == self._faster_arm(small_snap)
+
+    def test_steady_state_decision_stable(self):
+        """从收敛统计出发，大帧类连续 50 次决策不抖动.
+
+        ε-greedy 的探索概率记在逐类目的 ``EpsilonGreedy.epsilon`` 上（policy 级
+        只作默认值），稳态纯利用要改类目臂的 epsilon。
+        """
+        adapter = NativeAdapter()
+        adapter.ensure_ready()
+        policy = self._start_policy()
+        big_snap, _ = self._run_both_arms(self._big_frame(), policy, self.MIXED_RUNS)
+        # 稳态：类目臂 ε=0（纯利用）
+        greedy = policy._classes["BigFrameWorker"]
+        greedy.epsilon = 0
+        faster = self._faster_arm(big_snap)
+        decisions = {policy.decide("BigFrameWorker") for _ in range(50)}
+        assert len(decisions) == 1, f"稳态决策抖动: {decisions}"
+        assert next(iter(decisions)) == faster
+
+    def test_worker_result_contract_untouched(self):
+        """双臂执行返回值与参考实现逐值等价：决策不影响输出语义."""
+        adapter = NativeAdapter()
+        adapter.ensure_ready()
+        policy = self._start_policy()
+        frame = self._big_frame()
+        from zoo_framework.workers import DualArmWorker
+
+        class BigFrameWorker(DualArmWorker):
+            def __init__(self):
+                super().__init__({"native_task_name": TASK_NAME, "input": frame}, policy=policy)
+
+            def _execute_python(self):
+                return reference.parse_response(frame)
+
+        worker = BigFrameWorker()
+        expected = reference.parse_response(frame)
+        results = {json.dumps(worker._execute(), sort_keys=True) for _ in range(self.MIXED_RUNS)}
+        assert results == {json.dumps(expected, sort_keys=True)}

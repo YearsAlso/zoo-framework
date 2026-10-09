@@ -12,12 +12,15 @@
 
 from .bandit import ARM_NATIVE, ARM_PYTHON, EpsilonGreedy
 from .policy import BanditPolicy, get_bandit_policy, reset_bandit_policy
+from .stats_store import StatsStore, get_stats_store
 
 __all__ = [
     "ARM_NATIVE",
     "ARM_PYTHON",
     "BanditPolicy",
     "EpsilonGreedy",
+    "StatsStore",
     "get_bandit_policy",
+    "get_stats_store",
     "reset_bandit_policy",
 ]
