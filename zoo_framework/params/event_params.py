@@ -19,3 +19,9 @@ class EventParams:
     DISPATCH_BATCHING_ENABLED = param(value="event:dispatchBatchingEnabled", default=False)
     # 批大小上限（design D2）：溢出事件留队不取（下一轮消费），不裁批、不丢失、不死信。
     BATCH_MAX_SIZE = param(value="event:batchMaxSize", default=64)
+    # 推模型开关（add-event-push-model D5）：生产者入队即 notify，消费者无事件挂起
+    # wait 零空转；默认关闭 = 固定心跳轮询的既有行为零变化（连 Condition 都不创建）。
+    PUSH_MODEL_ENABLED = param(value="event:pushModelEnabled", default=False)
+    # 消费者挂起兜底超时（秒，design D3）：防生产者侧异常漏 notify 导致永久滞留——
+    # 超时后恢复一轮扫描；与 EVENT_DELAY_TIME 同量级的保守默认。
+    PUSH_FALLBACK_TIMEOUT = param(value="event:pushFallbackTimeout", default=1.0)

@@ -72,6 +72,15 @@ class EventWorker(BaseWorker):
     def _execute(self):
         from zoo_framework.params import EventParams
 
+        # 推模型（add-event-push-model）：若无事件，挂起等待生产者 notify——
+        # 被唤醒或兜底超时后进入下方正常排空，消费主体完全复用。
+        # 关闭时 _push_wait 是零开销空操作，行为与合入前逐字节一致。
+        # 注意 MUST NOT 在挂起后做「全空则跳过排空」的守卫：notify/超时与
+        # 生产者入队之间没有原子性，守卫求值瞬间恰好入队的事件会被饿到
+        # 下一拍——空排空只花 µs，而竞态丢的可是真事件。
+        if EventParams.PUSH_MODEL_ENABLED:
+            self._push_wait(EventParams.PUSH_FALLBACK_TIMEOUT)
+
         if EventParams.DISPATCH_BATCHING_ENABLED:
             self._execute_batched()
             return
@@ -122,6 +131,18 @@ class EventWorker(BaseWorker):
             # 有界等待本轮派发结果；超时项与异常项均转交可观测上报
             wait(dispatched, timeout=EventParams.EVENT_JOIN_TIMEOUT)
             self._report_unfinished(dispatched)
+
+    def _push_wait(self, timeout: float) -> None:
+        """推模型挂起：在所有通道的 Condition 上等待有事件（design D3）.
+
+        依次对每个通道 wait_ready：任一通道被唤醒即返回（消费主体下一行立即
+        排空）；每通道各自的兜底超时防止生产者侧异常导致的永久滞留。
+        通道无 Condition（推模型关闭）时 wait_ready 立即返回，零开销。
+        """
+        for name in self.eventChannelManager.get_all_channel_name():
+            channel = self.eventChannelManager.get_channel(name)
+            if channel.wait_ready(timeout) and channel.size() > 0:
+                return
 
     def _execute_batched(self):
         """批量投递的消费排空（optimize-event-dispatch-batching D1/D2）.

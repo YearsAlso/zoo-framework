@@ -1,3 +1,5 @@
+from threading import Condition
+
 from zoo_framework.fifo import EventFIFO
 from zoo_framework.fifo.node import EventNode
 from zoo_framework.reactor import EventReactor, EventReactorManager
@@ -30,6 +32,62 @@ class EventChannel:
         # 通道名称
         self.channel_name = channel_name
 
+        # 推模型唤醒设施（add-event-push-model D1/D2）：per-channel Condition，
+        # 懒创建 + 开关门控——关闭时本属性恒 None，生产者路径零新增分支开销。
+        from zoo_framework.params import EventParams
+
+        self._condition: Condition | None = Condition() if EventParams.PUSH_MODEL_ENABLED else None
+
+    # ---------------------------------------------------------------- 推模型
+
+    @property
+    def condition(self) -> Condition | None:
+        """通道的推模型唤醒条件变量；未启用推模型时为 None."""
+        return self._condition
+
+    def _ensure_condition(self) -> Condition | None:
+        """取唤醒条件变量；推模型未启用时返回 None.
+
+        懒建兜底：通道可能在推模型开关打开**之前**创建（config 之外的运行期
+        启用、测试替身、热部署）——此时首读参数决定是否补建，避免通道永久
+        错过推模型。启用后不再回收（进程语义单向，回到关闭态由重建通道承担）。
+        """
+        if self._condition is None:
+            from zoo_framework.params import EventParams
+
+            if EventParams.PUSH_MODEL_ENABLED:
+                self._condition = Condition()
+        return self._condition
+
+    def wait_ready(self, timeout: float) -> bool:
+        """消费者挂起等待本通道有事件（推模型启用时）.
+
+        Args:
+            timeout: 兜底超时（秒）；超时后调用方恢复扫描（防生产者漏 notify）
+
+        Returns:
+            True 表示被 notify 唤醒（队列可能非空）；False 表示超时或未启用
+        """
+        condition = self._ensure_condition()
+        if condition is None:
+            return False
+        with condition:
+            if self._event_fifo.size() > 0:
+                return True
+            condition.wait(timeout)
+            return self._event_fifo.size() > 0
+
+    def notify_ready(self) -> None:
+        """生产者通知：入队成功后唤醒挂起的消费者（推模型启用时）."""
+        condition = self._ensure_condition()
+        if condition is None:
+            return
+        with condition:
+            condition.notify_all()
+
+    # 兼容别名：生产者挂点统一走 notify_ready 明名语义
+    _notify_ready = notify_ready
+
     def get_reactors(self, topic: str) -> list[EventReactor]:
         """获取事件反应器."""
         return self._reactor_manager.get_reactor(topic)
@@ -59,15 +117,21 @@ class EventChannel:
         return self._event_fifo.get_top()
 
     def push_event(self, event: EventNode):
-        """将事件推入事件队列."""
+        """将事件推入事件队列.
+
+        推模型：入队成功后 notify 挂起的消费者；事件入队失败不通知（队列未变）。
+        """
         try:
             self._event_fifo.push_value(event)
         except Exception as e:
             LogUtils.error(str(e), EventFIFO.__name__)
+            return
+        self._notify_ready()
 
     def dispatch(self, topic, content):
-        """将事件推入事件队列."""
+        """将事件推入事件队列（同 push_event 的推模型语义）."""
         self._event_fifo.dispatch(topic, content, self.channel_name)
+        self._notify_ready()
 
     def register_reactor(self, topic, reactor):
         """注册事件反应器.
