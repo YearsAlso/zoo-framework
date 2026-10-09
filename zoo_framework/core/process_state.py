@@ -90,6 +90,11 @@ def _register_all() -> dict[str, Carrier]:
     def reset_container() -> None:
         framework_container().reset()
 
+    def reset_native_adapter() -> None:
+        from zoo_framework.native.adapter import reset_native_adapter as _reset
+
+        _reset()
+
     carriers: list[Carrier] = [
         # ---- 注册面 / 配置面（不塞进容器，声明 + 复位） ----------------------
         Carrier(
@@ -238,6 +243,17 @@ def _register_all() -> dict[str, Carrier]:
                 "与 config_funcs 同形态：不塞进容器，声明即归类；跨用例不需复位。"
             ),
             watch=StateIndexFactory._index_types,
+        ),
+        Carrier(
+            canonical="native.adapter:_adapter_singleton",
+            category="注册面",
+            reason=(
+                "get_native_adapter 的进程级适配器单例（add-native-task-execution）："
+                "与既有注册表同形态的模块级单例而非解析实例，不塞进容器；"
+                "复位=置空（新扩展热加载/测试隔离重建）。"
+            ),
+            names=("zoo_framework.native.adapter._adapter_singleton",),
+            reset=reset_native_adapter,
         ),
     ]
     table = {c.canonical: c for c in carriers}
