@@ -1,15 +1,19 @@
 # tasks — add-native-task-execution
 
 > 前置闸门（design D7）：阶段 0 未通过（未选定真实任务 / 未确认 go/no-go）时，第 3 组起的实现任务**不执行**；变更以「阶段 0 未通过」结论收尾，不归档为已实现。
+> **2026-10-09 闸门状态：已通过**（真实任务选定 + go 结论，见 `native/DECISION.md`），第 3 组起任务放行。
 
 ## 1. 阶段 0：选真实任务并建立可证伪基线
 
 - [x] 1.1 确认首个真实消费者任务候选（zoo-code-agent 工具循环或设备协议解析），记录业务等价判据与候选理由；产出维护者确认
-  - **2026-10-09 重估结论**：维护者排除 zoo-code-agent（仅框架本身）；候选「事件管道排空循环」经链路剖析（1.2）证实 native 下沉收益低（单事件成本被 executor.submit 记账 31.9µs 主导，可下沉段仅 1–2µs）。事件管道优化改由独立 change 承接：`add-event-push-model` + `optimize-event-dispatch-batching`（均已规划完成）。native 线候选池如实更新：框架自身暂无现成 CPU 密集大任务；**首批真实消费者 = 下游使用方（如 adaptive 训练项目，未来NativeTaskWorker 消费）**；待下游任务实际出现后回到本条做业务等价判据确认
+  - **2026-10-09 重估结论**：维护者排除 zoo-code-agent（仅框架本身）；候选「事件管道排空循环」经链路剖析（1.2）证实 native 下沉收益低（单事件成本被 executor.submit 记账 31.9µs 主导，可下沉段仅 1–2µs）。事件管道优化改由独立 change 承接：`add-event-push-model` + `optimize-event-dispatch-batching`（均已规划完成）
+  - **2026-10-09 任务选定（闸门通过）**：首个真实任务 = **Modbus RTU 响应帧解析**（`modbus_rtu.parse_response`）——设备管理线（ROADMAP 首位场景）的第一个真实负载；帧解析 + CRC16 为纯字节操作、无 GIL 内回调，符合「粗粒度原生任务」约束。范围：FC 0x03/0x04 正常响应 + 0x83/0x84 异常帧（异常码进输出）+ CRC16-MODBUS（0xA001 反射、线上小端）；业务等价判据 = 与独立参考实现逐值一致（含三族错误分类）
 - [x] 1.2 剖析完整链路（输入到达 → 调度等待 → 排队 → 输入转换 → 任务执行 → 输出转换 → 结果接收），同一次运行内分段采集，遵守 bench/ 三条读数硬约束；验证：剖析记录含转换/编排占比与离散度
   - **2026-10-09 剖析记录**：候选「事件管道排空循环」逐段成本拆解见对话留档（出队 ~50ns / 过期+查找 ~µs / **executor.submit 31.9µs=唯一大头且不可跨语言下沉** / 等待有界）；结论——候选任务的可下沉段占比过低，native 化收益预期从「高」降为「低」。受控形态测量（任务体加速/伸缩）已另录 `native/DECISION.md` 第一组数据
-- [ ] 1.3 对照测量（纯 Python / 已有原生库 / Rust 直调 / Zoo+Rust 适配链路）；验证：四种链路端到端 P50/P95/P99 已留档
-- [ ] 1.4 写 `native/DECISION.md`（沿用 bench/DECISION.md 格式）：任务选定、数据、go/no-go 门槛确认；验证：维护者明示「go」后才勾选后续章节
+- [x] 1.3 对照测量（纯 Python / 已有原生库 / Rust 直调 / Zoo+Rust 适配链路）；验证：四种链路端到端 P50/P95/P99 已留档
+  - **2026-10-09 完成**：四链路对照（Modbus RTU 1/8/125 寄存器帧，n=3000/组合，同一次运行）落 `native/DECISION.md` 第三节 + `native/results/stage0_phase2_four_paths.json`；P50 加速 1.03x（no-go）/ 2.83x / 9.71x（go），P99 全改善（−20.9% / −57.1% / −89.2%）
+- [x] 1.4 写 `native/DECISION.md`（沿用 bench/DECISION.md 格式）：任务选定、数据、go/no-go 门槛确认；验证：维护者明示「go」后才勾选后续章节
+  - **2026-10-09 完成**：维护者确认门槛 **P50 ≥1.5x 且 P99 劣化 ≤5%**；结论 **go，附工作包络**——帧 ≥8 寄存器（≥21 字节）路由原生，更小帧留 Python 侧（P2 形态 1.10µs 已同机最优）
 
 ## 2. 契约与 Python 侧组件（前提：1.4 = go）
 
@@ -22,10 +26,14 @@
 
 ## 3. Rust 扩展与首个真实任务
 
-- [ ] 3.1 建 `native/` 子目录：独立 `pyproject.toml`（maturin 后端）+ `Cargo.toml`（固定 PyO3 版本，按该版本核实 `Python::detach` 名称）+ hatchling 主包 exclude 验证；验证：`pip install -e ".[dev]"` 主路径不受影响，`python -m build` 主包不含 native 产物
-- [ ] 3.2 实现 `contract_version()` / `capabilities()` 常量暴露 + 输入/输出格式转换与三族错误结构；验证：Rust 单元测试（`cargo test`）三族错误可触发
-- [ ] 3.3 实现阶段 0 选定的真实任务（Rust 侧，detach 执行体不回调 Python）；验证：`cargo test` + 与 Python 侧等价样本比对语义一致
-- [ ] 3.4 扩展构建产物加载路径验证（本机有工具链则 skipif 放行）：契约握手、真任务执行、错误映射全链路；验证：`pytest` native 用例通过或显式 skip
+- [x] 3.1 建 `native/` 子目录：独立 `pyproject.toml`（maturin 后端）+ `Cargo.toml`（固定 PyO3 版本，按该版本核实 `Python::detach` 名称）+ hatchling 主包 exclude 验证；验证：`pip install -e ".[dev]"` 主路径不受影响，`python -m build` 主包不含 native 产物
+  - **完成记录**：crate `native/`（maturin 后端，PyO3 0.23.5 经 `Cargo.lock` 固定；`Python::detach` 在 0.23 为 `py.allow_threads`，已按版本核实）；主包 wheel `packages=["zoo_framework"]` 天然不含 native 产物；`uv pip install --python .venv/Scripts/python.exe ./native` 安装成功且不动 uv.lock
+- [x] 3.2 实现 `contract_version()` / `capabilities()` 常量暴露 + 输入/输出格式转换与三族错误结构；验证：Rust 单元测试（`cargo test`）三族错误可触发
+  - **完成记录**：`cargo test` 11 绿；`into_py_err` 把 `InvalidInput`/`TaskFailed` 映射为 `NativeInvalidInput`/`NativeTaskFailed`，Rust panic 经 PyO3 → `NativePanic` 包装（adapter 职责）；`capabilities()` 返回空清单
+- [x] 3.3 实现阶段 0 选定的真实任务（Rust 侧，detach 执行体不回调 Python）；验证：`cargo test` + 与 Python 侧等价样本比对语义一致
+  - **完成记录**：`modbus_rtu.parse_response`（`native/src/modbus.rs`，纯 core 不依赖 pyo3，执行体经 `py.allow_threads` 释放 GIL 不回调 Python）；等价性：`tests/test_native_extension.py` 对 5 类样本帧（1/8/125 寄存器 + 两异常帧）与独立参考实现 `native/reference/modbus_rtu.py` 逐值一致
+- [x] 3.4 扩展构建产物加载路径验证（本机有工具链则 skipif 放行）：契约握手、真任务执行、错误映射全链路；验证：`pytest` native 用例通过或显式 skip
+  - **完成记录**：`tests/test_native_extension.py` 9 绿（加载/握手/契约字段/等价性/三族映射/执行前拒绝）；文件级 `pytest.importorskip`——扩展未安装时显式 skip，不伪装通过也不误报
 
 ## 4. 注册、配置与集成
 
