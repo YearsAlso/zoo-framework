@@ -212,18 +212,22 @@ jobs:
         env:
           NEW_VERSION: ${{ steps.calc_version.outputs.new_version }}
         run: |
-          # 三处版本声明必须一起改；少改一处就会出现"发出的包对自己的版本撒谎"
+          # 四处版本声明必须一起改；少改一处就会出现"发出的包对自己的版本撒谎"
+          # （CITATION.cff 的 version 是第四处，自 packaging-standards / #119 起纳入）
           sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" pyproject.toml
           sed -i "s/^VERSION=.*/VERSION=$NEW_VERSION/" .env
           sed -i "s/^\([[:space:]]*\)__version__ = \".*\"/\1__version__ = \"$NEW_VERSION\"/" zoo_framework/__init__.py
+          # CFF 的 `version:` 字段（锚定行首，不会误匹配 `cff-version:`）
+          sed -i "s/^version: \".*\"/version: \"$NEW_VERSION\"/" CITATION.cff
 
-          echo "--- 改动后核对（三处必须一致）---"
+          echo "--- 改动后核对（四处必须一致）---"
           grep -n '^version = ' pyproject.toml
           grep -n '^VERSION=' .env
           grep -n '__version__ = ' zoo_framework/__init__.py | head -1
+          grep -n '^version: ' CITATION.cff
 
-          # 断言三处都写成了新版本号，否则就地失败——不要开出一个错的 PR
-          for f in pyproject.toml .env zoo_framework/__init__.py; do
+          # 断言四处都写成了新版本号，否则就地失败——不要开出一个错的 PR
+          for f in pyproject.toml .env zoo_framework/__init__.py CITATION.cff; do
             grep -q "$NEW_VERSION" "$f" || { echo "::error::$f 未写入新版本号 $NEW_VERSION"; exit 1; }
           done
 
@@ -441,6 +445,18 @@ jobs:
       - name: Build package
         run: python -m build
 
+      # ── SBOM（packaging-standards / #119）──
+      # 位置刻意放在构建之后、签名之前：SBOM 描述的就是即将发布的 dist/ 产物。
+      # 刻意不加 continue-on-error —— "看起来成功但没有 SBOM"的 release 比没有更糟。
+      - name: Generate SBOM (SPDX-JSON)
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c  # v0.24.3
+        with:
+          path: dist/
+          format: spdx-json
+          output-file: dist/sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
       # ── Sigstore keyless 签名（#94 / Scorecard Signed-Releases）──
       # Scorecard 按 Release 附件的**文件名**识别签名：*.sig 计为已签名（该 release 得
       # 8 分，近 5 个 release 平均）。cosign keyless 模式无密钥可保管，身份绑定
@@ -528,6 +544,7 @@ jobs:
             dist/*.tar.gz
             dist/*.sig
             dist/*.pem
+            dist/*.spdx.json
           draft: false
           prerelease: ${{ contains(github.ref_name, '-beta') }}
         env:

@@ -22,7 +22,8 @@ zoo-framework/
 ├── openspec/            specs + in-flight changes (spec-first workflow)
 ├── .github/workflows/   build / tests / quality / docs / release
 ├── pyproject.toml       metadata, dependencies, and all tool config
-└── .env                 VERSION (one of the three places the version lives)
+├── CITATION.cff         citation metadata (one of the four places the version lives)
+└── .env                 VERSION (one of the four places the version lives)
 ```
 
 Three caveats about the tree:
@@ -170,7 +171,8 @@ zoo-framework/
 ├── openspec/            规范 + 在途变更（规范先行工作流）
 ├── .github/workflows/   build / tests / quality / docs / release
 ├── pyproject.toml       元数据、依赖，以及全部工具配置
-└── .env                 VERSION（版本号所在的三处之一）
+├── CITATION.cff         规范化引用信息（版本号所在的四处之一）
+└── .env                 VERSION（版本号所在的四处之一）
 ```
 
 三个需要注意的地方：

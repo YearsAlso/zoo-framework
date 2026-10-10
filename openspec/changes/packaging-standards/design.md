@@ -22,6 +22,13 @@ license-files = ["LICENSE"]
 而非下游扫描期（失败前置原则）。下限值以**实际构建验证**为准：若 `>=1.27` 构不出
 `License-Expression`，则上调到实际所需版本并把实测结论写回本文件。
 
+**实测结论（apply 阶段）**：`python -m build` 在隔离环境解析出
+**hatchling==1.32.4**，构建成功，wheel 的 `METADATA` 为 `Metadata-Version: 2.5`，
+含 `License-Expression: Apache-2.0` 与 `License-File: LICENSE`，且无 `License ::`
+classifier。**如实记录验证边界**：本次实测只证明了 1.32.4 可用；`>=1.27` 是
+PEP 639 支持起点的声明值，未逐一回测 1.27/1.28 等更早版本。若后续要收紧，
+应在 CI 中显式测最低版本，否则保留该下限作为保守声明。
+
 **为何删 `License :: OSI Approved :: Apache Software License`**：PEP 639 明确弃用
 许可证 classifier，且当 SPDX 表达式与许可证 classifier 并存时工具应报错——两者
 并存会让 PyPI 侧校验与合规扫描出现互相矛盾的信号。删除安全性核对：
@@ -45,6 +52,10 @@ license-files = ["LICENSE"]
 - **校验方式**：首选 `cffconvert --validate`（需网络装包）；若环境不可用，退化为
   结构化校验——YAML 可解析 + 六个必备字段存在性 + `version` 与 pyproject 相等，
   并把"未跑通工具校验"的事实写进变更记录，不谎称已通过工具校验。
+  **实测结论（apply 阶段）**：`uv run --no-project --with cffconvert cffconvert
+  --validate --infile CITATION.cff` 输出
+  `Citation metadata are valid according to schema version 1.2.0.` —— 走的是**工具
+  校验**路径，未降级。
 
 ### D3: SBOM 生成方案（用户已选 A）
 

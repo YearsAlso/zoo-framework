@@ -66,6 +66,10 @@ URL 已指向它——保持两处一致。
     **如实记录一个取舍**：本项目是进程内（in-process）框架、不做跨机调度，该 Topic 的
     语义并非精确匹配；保留它是因为该 Topic 下的浏览人群与目标读者重合度最高，且它是
     审计验收点名的检索入口。语义精确性由 README 的对比表负责澄清。
+- **license**：用 PEP 639 的 SPDX 表达式声明（`license = "Apache-2.0"` +
+  `license-files = ["LICENSE"]`），**不写** `License :: OSI Approved :: ...`
+  classifier —— 两者并存时工具会报错，且 SPDX 表达式才是可机器读取的真源
+  （变更 `packaging-standards` / #119）。
 - **project.urls** 必须含（其余 Homepage / Documentation / Repository / Issues 已有）：
   - `Changelog = https://github.com/YearsAlso/zoo-framework/blob/main/CHANGELOG.md`
   - `Benchmark = https://yearsalso.github.io/zoo-bench/`（独立基准仓库的在线报告）

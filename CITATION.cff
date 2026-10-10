@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Zoo Framework"
+abstract: >-
+  Python declarative multi-task orchestration framework powering next-gen Agents
+  and workflows. It schedules long-lived background workers in-process (no broker),
+  dispatches events between workers through per-channel FIFOs with priority and
+  retry semantics, and persists state-machine snapshots with atomic writes and
+  rolling backups.
+authors:
+  - name: "XiangMeng"
+    email: "mengxiang931015@live.com"
+# 版本与 pyproject.toml / .env / zoo_framework/__init__.py 同源：
+# release 工作流的 "Update version declarations" 步骤会一并改写此处（勿手改单处）。
+version: "0.10.6-beta"
+license: "Apache-2.0"
+repository-code: "https://github.com/YearsAlso/zoo-framework"
+url: "https://yearsalso.github.io/zoo-framework-doc/"
+keywords:
+  - "task-scheduler"
+  - "background-jobs"
+  - "orchestration"
+  - "concurrency"
+  - "state-machine"

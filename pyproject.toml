@@ -1,5 +1,8 @@
 [build-system]
-requires = ["hatchling"]
+# hatchling 下限 1.27：PEP 639 的 SPDX 许可证表达式（license = "Apache-2.0"）
+# 与 license-files 需要该版本起才支持；不设下限时旧后端会拒绝（或静默忽略）字段，
+# 产出"构建成功但元数据不合规"的包——把失败前置到构建期。
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
@@ -7,7 +10,10 @@ name = "zoo-framework"
 version = "0.10.6-beta"
 description = "Python declarative multi-task orchestration framework powering next-gen Agents and workflows"
 readme = "README.md"
-license = {text = "Apache-2.0"}
+# PEP 639：许可证用 SPDX 表达式声明（旧写法 license = {text = "..."} 无法被
+# PyPI / SBOM / 合规扫描器机器读取），许可证文件由 license-files 列出。
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 authors = [
     {name = "XiangMeng", email = "mengxiang931015@live.com"},
@@ -40,7 +46,8 @@ keywords = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
+    # 许可证 classifier 已按 PEP 639 删除：SPDX 表达式与许可证 classifier 并存时
+    # 工具会报错，且前者是可机器读取的真源（docs/REPO_METADATA.md 的必须清单不含它）
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
