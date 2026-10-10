@@ -70,10 +70,10 @@ class NativeTaskError(Exception):
 
 
 class NativeInvalidInput(NativeTaskError):
-    """输入拒绝：输入格式/尺寸不满足契约，发生在执行开始**之前**.
+    """边界拒绝：输入不满足契约（执行前），或输出无法按契约解码（执行后）.
 
-    与 :class:`NativeTaskFailed` 的区别是失败阶段：本类意味着原生执行体
-    根本没有开始跑，输入问题在边界检查即被拦截。
+    与 :class:`NativeTaskFailed` 的区别是失败阶段：输入侧问题在边界检查即被
+    拦截，原生执行体根本没有开始跑；输出解码失败发生在执行体跑完之后。
     """
 
 

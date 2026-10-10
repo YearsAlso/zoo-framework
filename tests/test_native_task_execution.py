@@ -7,6 +7,9 @@
 - NativeTaskWorker 委托适配器执行、结果经既有单一结算点投递且只投递一次
 - 三族错误的映射路径（扩展未注册任务 / 输入超限 / 非受控异常兜 panic）
 - 长任务执行期间释放 GIL 的占位行为（执行期间控制线程可推进）
+- 注册接入（tasks 4.1/4.2）：构造期 Master.register_worker 与运行期
+  register_instance + add_worker 两条路径都真实派发原生 Worker
+- 超时熔断与停机回归（tasks 4.3）：只熔断不声称终止 / 停机拒新 / 幂等且有限等
 
 断言纪律（.claude/rules/assertion-integrity.md）：对可变对象不做引用捕获式断言，
 按调用时快照记录。
@@ -19,7 +22,12 @@ import time
 
 import pytest
 
+from zoo_framework.constant import WaiterConstant
+from zoo_framework.core import Master
+from zoo_framework.core.master import MasterConfig
+from zoo_framework.core.waiter.base_waiter import BaseWaiter
 from zoo_framework.core.waiter.dispatch_core import WorkerDispatchCore
+from zoo_framework.core.waiter.scheduler_model import BACKPRESSURE_EXPAND
 from zoo_framework.native import (
     CONTRACT_VERSION,
     NativeAdapter,
@@ -39,7 +47,7 @@ from zoo_framework.native.contract import NativeTaskError, NativeTaskFailed
 
 class TestContract:
     def test_contract_fields_complete_and_native_free(self):
-        """Scenario: 契约字段完整且语言无关. ertParent"""
+        """Scenario: 契约字段完整且语言无关."""
         contract = NativeTaskContract(
             name="parse",
             contract_version=CONTRACT_VERSION,
@@ -338,11 +346,12 @@ class TestNativeTaskWorker:
             reactor.on_result = None
 
     def test_error_mapped_through_settle_not_success_empty_result(self):
-        """Scenario: 原生任务报错时错误 mapped 进结算收口（error= 分支）.
+        """Scenario: 原生任务报错时错误映射进结算收口（error= 分支）.
 
-        settle(error=...) 分支不投递结果 → 收集列表保持空；本断言是「错误不伪装
-        成功」的直接证据（列表非空断言在前会恒假此处，故只断言为空——按
-        assertion-integrity 例外：settle 的 error 分支是终态不可逆路径）。
+        settle(error=...) 分支不投递结果 → 绑定收订的 delivered 保持空；
+        本断言是「错误不伪装成功」的直接证据（按 assertion-integrity 例外：
+        settle 的 error 分支是终态不可逆路径，空断言不会恒真——错误路径
+        若改为投递成功结果，delivered 立即非空且断言变红）。
         """
         adapter = FakeAdapter(error=NativeTaskFailed("boom"))
         worker = NativeTaskWorker(
@@ -351,8 +360,20 @@ class TestNativeTaskWorker:
         core = WorkerDispatchCore()
         core.begin(worker, timeout=None)
 
-        # run_and_settle 观测异常但不让异常向上逃逸 WorkerDispatchCore 的执行单元语义…实际它把 error=传给 settle
-        core.run_and_settle(worker)
+        delivered: list = []
+        from zoo_framework.reactor.event_reactor_manager import EventReactorManager
+        from zoo_framework.reactor.waiter_result_reactor import WaiterResultReactor
+
+        reactor = WaiterResultReactor()
+        reactor.on_result = lambda result: delivered.append(result)
+        try:
+            # settle 投递主题 = WaiterConstant.WORKER_RESULT_TOPIC = "waiter"
+            EventReactorManager().bind_topic_reactor("waiter", reactor)
+            core.run_and_settle(worker)
+            assert not delivered, "错误路径不应投递成功结果（含空结果）"
+        finally:
+            reactor.on_result = None
+
         assert [phase for phase, _ in adapter.calls][-1] == "execute", "错误应在 execute 处发生"
 
     def test_worker_reuses_base_lifecycle_hooks(self):
@@ -484,3 +505,295 @@ class TestAdapterSingleton:
         reset_native_adapter()
         second = get_native_adapter()
         assert first is not second
+
+
+# =============================================================================
+# 注册接入与停机回归（tasks 4.1–4.3）
+# =============================================================================
+
+
+class _BlockingAdapter(FakeAdapter):
+    """execute 阻塞到测试显式放行的 fake adapter.
+
+    「任务仍在执行」由测试掌控：不放行则派发永不结束，在飞与超时判定因此与
+    墙上时钟解耦（与 test_worker_scheduling._BlockingWorker 同一手法）。
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.started = threading.Event()
+        self.release = threading.Event()
+        self.finished = threading.Event()
+
+    def execute(self, task_name, payload):
+        self.calls.append(("execute", task_name))
+        self.started.set()
+        self.release.wait(10.0)
+        self.finished.set()
+        return self.output
+
+
+class TestNativeRegistrationIntegration:
+    """tasks 4.1/4.2：NativeTaskWorker 经既有注册路径进入调度并被派发.
+
+    D5：构造期注册走 ``Master.register_worker``（NativeTaskWorker 必须带参构造，
+    无参限制的解决形态——零参 ``__init__`` 子类 / 工厂闭包——由接入文档承载）；
+    运行期注册经 ``WorkerRegistry.register_instance`` + ``waiter.add_worker``——
+    调度列表由调度器持有，仅在注册表登记不足以被派发。
+    """
+
+    @staticmethod
+    def _count_execute(adapter: FakeAdapter) -> int:
+        """执行次数（调用时快照：execute 进入即记录，与结算时机无关）."""
+        return sum(1 for phase, _ in adapter.calls if phase == "execute")
+
+    def test_construction_time_registration_via_master_dispatches_once(self):
+        """Scenario: 同名 Worker 注册后经 waiter 正常派发一例（恰好一次）."""
+
+        class RegisteredNativeWorker(NativeTaskWorker):
+            """零参构造子类——Master.register_worker 延迟实例化的前提."""
+
+            def __init__(self):
+                super().__init__(
+                    {
+                        "name": "RegNative",
+                        "is_loop": False,
+                        "delay_time": 0,
+                        "task_name": "fake",
+                        "input": {"k": 1},
+                    },
+                    adapter=FakeAdapter(),
+                )
+
+        master = Master(MasterConfig(enable_svm=False))
+        try:
+            master.register_worker("RegNative", RegisteredNativeWorker)
+            worker = master.worker_registry.get_worker("RegNative")
+            assert worker in master.waiter.workers, "注册的 NativeTaskWorker 未进入调度列表"
+
+            master.waiter.execute_service()
+            deadline = time.monotonic() + 2.0
+            while time.monotonic() < deadline and self._count_execute(worker.adapter) == 0:
+                time.sleep(0.01)
+            assert self._count_execute(worker.adapter) == 1, "原生 Worker 未被派发或被派发多次"
+        finally:
+            master.shutdown()
+
+    def test_runtime_instance_registration_dispatched_next_round(self):
+        """Scenario: 运行期新增的 NativeTaskWorker 下一轮即被派发."""
+        adapter = FakeAdapter()
+        worker = NativeTaskWorker(
+            {
+                "name": "RuntimeNative",
+                "is_loop": False,
+                "delay_time": 0,
+                "task_name": "fake",
+                "input": {"k": 1},
+            },
+            adapter=adapter,
+        )
+        master = Master(MasterConfig(enable_svm=False))
+        try:
+            master.worker_registry.register_instance("RuntimeNative", worker)
+            master.waiter.add_worker(worker)
+            assert worker in master.waiter.workers, "运行期注册未进入调度列表"
+
+            master.waiter.execute_service()
+            deadline = time.monotonic() + 2.0
+            while time.monotonic() < deadline and self._count_execute(adapter) == 0:
+                time.sleep(0.01)
+            assert self._count_execute(adapter) == 1, "运行期注册的原生 Worker 未被派发"
+        finally:
+            master.shutdown()
+
+
+class TestNativeStopSemantics:
+    """tasks 4.3：超时熔断与停机语义在原生 Worker 形态下的回归（spec 三 Scenario）.
+
+    全部用线程池模型：熔断与停机回收是内核/模型契约，原生 Worker 只是又一种
+    被派发的执行体，不因「原生」而改写这两层语义。
+    """
+
+    @staticmethod
+    def _make_pool_waiter() -> BaseWaiter:
+        return BaseWaiter(
+            model_name=WaiterConstant.WORKER_MODE_THREAD_POOL,
+            pool_size=4,
+            backpressure_policy=BACKPRESSURE_EXPAND,
+        )
+
+    @staticmethod
+    def _tick_until(predicate, tick, timeout: float = 2.0, interval: float = 0.01) -> bool:
+        """持续推进调度轮次直到条件成立（超时判定发生在轮次内，与轮询模型一致）."""
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            tick()
+            if predicate():
+                return True
+            time.sleep(interval)
+        return predicate()
+
+    @staticmethod
+    def _execute_count(adapter: FakeAdapter) -> int:
+        return sum(1 for phase, _ in adapter.calls if phase == "execute")
+
+    def test_timeout_breaks_but_does_not_claim_termination(self):
+        """Scenario: 超时只熔断不声称终止.
+
+        有牙齿的判据：熔断标记置位 + Worker 被移出调度列表 + 熔断计数上涨
+        （is_loop=True 的阻塞 Worker 若未被熔断会留在列表里）；放行阻塞后任务
+        **仍跑完**——系统没终止它，也终止不了。
+        """
+        blocker = _BlockingAdapter()
+        worker = NativeTaskWorker(
+            {
+                "name": "SlowNative",
+                "is_loop": True,
+                "delay_time": 0,
+                "run_timeout": 0.05,
+                "task_name": "fake",
+                "input": {},
+            },
+            adapter=blocker,
+        )
+        waiter = self._make_pool_waiter()
+        try:
+            waiter.call_workers([worker])
+            broken = self._tick_until(
+                lambda: waiter.core.is_broken(worker),
+                tick=waiter.execute_service,
+            )
+            assert broken, "超时的原生 Worker 未被熔断"
+            assert worker not in waiter.workers, "熔断的 Worker 未被移出调度列表"
+            assert waiter.core.metrics()["timeouts"] == 1
+
+            # 不声称终止：任务仍在执行——放行后照常跑完
+            assert not blocker.finished.is_set()
+            blocker.release.set()
+            assert blocker.finished.wait(2.0), "被熔断的原生任务未能在放行后跑完"
+        finally:
+            blocker.release.set()
+            waiter.shutdown(wait=True, timeout=2.0)
+
+    def test_no_new_dispatch_after_shutdown(self):
+        """Scenario: 停机后不再接收新任务."""
+        adapter = FakeAdapter()
+        worker = NativeTaskWorker(
+            {
+                "name": "StopNative",
+                "is_loop": True,
+                "delay_time": 0,
+                "task_name": "fake",
+                "input": {},
+            },
+            adapter=adapter,
+        )
+        waiter = self._make_pool_waiter()
+        waiter.call_workers([worker])
+        ran = self._tick_until(
+            lambda: self._execute_count(adapter) > 0,
+            tick=waiter.execute_service,
+        )
+        assert ran, "停机前的常规派发未发生（前提不成立）"
+
+        waiter.shutdown()
+        assert waiter.core.stopped, "停机标记未置位"
+        assert waiter.workers == [], "停机后调度列表未清空"
+
+        before = self._execute_count(adapter)
+        # 停机后再请求派发（add_worker + 调度轮）MUST 收不到执行——
+        # 只推空列表的轮次测不出「忽略 stopped 标记」的违规（clear 已清空列表）
+        waiter.add_worker(worker)
+        for _ in range(5):
+            waiter.execute_service()
+        assert self._execute_count(adapter) == before, "停机后仍有新派发"
+
+    def test_shutdown_idempotent_with_bounded_wait(self):
+        """Scenario: 资源释放幂等且有限等.
+
+        预算语义：首次 ``shutdown(wait=True, timeout=预算)`` 的总等待贴近预算上界
+        （在飞任务阻塞中，join 到期限即返回，不无限等）；第二次 shutdown 是瞬时的
+        无副作用空操作；在飞的原生任务没有被杀死——放行后照常跑完。
+        """
+        blocker = _BlockingAdapter()
+        worker = NativeTaskWorker(
+            {
+                "name": "ReleaseNative",
+                "is_loop": False,
+                "delay_time": 0,
+                "task_name": "fake",
+                "input": {},
+            },
+            adapter=blocker,
+        )
+        waiter = self._make_pool_waiter()
+        try:
+            waiter.call_workers([worker])
+            # 等任务真正开始执行（而非仅入队）：teardown 会丢弃尚未开始的任务，
+            # 「在飞的原生任务」必须是已在执行体内的那一个，场景前提才成立
+            inflight = self._tick_until(
+                lambda: blocker.started.is_set() and waiter.core.is_inflight(worker),
+                tick=waiter.execute_service,
+            )
+            assert inflight, "原生 Worker 未进入在飞（前提不成立）"
+
+            start = time.monotonic()
+            waiter.shutdown(wait=True, timeout=0.3)
+            first_elapsed = time.monotonic() - start
+            assert first_elapsed < 2.0, f"停机等待未受预算约束（{first_elapsed:.2f}s）"
+            assert waiter.core.stopped
+
+            second_start = time.monotonic()
+            waiter.shutdown(wait=True, timeout=5.0)
+            assert time.monotonic() - second_start < 0.5, "第二次停机不是空操作"
+
+            blocker.release.set()
+            assert blocker.finished.wait(2.0), "放行后在飞原生任务未跑完"
+        finally:
+            blocker.release.set()
+
+    def test_late_result_after_timeout_settles_once_without_residue(self):
+        """Scenario: 超时后晚到结果仍经单一结算收口，在飞表无残留（tasks 5.2）.
+
+        熔断只是停止派发；仍在执行的任务结束后照常走 settle——晚到结果投递恰好
+        一次，在飞表不残留（「资源残留」的行为验证）。
+        """
+        from zoo_framework.reactor.event_reactor_manager import EventReactorManager
+        from zoo_framework.reactor.waiter_result_reactor import WaiterResultReactor
+
+        blocker = _BlockingAdapter()
+        worker = NativeTaskWorker(
+            {
+                "name": "LateNative",
+                "is_loop": True,
+                "delay_time": 0,
+                "run_timeout": 0.05,
+                "task_name": "fake",
+                "input": {},
+            },
+            adapter=blocker,
+        )
+        waiter = self._make_pool_waiter()
+        delivered: list = []
+        reactor = WaiterResultReactor()
+        reactor.worker_names = None
+        reactor.on_result = delivered.append  # 调用时快照：append 收到的即当时的对象
+        try:
+            EventReactorManager().bind_topic_reactor("waiter", reactor)
+            waiter.call_workers([worker])
+            broken = self._tick_until(
+                lambda: waiter.core.is_broken(worker),
+                tick=waiter.execute_service,
+            )
+            assert broken, "超时的原生 Worker 未被熔断（前提不成立）"
+
+            blocker.release.set()
+            deadline = time.monotonic() + 2.0
+            while time.monotonic() < deadline and not delivered:
+                time.sleep(0.01)
+            assert len(delivered) == 1, f"晚到结果被投递 {len(delivered)} 次"
+            assert waiter.core.metrics()["inflight"] == 0, "在飞表残留晚到任务的登记项"
+        finally:
+            reactor.on_result = None
+            blocker.release.set()
+            waiter.shutdown(wait=True, timeout=2.0)
