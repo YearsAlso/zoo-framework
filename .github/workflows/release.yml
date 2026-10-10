@@ -451,14 +451,21 @@ jobs:
         env:
           COSIGN_YES: "true"
         run: |
+          # 签名产物 MUST 落在 dist/ 之外：pypa/gh-action-pypi-publish 会把
+          # packages-dir（默认 dist/）下的每个文件都当作分发包校验，认不出 .pem
+          # 即整体中止（v0.11.0 首发实测：
+          # InvalidDistribution: Unknown distribution format: '....whl.pem'）。
+          # dist/ 只留 *.whl 与 *.tar.gz。
+          mkdir -p dist-signatures
           for f in dist/*.whl dist/*.tar.gz; do
+            name=$(basename "$f")
             cosign sign-blob --yes \
-              --output-signature "${f}.sig" \
-              --output-certificate "${f}.pem" \
+              --output-signature "dist-signatures/${name}.sig" \
+              --output-certificate "dist-signatures/${name}.pem" \
               "$f"
-            echo "signed: $f -> ${f}.sig"
+            echo "signed: $f -> dist-signatures/${name}.sig"
           done
-          ls -la dist/
+          ls -la dist/ dist-signatures/
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # release/v1（2026-10 取数）
@@ -510,8 +517,8 @@ jobs:
           files: |
             dist/*.whl
             dist/*.tar.gz
-            dist/*.sig
-            dist/*.pem
+            dist-signatures/*.sig
+            dist-signatures/*.pem
           draft: false
           prerelease: ${{ contains(github.ref_name, '-beta') }}
         env:
