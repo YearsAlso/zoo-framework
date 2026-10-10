@@ -175,6 +175,40 @@ class TestBatchOverflowAndFallback:
         assert reactor.calls == [("t", f"c{i}") for i in range(10)]
         assert ch.get_dead_letters() == []
 
+    def test_batch_size_one_takes_one_event_per_round(self, monkeypatch):
+        """批上限为 1：每轮每通道只取 1 个事件，积压按轮次逐批消化（spec 场景「批上限为 1」）.
+
+        牙齿：这一条钉的是"上限计量的是**本轮取件数**"——若实现把上限当成
+        "单批执行量"（取满一轮、超上限者再切一批），第一轮的 `reactor.calls`
+        会是 3 个事件而非 1 个，断言立刻变红。
+        """
+        from zoo_framework.params import EventParams
+
+        monkeypatch.setattr(EventParams, "BATCH_MAX_SIZE", 1)
+        manager = _fresh_manager()
+        ch = manager.get_channel("ch")
+        reactor = RecordingReactor("r")
+        ch.register_reactor("t", reactor)
+        for i in range(3):
+            ch.push_event(EventNode(topic="t", content=f"c{i}", channel_name="ch"))
+
+        worker = EventWorker()
+        counted = _CountingSyncExecutor()
+        worker._executor = counted
+        worker._execute_batched()
+
+        # 一轮只取 1 个：投递形态是"一批一个事件"，计数与事件数相等
+        assert reactor.calls == [("t", "c0")]
+        assert counted.count == 1
+        assert ch.size() == 2
+        assert ch.get_dead_letters() == []
+
+        # 积压按轮次消化：不裁批、不丢失、顺序不变
+        while ch.size() > 0:
+            worker._execute_batched()
+        assert reactor.calls == [("t", f"c{i}") for i in range(3)]
+        assert counted.count == 3
+
     def test_disabled_batching_uses_per_event_path(self):
         """开关关闭 → 走逐事件路径：submit 次数 = 事件数."""
         manager = _fresh_manager()

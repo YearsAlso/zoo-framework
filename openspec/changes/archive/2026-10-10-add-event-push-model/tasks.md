@@ -36,4 +36,10 @@
   - 说明：V2 首轮只红 1 个用例，暴露出 4 个唤醒用例当时靠 0.05s 兜底拍「蒙对」——已按断言有效性规则补上「兜底拍 3s vs 提前唤醒 < 1s」的直接断言，重注入后 6 个用例变红
 - [x] 4.3 docs/ 更新事件一节
   - 实测：`docs/guides/event-pipeline.md`「节拍与推送模型」按实现重写——等待窗口的位置与边界、兜底不会困住事件、关闭态走原有轮询路径，并明确「最坏延迟不变，要缩短最坏延迟应调 `event:delay`」（合入前的表述「事件到达即投递，不再等节拍」与实现不符，已更正）；`docs/guides/config-reference.md` 补四键并注明 `pushFallbackTimeout` 的逐通道串行乘法关系
-- [ ] 4.3b `/opsx:archive` 后由 spec-syncer 核对规格与实现一致（归档期任务，本包收口时不执行）
+- [x] 4.3b `/opsx:archive` 后核对 `openspec/specs/event-push-model/spec.md` 与实现一致（归档期任务；本会话现场逐条核对，未派 agent）
+  - 核对方式：归档后逐条 Requirement / Scenario 对照 `event/channel/event_channel.py`（`push_event` / `dispatch` / `wait_ready` / `notify_ready` / `_ensure_condition`）与 `workers/event_worker.py::_push_wait`，复用 4.2 的注入证据（V2/V3/V4/V5/V6）
+  - 生产者通知 ↔ `push_event` 成功入队后 `notify_ready()`；「通知本身 MUST NOT 引入可观测延迟」为设计级主张（无竞争 `Condition` + `notify_all`），无单测，属构造性保证——**如实记录为未单测项**
+  - 消费者挂起与兜底 ↔ `_push_wait` 逐通道 `wait_ready(timeout)` + 锁内非空短路（V3 证明该短路被断言守着）；关闭时保持轮询行为 ↔ V5（关闭态零 `Condition` 分配）
+  - 语义不变 ↔ `TestOutcomeParityAcrossSwitches`：投递 / 回队 / 死信三类去向逐字节一致（V6 证明有牙齿）；**边界如实记录**：过期事件路径未纳入该对照，其行为由逐事件路径原样保留
+  - 归档卫生：`## Purpose` 占位符已填成能力说明（归档工具留的 `TBD - created by archiving change …` 会让 `validate --specs --strict` 报占位符 WARNING）
+  - 结论：**规格与实现一致，无差异项**；除 Purpose 外未改动规格文本

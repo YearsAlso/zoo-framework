@@ -38,4 +38,10 @@
 - [x] 4.3 docs/ 更新事件一节；直派形态是否二期立项的裁决记录
   - 实测：`docs/guides/event-pipeline.md`「节拍与推送模型」补批量派发语义（上限 = 每轮每通道取出的事件数；溢出原样留队，不裁批/不丢失/不死信）；`docs/guides/config-reference.md` 的 `event:*` 表补四键并按实现更正现有描述
   - 裁决：**直派形态不立二期**——K=64 摊到 0.174 µs/事件，已低于 bench/DECISION.md 记的裸 `queue.Queue` 1.86 µs/任务量级，design D1 设的「仍不达预期」前提不成立；取证边界见 design.md「Open Questions（已裁决）」
-- [ ] 4.3b `/opsx:archive` 后由 spec-syncer 核对规格与实现一致（归档期任务，本包收口时不执行）
+- [x] 4.3b `/opsx:archive` 后核对 `openspec/specs/event-dispatch-batching/spec.md` 与实现一致（归档期任务；本会话现场逐条核对，未派 agent）
+  - **核对发现一处规格内部矛盾（如实记录）**：原场景「关闭或批大小为 1 时逐事件行为」要求上限为 1 时与合入前完全一致（一轮取完本通道已入队事件），与同规格场景「批大小上限」（溢出事件留在队列待下一轮）及 design D2（限量的是本轮取件数、不是单批执行量）互相矛盾
+  - 处置：按 design D2 与实现把该场景拆成两条准确场景——「关闭时逐事件行为」（关闭 → 与合入前一致）与「批上限为 1」（每轮每通道只取 1 个事件、以「一批一个事件」形态投递、积压按轮次逐批消化、不裁批/不丢失/不死信）；**只改规格措辞，未改任何行为**。归档目录内的 spec delta 同步为该措辞，保持 delta 与主规格一致
+  - 补测：新增 `TestBatchOverflowAndFallback::test_batch_size_one_takes_one_event_per_round` 把上限=1 的真实语义钉住；V7 注入（删掉取件上限 `taken < batch_limit`）→ 该新用例与 `test_batch_size_cap_leaves_overflow_queued_in_order` **同时变红**（失败信息含节点名），按 md5 逐字节还原（`event_worker.py` `c9bc00e1…` 与注入前一致，无 `VIOLATION-` 残留）
+  - 其余逐条核对：批量提交 ↔ `_execute_batched` 的 (channel, reactor) 组批 + `_run_batch`（批内仍逐个 `execute(topic, content)`）；批级可观测 ↔ `BatchReactorError` / `_report_unfinished_batched`（带批内索引与 topic 定位）；语义与顺序不变 ↔ 上述溢出用例 + V6 的去向对照
+  - 归档卫生：`## Purpose` 占位符已填成能力说明
+  - 结论：**改后规格与实现一致**；`openspec validate --specs --strict` 31/31 通过
