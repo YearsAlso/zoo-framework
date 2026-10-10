@@ -474,14 +474,23 @@ jobs:
       - name: Generate Changelog
         id: changelog
         run: |
-          LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
-          if [ -z "$LAST_TAG" ]; then
-            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges | head -20)
+          # 正路（#117）：release 正文 = CHANGELOG.md 里该版本段（四段模板见
+          # docs/RELEASE_PROCESS.md）。脚本找不到该版本段时非零退出，此时回退到
+          # 提交标题列表并在正文标注「未整理」——发布不能被文档阻塞，但回退必须可见。
+          VERSION="${{ steps.version.outputs.version }}"
+          if python scripts/notes_from_changelog.py "$VERSION" > release_notes.md 2>/dev/null; then
+            echo "source=changelog" >> "$GITHUB_OUTPUT"
           else
-            CHANGELOG=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s (%h)" --no-merges | head -20)
+            echo "source=commits" >> "$GITHUB_OUTPUT"
+            LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+            if [ -z "$LAST_TAG" ]; then
+              git log --pretty=format:"- %s (%h)" --no-merges | head -20 > release_notes.md
+            else
+              git log "$LAST_TAG"..HEAD --pretty=format:"- %s (%h)" --no-merges | head -20 > release_notes.md
+            fi
           fi
           echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
+          cat release_notes.md >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
@@ -495,8 +504,15 @@ jobs:
             **类型:** ${{ contains(github.ref_name, '-beta') && '🧪 测试版本' || '🚀 正式版本' }}
             **版本:** `${{ steps.version.outputs.version }}`
 
-            ### 📋 变更记录
+            ${{ steps.changelog.outputs.source == 'changelog' && format('### 📋 使用者可见的变化', '') || '### 📋 变更记录（未整理 —— CHANGELOG.md 里没有该版本的条目，见 docs/RELEASE_PROCESS.md）' }}
+
             ${{ steps.changelog.outputs.changelog }}
+
+            ### ⚠️ 破坏性变更与迁移
+            （以本版本 CHANGELOG 段的 BREAKING 标注为准；无标注即无）
+
+            ### 📝 已知问题
+            （见 README「其它明确的限制」表）
 
             ### 📦 安装
 
@@ -505,8 +521,8 @@ jobs:
             ```
 
             ### 📚 文档
-            - [开发文档](https://github.com/${{ github.repository }}/blob/main/docs/README.md)
-            - [API 参考](https://github.com/${{ github.repository }}/blob/main/docs/API_REFERENCE.md)
+            - [使用者文档](https://yearsalso.github.io/zoo-framework-doc/)
+            - [维护者文档](https://github.com/${{ github.repository }}/blob/main/docs/README.md)
           files: |
             dist/*.whl
             dist/*.tar.gz

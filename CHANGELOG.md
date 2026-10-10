@@ -10,20 +10,91 @@
 
 ## [Unreleased]
 
+## [0.10.6-beta] - 2026-10-10
+
 ### Changed
 
-- 发布自动化的版本线跨分支连续（变更 `fix-release-version-continuity` / #82，
-  维护者不可见行为）：dev 算版本以 main 声明为下限抬升（逻辑入
-  `scripts/next_version.py`，可单测）；main bump 合并后自动向 dev 开 back-merge
-  PR；back-merge 入 dev 的声明回声不再误触打 tag。背景：main=0.9.0 后 dev 沿旧线
-  连发过 0.8.3b0/0.8.4b0（#76 人工回并修现象，本变更修机制）。
+- 使用者文档入口指向独立文档站
+  [yearsalso.github.io/zoo-framework-doc](https://yearsalso.github.io/zoo-framework-doc/)
+  （中英双语 VitePress，含安装/教程/概念/API），仓库内 `docs/README.md` 保留为维护者
+  与贡献者文档并显式分工。无代码行为变化。
+
+## [0.10.5-beta] - 2026-10-10
+
+### Added
+
+- 文档信息架构重建（变更 `docs-ia-rebuild`）：`docs/` 按「使用者/贡献者」分流——
+  教程（01-05 五篇，每步有期望输出）、按"我要做 X"组织的指南、mkdocstrings
+  自动生成的 API 参考、迁移指南（`docs/MIGRATION.md`，逐项含报错原文）、
+  版本政策（`docs/VERSION_POLICY.md`）、品牌与视觉规范。
+
+## [0.10.4-beta] - 2026-10-10
+
+### Changed
+
+- 运行时报错消息与公共 API docstring **英文化**（变更 `api-docstring-english`）：
+  所有运行时 `raise` 消息与 `zoo_framework/` 公共 docstring 统一为英文——设计目标是
+  AI 生成代码的全球可用性（报错可被通用检索）。中文文档与注释保持中文。行为不变；
+  若此前依赖中文报错文本做 grep 处理，需改为匹配英文消息或按异常类型捕获。
+
+## [0.10.3-beta] - 2026-10-10
+
+### Added
+
+- **原生任务执行（可选 Rust 扩展）**（变更 `add-native-task-execution` / #110）：
+  新增独立构建的可选扩展包（PyO3），经握手与能力清单接入；配置键族 `native:*`
+  （`native:enabled` 默认 false）、任务名-适配器登记表、
+  未安装扩展时不影响任何现有功能，**显式请求原生能力时明确报错**（不静默回退）。
+  来源：`bench/` 的 go/no-go 决策（no-go 判定）后选定的窄口方案。
+
+## [0.10.2-beta] - 2026-10-09
+
+### Added
+
+- **自适应调度（epsilon-greedy bandit）**（变更 `add-adaptive-scheduling`）：新增
+  `DualArmWorker`（`zoo_framework.workers`）— 以在线自学的路由决策在「原生/Python」
+  双臂间选择执行体；配置键族 `adaptive:*`，**`adaptive:enabled` 默认 false**（关闭时
+  纯 Python 臂执行，零开销）。bandit 统计可持久化（`adaptive:statsPath`）。
+- **事件管道推模型**（变更 `event-push-model`）：`EventChannel.push_event` 生产者
+  入队即 notify，消费者无事件**挂起等待**（零空转轮询）；拉模型语义保留。
+- **批量投递**（变更 `event-dispatch-batching`）：同一 reactor 的多个事件一次
+  executor 提交摊薄记账开销。
+
+## [0.10.1-beta] - 2026-10-09
+
+### Security
+
+- 供应链与权限收紧（#90 #91 #94）：工作流 token 权限收敛到最小集；全部第三方
+  actions 钉住 commit SHA（防 tag 改写）；release 产物附 `.sig` / `.pem` 签名。
+
+### Removed
+
+- 删除失真的 `requirements.txt`（#93）：内容与 `pyproject.toml` 长期 drifted（第二
+  依赖真源误导）。依赖唯一真源 = `pyproject.toml`。
+
+## [0.10.0] - 2026-10-08
+
+正式版聚合：本版本区间无独立变更条目——**内容与 [0.9.2-beta] 相同**（dev 线
+`0.9.2-beta -> 0.10.0` 版本号晋升，见 CHANGELOG 底部的版本号约定）。
+
+## [0.9.2-beta] - 2026-10-08
+
+### Changed
+
+- 发布自动化版本线跨分支连续（变更 `fix-release-version-continuity` / #82，维护者
+  不可见行为）：dev 算版本以 main 声明为下限抬升（逻辑入 `scripts/next_version.py`，
+  可单测）；main bump 合并后自动向 dev 开 back-merge PR；back-merge 的声明回声不再
+  误触打 tag。背景：main=0.9.0 后 dev 沿旧线连发过 0.8.3b0/0.8.4b0（人工回并修过
+  现象，本变更修机制）。
+
+## [0.9.1-beta] - 2026-10-07
 
 ### Added
 
 - 事件/持久化管道节拍可配（变更 `configurable-run-delay` / #73）：`event:delay`、
   `stateMachine:delay` 配置入口取代 `EventWorker` / `StateMachineWorker` 硬编码
-  `delay_time=5`；默认值保持 5，行为向后兼容。此前每次事件派发都绑定秒级节拍且
-  无法调节（时间敏感场景如 agent 工具循环的单步延迟被钉死在秒级）。
+  `delay_time=5`；默认值保持 5，行为向后兼容。此前事件派发绑定秒级节拍且无法调节
+  （时间敏感场景如 agent 工具循环的单步延迟被钉死在秒级）。
 
 ### Fixed
 
@@ -33,55 +104,67 @@
   普通 dict 包装、未知类型 `TypeError` 拒绝；恢复语义裁定为整表替换。消费者
   zoo-code-agent 的"重启续跑"就此解除阻塞。
 
-### Removed
+## [0.9.0] - 2026-10-06
 
-- 死配置键 `event:sleep` 移除（#73）：随 gevent 消费循环删除后零消费，用户填写
-  它没有任何效果——配置表"看起来可调"而实际不可调的误导终结。
-- **运行依赖移除 `gevent`**（BREAKING，变更 `align-execution-primitives` / #31）：事件投递
-  与状态 effect 改用 `concurrent.futures` 线程执行器；`greenlet` / `zope-event` /
-  `zope-interface` 随之出依赖树（#34 由此解决），安装不再触发源码构建。
-  直接依赖"框架顺带装上 gevent"的使用者需自行声明。
-- `core/aop/validation.py` 整模块删除（`@validation` / `validation_params` /
-  `params_validate_map`；零使用、零规格，#49）；`worker_registry.register_worker` 装饰器
-  删除（死分支且与 `Master.register_worker` 构成第二注册真源）。
+**首个 minor 正式版**。0.8.1-beta ~ 0.8.4-beta 是本版发布线的先行 beta（同日交叉
+发布），完整内容以本段为准。
+
+### Added
+
+- 进程级共享载体登记表与扫描拦截（变更 `declare-debt-carriers` / #50 切片一）；
+  随后收编三处进程级欠债进框架容器（`absorb-debt-carriers` / #50 交付 1，方案 A）：
+  `EventReactorManager.reactor_map` 与 `EventChannelRegister._channel_map` 降为进程级
+  实例属性（类级读取经元类代理转发，既有写法兼容），`get_worker_registry()` 改由
+  容器解析——`framework_container().reset()` 即彻底复位。
+- 调度内核策略解析按 Worker 缓存（#47 P1）：三段语义不变，falsy 配置值仍有效。
+- 调度模型接缝（`scheduler-model-seam` / #47）：`ThreadPerTaskModel` /
+  `ThreadPoolModel` 抽象，时间语义与运行标识补全。
 
 ### Changed
 
-- 容器外三个【已知欠债】进程级共享收编进框架容器（变更 `absorb-debt-carriers` /
-  #50 交付 1，方案 A）：`EventReactorManager.reactor_map` 与
-  `EventChannelRegister._channel_map` 降为进程级实例属性（类级读取经元类代理转发，
-  既有写法兼容），`get_worker_registry()` 改由容器解析——`framework_container().reset()`
-  即彻底复位，conftest 三处手工复位清单退役。`WorkerRegistry` 同步补齐实例内 RLock，
-  `INSTANCE_GUARANTEED` 声明自此如实。无公共 API 变化；直接构造私有注册表的用法不变。
-- `thread_pool` 调度模型的容器换为「固定工作线程 + `queue.Queue`」（变更
-  `replace-pool-dispatch-queue` / #47 P2）：去除 Future 记账（本机提交侧记账
-  4.07 µs → 0.61 µs）；背压三策略、单一结算收口、六项模型契约逐项不变，
-  无 API 变化。停机"取消排队"语义等价：丢弃未开始任务、不中断已开始任务。
-- 内部重构（无行为影响，变更 `declare-debt-carriers` / #50 切片一）：新增进程级共享
-  载体登记表 `core/process_state.CARRIERS`，测试复位由它生成；扫描测试拦截未登记的
-  新载体。顺带删除零读写的死类属性 `StateEffectScheduler._response_list`。
-- AOP 的两条导入顺序约束从静默改为出声（变更 `aop-determinism` / #51）：
-  参数类在"从未读到配置"的世代解析过、而 `Master` 随后读到配置 ⇒ 构造期点名报错；
-  `Master` 消费注册表后再 `@configure` 注册 ⇒ 照常登记但告警"只有下一个 Master 会消费"。
-  新增 `aop` 能力规格固化 `@configure`/`@logger`/`@stopwatch` 的注册时机、调用约定与失败模式。
-  （BREAKING，窄：仅"先导入参数模块、后构造 Master"的错误时序从静默默认值转为报错；
-  无配置的全默认运行与正常同目录用法不受影响。）
-- 调度内核的策略解析（周期/相位/超时的"自报→覆盖→默认"三段）改为按 Worker 缓存
-  （#47 P1）：解析语义逐项不变，falsy 配置值（`0`/`False`/`""`）仍是有效结果；
-  调度列表替换、同名重注册、停机复位时自动失效。
-- `ThreadSafeDict` 的互斥锁改为**每实例一把 `threading.RLock`**（原模块级单把
-  `multiprocessing.Lock` 把全进程串行化）；锁不入 pickle，状态机持久化行为不变。
-- `BaseFIFO` / `DelayFIFO` 存储换 `collections.deque`（出队 O(1)）；API 与空队返回
-  `None` 的语义不变。
-- 事件投递与状态 effect 的 join 超时项、回调异常从静默消失改为记入日志（可观测性
-  增强；写路径同步等待 ≤5s 语义保留）。
+- **执行原语对齐**（BREAKING 的 Removed 见下；变更 `align-execution-primitives` /
+  #31）：事件投递与状态 effect 改用 `concurrent.futures` 线程执行器。
+- `ThreadSafeDict` 互斥锁改为每实例一把 `threading.RLock`（原模块级
+  `multiprocessing.Lock` 把全进程串行化）；锁不入 pickle。
+- `BaseFIFO` / `DelayFIFO` 存储换 `collections.deque`（出队 O(1)）；API 不变。
+- join 超时项与回调异常从静默消失改为记入日志。
 
 ### Deprecated
 
-- `@worker` / `worker_register` 退出 `zoo_framework.core` 与 `core.aop` 的公共导出面（#49）；
-  模块路径 `zoo_framework.core.aop.worker` 保留一个 minor 周期供迁移，使用时发
-  `DeprecationWarning`。注册 Worker 的唯一接通路径是 `Master.register_worker(name, cls)`；
-  下个 minor 连同 `workers.WorkerRegister` 一并删除。
+- `@worker` / `worker_register` 退出公共导出面（#49）：注册 Worker 的唯一接通路径是
+  `Master.register_worker(name, cls)`（此前 legacy 表从未被派发链读取——见
+  docs/MIGRATION.md「`@worker(count=N)` 装饰器」）。
+
+### Removed
+
+- **运行依赖移除 `gevent`**（BREAKING；#34 由此解决，安装不再触发源码构建）：
+  直接依赖"框架顺带装上 gevent"的使用者需自行声明。迁移见
+  docs/MIGRATION.md「gevent」节。
+- `core/aop/validation.py` 整模块删除（`@validation` 零使用零规格，#49）；
+  `worker_registry.register_worker` 装饰器删除。迁移见 docs/MIGRATION.md。
+- AOP 时序错误从静默改为出声（`aop-determinism` / #51，窄破坏性）：仅"先导入参数
+  模块、后构造 Master"的错误时序转为构造期报错；正常用法不受影响。
+
+## [0.8.4-beta] - 2026-10-07
+
+进程级欠债收编进框架容器交付（#50 方案 A）——完整条目见 [0.9.0] 段的收编条与
+`get_worker_registry()` 语义。
+
+## [0.8.3-beta] - 2026-10-07
+
+`thread_pool` 调度模型容器换「固定工作线程 + `queue.Queue`」（#47 P2，提交侧记账
+4.07 µs → 0.61 µs；背压三策略与停机语义逐项不变）——完整条目见 [0.9.0]/[0.8.0]
+段对应 Changed 行。
+
+## [0.8.2-beta] - 2026-10-06
+
+0.9.0 发布线 beta：AOP 语义确定性（#51）、调度策略缓存、`@worker` 弃用、执行原语
+对齐（去 gevent / ThreadSafeDict 按实例锁 / FIFO 换 deque）——完整条目见 [0.9.0] 段。
+
+## [0.8.1-beta] - 2026-10-05
+
+发布链路修复：tag 推送改用 PAT——否则「打 tag → 发布」会静默断链（维护者侧；
+讽刺地，正因为这个断链本 beta 之后才多走了 3 个版本才到 0.9.0）。
 
 ---
 
@@ -143,18 +226,22 @@
 
 ## 历史版本 / Historical releases
 
-以下版本的说明由发布工作流在打标签时**自动生成**（内容是区间内的提交标题列表），
-**未经人工整理**，仅供参考。本文件从下一个版本起改为人工维护。
+以下版本**未做人工整理条目回填**：说明由发布工作流在打标签时自动生成（区间内提交
+标题列表）；仓库历史中考据基础不足以编写可信条目，**宁可留空并标注，不编造**
+（issue #117）。0.8.1-beta 起的版本已逐版回填（见上方）。
 
 | 版本 | 类型 | 发布日期 | 说明 |
 |---|---|---|---|
 | [v0.8.0](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.8.0) | 正式版 | 2026-10-04 | 见上方 `[0.8.0]` 段（人工整理）。**含破坏性变更**：`@cage` 删除、`worker:mode` 键控、`worker:runPolicy` 语义收窄 |
-| [v0.7.1-beta](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.7.1-beta) | 预发布 | 2026-09-30 | 发布工作流自动生成 |
-| [v0.6.0](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.6.0) | 正式版 | 2026-02-19 | 发布工作流自动生成 |
-| [v0.5.4-beta](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.5.4-beta) | 预发布 | 2026-02-19 | 同上 |
-| [v0.5.3-beta](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.5.3-beta) | 预发布 | 2026-02-19 | 同上 |
-| [v0.5.2-beta](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.5.2-beta) | 预发布 | 2026-02-19 | 同上 |
-| [v0.5.1-beta](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.5.1-beta) | 预发布 | 2026-02-18 | 同上 |
+| [v0.7.1-beta](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.7.1-beta) | 预发布 | 2026-09-30 | **未回填**（考据基础不足，保留自动生成的提交列表） |
+| [v0.6.0](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.6.0) | 正式版 | 2026-02-19 | **未回填**（同上） |
+| [v0.5.4-beta](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.5.4-beta) | 预发布 | 2026-02-19 | **未回填**（同上） |
+| [v0.5.3-beta](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.5.3-beta) | 预发布 | 2026-02-19 | **未回填**（同上） |
+| [v0.5.2-beta](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.5.2-beta) | 预发布 | 2026-02-19 | **未回填**（同上） |
+| [v0.5.1-beta](https://github.com/YearsAlso/zoo-framework/releases/tag/v0.5.1-beta) | 预发布 | 2026-02-18 | **未回填**（同上） |
+
+> 0.8.1-beta 起的版本已回填为逐版条目（见上方对应段；交叉发布的 beta 用交叉引用指向
+> 承载完整内容的正式版段，issue #117）。
 
 > **版本号一致性提示。** `dev` 与 `main` 的三处版本声明（`pyproject.toml` / `.env` /
 > `zoo_framework/__init__.py`）现均为 **`0.8.0`**，与最新标签 **`v0.8.0`**（2026-10-04）一致。
@@ -169,8 +256,6 @@
 >
 > 三处必须一起改：版本号同时存在于 `pyproject.toml`、`.env` 与
 > `zoo_framework/__init__.py`，少改一处就会出现「发出的包对自己的版本撒谎」。
-> `[tool.bumpversion].current_version` 也同步维护以求自洽，但它不在发布路径上 ——
-> 发版版本号由 `.github/workflows/release.yml` 自己算。
 >
 > 另有一个陷阱：**只改版本声明的推送会被判成「打 tag」而非「开 bump PR」**。若那个 tag
 > 已存在，该步骤会就地报错中止（刻意不改写既有 tag）。所以版本对齐宜与一个**非版本文件**

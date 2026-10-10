@@ -39,10 +39,12 @@ TypeError: 'module' object is not callable
 # doc-example: skip
 from zoo_framework.core.aop.worker import worker
 
+
 @worker(count=20)
 class OrderSync(BaseWorker):
     def __init__(self):
         super().__init__({"is_loop": True, "delay_time": 5, "name": "OrderSync"})
+
     def _execute(self):
         sync_orders()
 ```
@@ -51,14 +53,17 @@ class OrderSync(BaseWorker):
 # 新
 from zoo_framework.core import Master
 
+
 class OrderSync(BaseWorker):
     def __init__(self):
         super().__init__({"is_loop": True, "delay_time": 5, "name": "OrderSync"})
+
     def _execute(self):
         sync_orders()
 
+
 master = Master()
-master.register_worker("OrderSync", OrderSync)   # 注册的是**类**
+master.register_worker("OrderSync", OrderSync)  # 注册的是**类**
 ```
 
 ### 影响范围
@@ -98,9 +103,9 @@ ImportError: cannot import name 'cage' from 'zoo_framework.core.aop'
 # doc-example: skip
 from zoo_framework.core.aop import cage
 
+
 @cage
-class ConnectionPool:
-    ...
+class ConnectionPool: ...
 ```
 
 ```python
@@ -110,7 +115,7 @@ from zoo_framework.core.container import ScopedContainer, Scope
 container = ScopedContainer()
 container.register(
     ConnectionPool,
-    scope_kind="process",              # 实例活在进程作用域
+    scope_kind="process",  # 实例活在进程作用域
     thread_safety="instance_guaranteed",  # 必填：线程安全归属必须显式声明
 )
 pool = container.resolve(ConnectionPool, Scope.process())
@@ -186,5 +191,6 @@ ModuleNotFoundError: No module named 'gevent'
 
 以下变更在仓库历史中无法完整考据，留待后续补齐，**不在此处编造**：
 
-- `0.9.x` 之前的版本间变更（`CHANGELOG.md` 目前只覆盖到 `0.8.0`，见 issue #117）
+- ~~`0.9.x` 之前的版本间变更~~ —— **已回填**（issue #117 落地，见 `CHANGELOG.md`
+  0.8.1-beta 起的逐版条目；0.5.x–0.7.1 考据基础不足，保留「未回填」标注）
 - `workers` 包在文档英文化变更中减少的两个导出名
