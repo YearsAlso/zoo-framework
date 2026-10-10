@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 186" width="300" height="186" role="img" aria-label="Zoo Framework">
+  <title>Zoo Framework</title>
+  <g transform="translate(98,10)">
+    <circle cx="52" cy="52" r="40" fill="none" stroke="#223344" stroke-width="7"/>
+    <g stroke-linecap="round">
+      <rect x="30" y="33.5" width="36" height="8.5" rx="4.25" fill="#223344"/>
+      <rect x="30" y="48"   width="46" height="8.5" rx="4.25" fill="#33aa99"/>
+      <rect x="30" y="62.5" width="26" height="8.5" rx="4.25" fill="#223344"/>
+    </g>
+  </g>
+  <text x="150" y="158" text-anchor="middle" font-size="30" font-weight="600" letter-spacing="-0.8"
+        fill="#223344"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif">zoo framework</text>
+</svg>

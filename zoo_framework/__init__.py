@@ -1,15 +1,18 @@
 """Zoo Framework - A simple and quick multi-threaded Python framework with zoo metaphor.
 
-🎪 动物园框架 - 基于动物园隐喻的 Python 多线程框架
+A declarative multi-task orchestration framework for long-lived background tasks:
+declare task units (Workers), and the framework keeps them running - dispatch
+scheduling, in-flight de-duplication, timeout circuit-breaking, an event pipeline,
+and state persistence.
 
-核心概念：
-- 🦁 Worker: 动物，执行任务的基本单元
-- 🏠 Cage: 笼子，提供线程安全和生命周期管理
-- 👨‍🌾 Master: 园长，管理整个动物园
-- 🍎 Event: 食物，Worker 间通信的载体
-- 🥘 FIFO: 饲养员队列，管理事件的有序处理
+Core concepts (naming only - the metaphor does not affect semantics):
+- Worker: the task execution unit. Subclass and implement ``_execute()``.
+- Master: the lifecycle entry point. Load config, register Workers, run, shut down.
+- Waiter: the scheduler. ``worker:mode`` picks the dispatch model.
+- Event: the inter-worker message, delivered through channels.
+- FIFO: one ordered queue per event channel.
 
-示例：
+Example:
     >>> from zoo_framework.core import Master
     >>> from zoo_framework.workers import BaseWorker
     >>>
@@ -20,12 +23,10 @@
     >>> master = Master()
     >>> master.run()
 
-版本: 0.8.0
-作者: XiangMeng
-许可证: Apache-2.0
+License: Apache-2.0
 """
 
-__version__ = "0.10.0"
+__version__ = "0.10.6-beta"
 __author__ = "XiangMeng"
 __email__ = "mengxiang931015@live.com"
 __license__ = "Apache-2.0"
@@ -59,14 +60,15 @@ __all__ = [
 
 
 def load_env() -> None:
-    """显式加载工程根目录下的 .env 文件（不在包导入时自动运行）。
+    """Explicitly load a .env file from the project root (not run at import time).
 
-    调用示例：
+    Example:
         from zoo_framework import load_env
         load_env()
     """
     load_dotenv(find_dotenv())
 
 
-# NOTE: 原先代码在模块导入时会立即运行 `load_dotenv(find_dotenv())`，
-# 为了降低导入时的副作用（并减少 linter 噪声），已改为显式函数调用。
+# NOTE: the code used to run `load_dotenv(find_dotenv())` at import time;
+# it is now an explicit function call to reduce import-time side effects
+# (and linter noise).

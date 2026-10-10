@@ -131,7 +131,7 @@ class TestResolutionIsBoundedByScope:
         with pytest.raises(ValueError) as exc:
             container.resolve(target, Scope.process())
 
-        assert "会话级" in str(exc.value)
+        assert "session-scoped" in str(exc.value)
 
     def test_resolve_requires_a_scope_handle(self, container):
         """作用域句柄为必填，MUST NOT 有不传即进程级的默认值."""
@@ -306,7 +306,7 @@ class TestThreadSafetyDeclarationIsRequired:
         with pytest.raises(ValueError) as exc:
             container.register(_service("p"), scope_kind=ScopeKind.PROCESS)
 
-        assert "线程安全归属" in str(exc.value)
+        assert "thread-safety ownership" in str(exc.value)
 
     def test_explicit_none_is_not_accepted_as_a_declaration(self, container):
         """显式传 None 与"忘了传"同罪：MUST NOT 用隐式默认值代替声明."""
@@ -319,7 +319,7 @@ class TestThreadSafetyDeclarationIsRequired:
                 _service("r"), scope_kind=ScopeKind.PROCESS, thread_safety="maybe-fine"
             )
 
-        assert "无法识别" in str(exc.value)
+        assert "unknown" in str(exc.value)
 
     @pytest.mark.parametrize(
         "declaration",

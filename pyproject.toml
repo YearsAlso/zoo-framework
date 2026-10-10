@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "zoo-framework"
-version = "0.10.0"
+version = "0.10.6-beta"
 description = "Python declarative multi-task orchestration framework powering next-gen Agents and workflows"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -54,6 +54,8 @@ dev = [
 docs = [
     "mkdocs>=1.5.0",
     "mkdocs-material>=9.4.0",
+    # API 参考由 docstring 自动生成（mkdocs.yml 的 mkdocstrings 插件）
+    "mkdocstrings[python]>=0.25",
 ]
 
 [project.scripts]
@@ -62,7 +64,7 @@ zoo = "zoo_framework.cli:zfc"
 
 [project.urls]
 Homepage = "https://github.com/YearsAlso/zoo-framework"
-Documentation = "https://yearsalso.github.io/zoo-framework/"
+Documentation = "https://yearsalso.github.io/zoo-framework-doc/"
 Repository = "https://github.com/YearsAlso/zoo-framework"
 Issues = "https://github.com/YearsAlso/zoo-framework/issues"
 

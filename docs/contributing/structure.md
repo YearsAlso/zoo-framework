@@ -1,14 +1,14 @@
 # 目录结构 / Repository structure
 
-[English](#english) | [中文](#中文)
+[English](#en) | [中文](#zh)
 
 本文说明仓库与 `zoo_framework/` 包的物理布局，以及各部分承担的职责。
-行为层面的设计见 [`ARCHITECTURE.md`](ARCHITECTURE.md)。
+行为层面的设计见 [`ARCHITECTURE.md`](../ARCHITECTURE.md)。
 
 ---
 
 <a name="english"></a>
-## 🇬🇧 English
+## 🇬🇧 English {#en}
 
 ### Repository root
 
@@ -158,7 +158,7 @@ Each has a test guarding it, so breaking one fails rather than silently sharing 
 ---
 
 <a name="中文"></a>
-## 🇨🇳 中文
+## 🇨🇳 中文 {#zh}
 
 ### 仓库根目录
 

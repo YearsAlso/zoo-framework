@@ -1,27 +1,28 @@
-"""Plugin 系统 - 可扩展的插件架构.
+"""Plugin system - an extensible plugin architecture.
 
-Zoo Framework 插件系统允许开发者通过插件扩展框架功能。
-每个插件都是一个独立的模块，可以在运行时动态加载。
+The Zoo Framework plugin system lets developers extend framework behavior via
+plugins. Each plugin is an independent module that can be loaded dynamically at
+runtime.
 
-使用示例:
-    # 定义插件
+Example:
+    # Define a plugin
     class MyPlugin(Plugin):
         name = "my_plugin"
         version = "1.0.0"
 
         def initialize(self, context):
-            # 插件初始化逻辑
+            # plugin initialization logic
             pass
 
         def destroy(self):
-            # 插件清理逻辑
+            # plugin cleanup logic
             pass
 
-    # 注册插件
+    # Register the plugin
     plugin_manager = PluginManager()
     plugin_manager.register(MyPlugin)
 
-    # 使用插件
+    # Use the plugin
     plugin_manager.load_all()
 """
 
@@ -33,16 +34,17 @@ logger = logging.getLogger(__name__)
 
 
 class Plugin(ABC):
-    """插件基类.
+    """Plugin base class.
 
-    所有插件必须继承此类并实现抽象方法。
+    Every plugin must inherit from this class and implement the abstract
+    methods.
 
     Attributes:
-        name: 插件名称，必须唯一
-        version: 插件版本，遵循语义化版本规范
-        description: 插件描述
-        author: 插件作者
-        dependencies: 插件依赖的其他插件列表
+        name: Plugin name; must be unique.
+        version: Plugin version, following semantic versioning.
+        description: Plugin description.
+        author: Plugin author.
+        dependencies: Other plugins this one depends on.
     """
 
     name: str = ""
@@ -52,37 +54,37 @@ class Plugin(ABC):
     dependencies: list[str] = []
 
     def __init__(self):
-        """初始化插件."""
+        """Initialize the plugin."""
         self._initialized = False
         self._context: Any | None = None
 
     @abstractmethod
     def initialize(self, context: Any) -> None:
-        """初始化插件.
+        """Initialize the plugin.
 
-        插件被加载时会调用此方法。
+        Called when the plugin is loaded.
 
         Args:
-            context: 应用上下文，包含共享资源和配置
+            context: Application context with shared resources and configuration.
         """
         pass
 
     @abstractmethod
     def destroy(self) -> None:
-        """销毁插件.
+        """Destroy the plugin.
 
-        插件被卸载或应用关闭时调用。
-        应在此方法中释放资源。
+        Called when the plugin is unloaded or the application shuts down.
+        Release resources here.
         """
         pass
 
     @property
     def is_initialized(self) -> bool:
-        """检查插件是否已初始化."""
+        """Whether the plugin has been initialized."""
         return self._initialized
 
     def _do_initialize(self, context: Any) -> None:
-        """内部初始化方法."""
+        """Internal initialization."""
         if not self._initialized:
             self._context = context
             self.initialize(context)
@@ -90,7 +92,7 @@ class Plugin(ABC):
             logger.info(f"✅ Plugin '{self.name}' v{self.version} initialized")
 
     def _do_destroy(self) -> None:
-        """内部销毁方法."""
+        """Internal teardown."""
         if self._initialized:
             self.destroy()
             self._initialized = False
@@ -99,15 +101,15 @@ class Plugin(ABC):
 
 
 class WorkerDelayManager:
-    """Worker 延迟时间管理器.
+    """Worker delay-time manager.
 
-    使用时间管理对象控制 Worker 的延迟执行。
-    支持固定延迟、指数退避、自适应延迟等策略。
+    Controls a Worker's delayed execution via a delay-strategy object. Supports
+    fixed delay, exponential backoff, adaptive delay, and other strategies.
 
     Attributes:
-        default_delay: 默认延迟时间（秒）
-        max_delay: 最大延迟时间（秒）
-        min_delay: 最小延迟时间（秒）
+        default_delay: Default delay in seconds.
+        max_delay: Maximum delay in seconds.
+        min_delay: Minimum delay in seconds.
     """
 
     def __init__(
@@ -121,30 +123,30 @@ class WorkerDelayManager:
         self._execute_count: dict[str, int] = {}
 
     def get_delay(self, worker_name: str) -> float:
-        """获取 Worker 的延迟时间.
+        """Get a Worker's delay.
 
         Args:
-            worker_name: Worker 名称
+            worker_name: Worker name.
 
         Returns:
-            延迟时间（秒）
+            The delay in seconds.
         """
         return self._delays.get(worker_name, self.default_delay)
 
     def set_delay(self, worker_name: str, delay: float) -> None:
-        """设置 Worker 的延迟时间.
+        """Set a Worker's delay.
 
         Args:
-            worker_name: Worker 名称
-            delay: 延迟时间（秒）
+            worker_name: Worker name.
+            delay: The delay in seconds.
         """
         self._delays[worker_name] = max(self.min_delay, min(delay, self.max_delay))
 
     def record_execute(self, worker_name: str) -> None:
-        """记录 Worker 执行时间.
+        """Record a Worker execution.
 
         Args:
-            worker_name: Worker 名称
+            worker_name: Worker name.
         """
         import time
 
@@ -154,51 +156,54 @@ class WorkerDelayManager:
     def exponential_backoff(
         self, worker_name: str, base_delay: float = 1.0, max_retries: int = 5
     ) -> float:
-        """指数退避延迟.
+        """Exponential backoff delay.
 
-        当 Worker 执行失败时，使用指数退避策略增加延迟。
+        When a Worker's execution fails, grow the delay exponentially.
 
         Args:
-            worker_name: Worker 名称
-            base_delay: 基础延迟时间
-            max_retries: 最大重试次数
+            worker_name: Worker name.
+            base_delay: Base delay.
+            max_retries: Maximum retry count.
 
         Returns:
-            计算后的延迟时间
+            The computed delay.
         """
         retry_count = self._execute_count.get(worker_name, 0)
         if retry_count > max_retries:
             retry_count = max_retries
 
-        # 显式标注：mypy 把 `base_delay * (2**retry_count)` 推成 `Any`（已用 reveal_type 定位：
-        # 两个操作数分别是 float 与 int，唯独乘积落到 Any），于是从声明返回 float 的函数里
-        # 返回它就报 no-any-return。`delay: float` 是**算术上为真**的类型，此处补上它并不
-        # 压制错误，而是把类型供给检查器。
+        # Explicit annotation: mypy infers `base_delay * (2**retry_count)` as `Any`
+        # (located via reveal_type: the operands are float and int, only the
+        # product falls to Any), so returning it from a function declared to
+        # return float trips no-any-return. `delay: float` is arithmetically
+        # true - this supplies the type to the checker rather than suppressing
+        # the error.
         delay: float = base_delay * (2**retry_count)
         return min(delay, self.max_delay)
 
     def adaptive_delay(
         self, worker_name: str, execution_time: float, target_utilization: float = 0.8
     ) -> float:
-        """自适应延迟.
+        """Adaptive delay.
 
-        根据 Worker 执行时间动态调整延迟，以达到目标 CPU 利用率。
+        Adjusts the delay based on the Worker's last execution time to approach
+        the target CPU utilization.
 
         Args:
-            worker_name: Worker 名称
-            execution_time: 上次执行耗时
-            target_utilization: 目标 CPU 利用率
+            worker_name: Worker name.
+            execution_time: Duration of the last execution.
+            target_utilization: Target CPU utilization.
 
         Returns:
-            调整后的延迟时间
+            The adjusted delay.
         """
         if execution_time <= 0:
             return self.default_delay
 
-        # 计算理想的延迟时间以达到目标利用率
+        # Ideal delay for the target utilization
         ideal_delay = execution_time * (1 / target_utilization - 1)
 
-        # 平滑调整
+        # Smooth adjustment
         current_delay = self.get_delay(worker_name)
         new_delay = (current_delay * 0.7) + (ideal_delay * 0.3)
 
@@ -206,10 +211,10 @@ class WorkerDelayManager:
         return new_delay
 
     def reset(self, worker_name: str) -> None:
-        """重置 Worker 的延迟设置.
+        """Reset a Worker's delay settings.
 
         Args:
-            worker_name: Worker 名称
+            worker_name: Worker name.
         """
         self._delays.pop(worker_name, None)
         self._last_execute_time.pop(worker_name, None)
@@ -217,18 +222,18 @@ class WorkerDelayManager:
 
 
 class PluginManager:
-    """插件管理器.
+    """Plugin manager.
 
-    管理插件的注册、加载、卸载生命周期。
+    Manages the register / load / unload lifecycle of plugins.
 
-    提供方法：
-    - register: 注册插件类
-    - load / load_all: 加载插件
-    - unload / unload_all: 卸载插件
+    Provides:
+    - register: register a plugin class
+    - load / load_all: load plugins
+    - unload / unload_all: unload plugins
 
-    内部维护：
-    - _plugins: 已注册的插件映射
-    - _loaded_plugins: 当前已加载的插件实例映射
+    Maintains internally:
+    - _plugins: mapping of registered plugins
+    - _loaded_plugins: mapping of currently loaded plugin instances
     """
 
     def __init__(self):
@@ -239,17 +244,17 @@ class PluginManager:
 
     @property
     def delay_manager(self) -> WorkerDelayManager:
-        """获取延迟时间管理器."""
+        """The delay-time manager."""
         return self._delay_manager
 
     def register(self, plugin_class: type[Plugin]) -> None:
-        """注册插件.
+        """Register a plugin.
 
         Args:
-            plugin_class: 插件类，必须继承自 Plugin
+            plugin_class: The plugin class; must inherit from Plugin.
 
         Raises:
-            ValueError: 插件类无效或名称已存在
+            ValueError: The plugin class is invalid or the name already exists.
         """
         if not issubclass(plugin_class, Plugin):
             raise ValueError(f"Plugin class must inherit from Plugin: {plugin_class}")
@@ -264,10 +269,10 @@ class PluginManager:
         logger.info(f"📦 Plugin '{plugin_class.name}' registered")
 
     def unregister(self, plugin_name: str) -> None:
-        """注销插件.
+        """Unregister a plugin.
 
         Args:
-            plugin_name: 插件名称
+            plugin_name: Plugin name.
         """
         if plugin_name in self._loaded_plugins:
             self.unload(plugin_name)
@@ -276,15 +281,15 @@ class PluginManager:
         logger.info(f"🗑️ Plugin '{plugin_name}' unregistered")
 
     def load(self, plugin_name: str, context: Any | None = None) -> None:
-        """加载单个插件.
+        """Load a single plugin.
 
         Args:
-            plugin_name: 插件名称
-            context: 应用上下文
+            plugin_name: Plugin name.
+            context: Application context.
 
         Raises:
-            KeyError: 插件未注册
-            RuntimeError: 依赖插件未加载
+            KeyError: The plugin is not registered.
+            RuntimeError: A dependency plugin is not loaded.
         """
         if plugin_name in self._loaded_plugins:
             logger.debug(f"Plugin '{plugin_name}' already loaded")
@@ -295,12 +300,12 @@ class PluginManager:
 
         plugin_class = self._plugins[plugin_name]
 
-        # 检查依赖
+        # Check dependencies
         for dep in plugin_class.dependencies:
             if dep not in self._loaded_plugins:
                 raise RuntimeError(f"Plugin '{plugin_name}' requires '{dep}' but it's not loaded")
 
-        # 创建实例并初始化
+        # Instantiate and initialize
         plugin = plugin_class()
         ctx = context or self._context
         plugin._do_initialize(ctx)
@@ -309,14 +314,14 @@ class PluginManager:
         logger.info(f"✅ Plugin '{plugin_name}' loaded")
 
     def load_all(self, context: Any | None = None) -> None:
-        """加载所有已注册的插件.
+        """Load all registered plugins.
 
-        会自动处理插件依赖关系。
+        Plugin dependencies are resolved automatically.
 
         Args:
-            context: 应用上下文
+            context: Application context.
         """
-        # 按依赖顺序排序
+        # Order by dependencies
         loaded = set(self._loaded_plugins.keys())
         to_load = set(self._plugins.keys()) - loaded
 
@@ -333,19 +338,19 @@ class PluginManager:
                     progress = True
 
             if not progress and to_load:
-                # 存在循环依赖
+                # Circular dependency
                 raise RuntimeError(f"Circular dependency detected: {to_load}")
 
     def unload(self, plugin_name: str) -> None:
-        """卸载插件.
+        """Unload a plugin.
 
         Args:
-            plugin_name: 插件名称
+            plugin_name: Plugin name.
         """
         if plugin_name not in self._loaded_plugins:
             return
 
-        # 检查是否有其他插件依赖此插件
+        # Check whether other plugins depend on this one
         for name, plugin in self._loaded_plugins.items():
             if name != plugin_name and plugin_name in self._plugins[name].dependencies:
                 raise RuntimeError(f"Cannot unload '{plugin_name}', '{name}' depends on it")
@@ -355,45 +360,45 @@ class PluginManager:
         logger.info(f"🛑 Plugin '{plugin_name}' unloaded")
 
     def unload_all(self) -> None:
-        """卸载所有插件."""
-        # 按依赖反向顺序卸载
+        """Unload all plugins."""
+        # Unload in reverse dependency order
         for name in list(self._loaded_plugins.keys()):
             self.unload(name)
 
     def get_plugin(self, plugin_name: str) -> Plugin | None:
-        """获取已加载的插件实例.
+        """Get a loaded plugin instance.
 
         Args:
-            plugin_name: 插件名称
+            plugin_name: Plugin name.
 
         Returns:
-            插件实例，如果未加载则返回 None
+            The plugin instance, or None if not loaded.
         """
         return self._loaded_plugins.get(plugin_name)
 
     def get_registered_plugins(self) -> list[str]:
-        """获取所有已注册的插件名称."""
+        """Get all registered plugin names."""
         return list(self._plugins.keys())
 
     def get_loaded_plugins(self) -> list[str]:
-        """获取所有已加载的插件名称."""
+        """Get all loaded plugin names."""
         return list(self._loaded_plugins.keys())
 
     def set_context(self, key: str, value: Any) -> None:
-        """设置全局上下文."""
+        """Set a global context value."""
         self._context[key] = value
 
     def get_context(self, key: str, default: Any = None) -> Any:
-        """获取全局上下文."""
+        """Get a global context value."""
         return self._context.get(key, default)
 
 
-# 全局插件管理器实例
+# Global plugin manager instance
 _plugin_manager: PluginManager | None = None
 
 
 def get_plugin_manager() -> PluginManager:
-    """获取全局插件管理器实例."""
+    """Get the global plugin manager instance."""
     global _plugin_manager
     if _plugin_manager is None:
         _plugin_manager = PluginManager()
@@ -401,16 +406,16 @@ def get_plugin_manager() -> PluginManager:
 
 
 def register_plugin(plugin_class: type[Plugin]) -> None:
-    """便捷函数：注册插件到全局管理器."""
+    """Convenience wrapper: register a plugin with the global manager."""
     get_plugin_manager().register(plugin_class)
 
 
 def load_plugins(context: Any | None = None) -> None:
-    """便捷函数：加载所有已注册的插件."""
+    """Convenience wrapper: load all registered plugins."""
     get_plugin_manager().load_all(context)
 
 
-# 导出公共 API
+# Public API exports
 __all__ = [
     "Plugin",
     "PluginManager",

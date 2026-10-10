@@ -5,42 +5,53 @@ from .event_channel import EventChannel
 
 
 class _ChannelMapProxyMeta(type):
-    """类级 `_channel_map` 读代理（变更 absorb-debt-carriers / #50 交付 1，方案 A）.
+    """Class-level read proxy for `_channel_map` (absorb-debt-carriers / #50
+    deliverable 1, option A).
 
-    与 ``EventReactorManager`` 的注册表同形态：状态降为进程级实例属性，容器复位即
-    完全复位；元类只为类级读取/整表替换的既有写法提供入口。
+    Same shape as ``EventReactorManager``'s registry: the state drops to a
+    process-level instance attribute so a container reset resets it
+    completely; the metaclass exists only to keep the existing class-level
+    read / whole-table-replacement call style working.
     """
 
     @property
     def _channel_map(cls) -> ThreadSafeDict:
-        # 同 EventReactorManager：容器解析必返本类实例，ignoring 的是 Any 签名而非未验证前提
+        # Same as EventReactorManager: container resolution always returns
+        # an instance of this class; the ignore covers the Any signature,
+        # not an unverified premise
         return process_instance(cls)._channel_map  # type: ignore[no-any-return]
 
     @_channel_map.setter
     def _channel_map(cls, value: ThreadSafeDict) -> None:
-        # 兼容旧复位写法（整表替换）：语义转发到进程级实例。新代码 SHOULD 用
-        # 容器 reset / 本实例 clear()。
+        # Backward-compatible with the legacy reset style (whole-table
+        # replacement): semantics forward to the process-level instance. New
+        # code SHOULD use the container reset / this instance's clear().
         process_instance(cls)._channel_map = value
 
 
 @process_scoped(thread_safety=ThreadSafety.INSTANCE_GUARANTEED)
 class EventChannelRegister(metaclass=_ChannelMapProxyMeta):
-    """事件通道注册器.
+    """The event channel registrar.
 
-    注册表归属（变更 absorb-debt-carriers / #50）：`_channel_map` 是**进程级实例**
-    的状态（本类经 `process_scoped` 登记于框架容器），不再是类属性；原先自标的
-    【已知欠债】随收编解除。历史死属性 `_single` / `_instance`（全仓库零读写的
-    遗留单例标记）一并删除。
+    Registry ownership (absorb-debt-carriers / #50): `_channel_map` is state
+    of the **process-level instance** (this class is registered into the
+    framework container via `process_scoped`), no longer a class attribute;
+    the previously self-declared [known debt] is lifted by the absorption.
+    The historical dead attributes `_single` / `_instance` (legacy singleton
+    markers with zero reads or writes repo-wide) are removed with it.
     """
 
     def __init__(self):
-        # 事件通道字典：实例状态，新建即空表；容器 reset 后首次解析重建。
+        # The event channel map: instance state, empty at construction;
+        # rebuilt on first resolution after a container reset.
         self._channel_map: ThreadSafeDict[str, EventChannel] = ThreadSafeDict()
 
     @classmethod
     def register(cls, channel_name):
-        # get_channel 在未命中时就地创建再返回，故**不会**返回 None——原先的 None 分支
-        # 因此是死代码（类型检查已证），已删。register 与 get_channel 现为同一语义。
+        # get_channel creates in place on a miss and returns, so it never
+        # returns None - the original None branch was therefore dead code
+        # (proven by type checking) and has been removed. register and
+        # get_channel now share one semantics.
         return cls.get_channel(channel_name)
 
     @classmethod
@@ -49,8 +60,10 @@ class EventChannelRegister(metaclass=_ChannelMapProxyMeta):
 
     @classmethod
     def get_channel(cls, channel_name) -> EventChannel:
-        # 用 `__getitem__`（返回非 Optional 的 V）而不是 `get()`（返回 V | None）：
-        # 未命中时先就地创建，故此处必有值，类型上也就不需要收窄或 cast。
+        # Use `__getitem__` (returns a non-Optional V) rather than `get()`
+        # (returns V | None): on a miss the channel is created in place
+        # first, so a value always exists here and no narrowing or cast is
+        # needed on the type level.
         if channel_name not in cls._channel_map:
             cls._channel_map[channel_name] = EventChannel(channel_name)
         return cls._channel_map[channel_name]  # type: ignore[no-any-return]  # ThreadSafeDict.__getitem__ 经容器路径推为 Any

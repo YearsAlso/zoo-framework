@@ -1,10 +1,10 @@
-# 📝 贡献指南
+# 贡献指南
 
 感谢您对 Zoo Framework 的兴趣！本文档帮助您了解如何为项目做出贡献。
 
 ---
 
-## 🤝 贡献方式
+## 贡献方式
 
 - 🐛 报告 Bug
 - 💡 提出新功能建议
@@ -14,7 +14,7 @@
 
 ---
 
-## 🚀 开发流程
+## 开发流程
 
 ### 1. Fork 仓库
 
@@ -84,7 +84,7 @@ git push origin feat/your-feature-name
 
 ---
 
-## 📋 代码规范
+## 代码规范
 
 ### Python 代码风格
 
@@ -151,7 +151,7 @@ def my_function(param1: int, param2: str) -> bool:
 
 ---
 
-## 📝 提交信息规范
+## 提交信息规范
 
 ### 格式
 
@@ -216,7 +216,7 @@ docs(api): 更新 Worker API 文档
 
 ---
 
-## 🧪 测试规范
+## 测试规范
 
 ### 测试文件位置
 
@@ -231,12 +231,12 @@ tests/
 ### 测试命名
 
 ```python
-# ✅ 好的命名
+# 好的命名
 def test_worker_execute_returns_result():
 def test_state_machine_transition_success():
 def test_fifo_priority_sorting():
 
-# ❌ 避免
+# 避免
 def test1():
 def worker_test():
 ```
@@ -277,16 +277,16 @@ class TestBaseWorker:
 
 ---
 
-## 📚 文档规范
+## 文档规范
 
 ### 代码注释
 
 ```python
-# ✅ 好的注释
+# 好的注释
 # 使用指数退避策略，避免频繁重试
 time.sleep(2 ** attempt)
 
-# ❌ 避免
+# 避免
 # 睡眠
 sleep(2 ** attempt)
 ```
@@ -302,7 +302,7 @@ sleep(2 ** attempt)
 
 ---
 
-## 🔍 Code Review 流程
+## Code Review 流程
 
 ### Reviewer 检查清单
 
@@ -328,7 +328,7 @@ git push --force-with-lease origin feat/your-feature-name
 
 ---
 
-## 🐛 报告 Bug
+## 报告 Bug
 
 ### Bug 报告模板
 
@@ -365,7 +365,7 @@ git push --force-with-lease origin feat/your-feature-name
 
 ---
 
-## 💡 提出新功能
+## 提出新功能
 
 ### 功能请求模板
 
@@ -390,7 +390,7 @@ git push --force-with-lease origin feat/your-feature-name
 
 ---
 
-## 🎯 贡献者行为准则
+## 贡献者行为准则
 
 - 尊重所有贡献者
 - 欢迎新手提问
@@ -400,15 +400,15 @@ git push --force-with-lease origin feat/your-feature-name
 
 ---
 
-## 📞 获取帮助
+## 获取帮助
 
-- 📖 阅读 [开发文档](DEVELOPMENT.md)
-- 🏗️ 查看 [架构设计](ARCHITECTURE.md)
-- 🐛 学习 [调试技巧](DEBUGGING.md)
+- 📖 阅读 [开发文档](development.md)
+- 🏗️ 查看 [架构设计](../ARCHITECTURE.md)
+- 🐛 学习 [调试技巧](debugging.md)
 - 💬 在 Discussion 中提问
 
 ---
 
-## 🙏 致谢
+## 致谢
 
 感谢所有为 Zoo Framework 做出贡献的开发者！

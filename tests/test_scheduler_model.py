@@ -237,7 +237,7 @@ class TestPoolTeardown:
         model.start(core)
         model.teardown(core, wait=False)
 
-        with pytest.raises(RuntimeError, match="尚未启动"):
+        with pytest.raises(RuntimeError, match="not started"):
             model.submit(core, _ProbeWorker("after-teardown"))
 
     def test_teardown_is_idempotent(self):
@@ -318,7 +318,7 @@ class TestNoSilentDegradation:
         with pytest.raises(ValueError) as exc:
             BaseWaiter(model_name=mode, backpressure_policy="definitely-not-a-policy")
 
-        assert "背压策略" in str(exc.value)
+        assert "backpressure policy" in str(exc.value)
 
     def test_unknown_run_policy_config_is_rejected(self, monkeypatch):
         """配置里写错运行策略时，构造调度器 MUST 明确拒绝而非取默认."""
@@ -452,5 +452,5 @@ class TestQueueBackedPool:
         """尺寸非法当场拒绝（与旧 ThreadPoolExecutor(max_workers=0) 报错行为对齐）."""
         core = WorkerDispatchCore()
         model = ThreadPoolModel(pool_size=0)
-        with pytest.raises(ValueError, match="资源池尺寸必须为正数"):
+        with pytest.raises(ValueError, match="pool size must be positive"):
             model.start(core)

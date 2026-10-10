@@ -5,48 +5,52 @@ from .node import EventNode
 
 
 class EventFIFO(BaseFIFO[EventNode]):
-    """事件队列."""
+    """The event queue."""
 
     def push_value(self, value):
-        """将事件推入事件队列."""
+        """Push an event into the event queue."""
         try:
             if isinstance(value, dict):
                 node = EventNode(**value)
             elif isinstance(value, EventNode):
                 node = value
             else:
-                # 对于非 dict 和非 EventNode 的值，创建一个默认事件节点
+                # For values that are neither dict nor EventNode, create a
+                # default event node
                 node = EventNode(topic="default", content=str(value))
             super().push_value(node)
         except Exception as e:
             LogUtils.error(str(e), EventFIFO.__name__)
 
     def dispatch(self, topic, content, provider_name="default"):
-        """将事件推入事件队列.
+        """Push an event into the event queue.
 
-        注意：`provider_name` 必须写到事件的 `channel_name` 上——它决定事件
-        归属哪个通道队列，丢弃它会让所有事件都落到默认通道，通道隔离随之失效。
+        Note: `provider_name` MUST be written onto the event's
+        `channel_name` - it decides which channel queue the event belongs
+        to; dropping it would land all events on the default channel and
+        channel isolation would break.
         """
         node = EventNode(topic=topic, content=content, channel_name=provider_name)
         super().push_value(node)
 
     def get_top(self) -> EventNode | None:
-        """获取事件队列的第一个事件."""
+        """Get the first event of the event queue."""
         if self.size() > 0:
             return self._fifo[0]
         return None
 
     def has_event(self, event):
-        """判断事件是否存在.
+        """Whether the event exists.
 
-        必须用包含性判断：`list.index()` 在未命中时抛 `ValueError` 而不是返回 -1，
-        而本方法的调用方（`EventChannel.refresh_event`、`EventProvider.refresh`）
-        的正常路径恰恰是"未命中则不做处理"。
+        Membership check is required: `list.index()` raises `ValueError` on
+        a miss rather than returning -1, and the normal path of this
+        method's callers (`EventChannel.refresh_event`,
+        `EventProvider.refresh`) is exactly "do nothing on a miss".
         """
         return event in self._fifo
 
     def replace(self, event):
-        """替换事件；事件不存在时不做处理."""
+        """Replace the event; do nothing when it does not exist."""
         if event not in self._fifo:
             return
         self._fifo[self._fifo.index(event)] = event

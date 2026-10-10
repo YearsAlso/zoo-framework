@@ -1,9 +1,12 @@
-"""调度器工厂：按**调度模型名**构造调度器.
+"""The waiter factory: builds a waiter by **scheduling-model name**.
 
-历史沿革：本工厂曾按"运行策略名"（simple / stable / safe）选择三个近乎相同的
-调度器子类。那三个子类的唯一差异是"池尺寸不足时怎么办"（扩容 / 排队 / 拒绝），
-与并发原语、时间语义都无关——因此差异已改由 ``ThreadPoolModel`` 的背压策略参数
-承载，工厂改为按模型名键控，旧策略名 MUST 被明确拒绝。
+History: this factory used to pick among three near-identical waiter
+subclasses by "run policy name" (simple / stable / safe). The only
+difference among them was "what to do when the pool is undersized"
+(expand / queue / reject), unrelated to the concurrency primitive or the
+time semantics - so the difference is now carried by ``ThreadPoolModel``'s
+backpressure policy parameter, the factory keys on the model name, and the
+legacy policy names MUST be rejected explicitly.
 """
 
 from zoo_framework.constant import WaiterConstant
@@ -12,27 +15,30 @@ from .base_waiter import BaseWaiter
 
 
 class WaiterFactory:
-    """调度器工厂：按调度模型名构造对应的调度器."""
+    """The waiter factory: builds the matching waiter by scheduling-model name."""
 
     @staticmethod
     def get_waiter(name: str | None = None) -> BaseWaiter:
-        """按调度模型名构造调度器.
+        """Build a waiter by scheduling-model name.
 
-        无法识别的模型名会被明确拒绝并列出可选模型，MUST NOT 静默返回默认模型——
-        静默降级会让配置写错时表现出的行为与配置完全无关，且调用方无从察觉。
+        An unrecognized model name is rejected explicitly with the available
+        models listed, MUST NOT silently return the default model - a silent
+        downgrade would make the observed behavior of a mis-typed config
+        entirely unrelated to the config, without the caller ever noticing.
 
         Args:
-            name: 调度模型名（``worker:mode`` 的取值）；None 表示由配置推导
+            name: the scheduling-model name (a ``worker:mode`` value); None
+                means derived from config
 
         Returns:
-            已装配对应模型的调度器实例
+            A waiter instance with the matching model assembled
 
         Raises:
-            ValueError: 模型名无法识别
+            ValueError: the model name is unrecognized
         """
         if name is not None and name not in WaiterConstant.IMPLEMENTED_WORKER_MODES:
             raise ValueError(
-                f"无法识别的调度模型 {name!r}；可选的模型为 "
+                f"unknown scheduling model {name!r}; available models are "
                 f"{list(WaiterConstant.IMPLEMENTED_WORKER_MODES)}"
             )
         return BaseWaiter(model_name=name)

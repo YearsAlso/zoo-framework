@@ -6,54 +6,56 @@ log_utils = LogUtils()
 
 
 def logger(cls):
-    """为类添加日志记录功能的装饰器。
+    """A decorator adding logging capability to a class.
 
-    该装饰器会为传入的类创建一个日志记录器，并将其赋值给类的 `_logger` 属性。
+    It creates a logger for the passed class and assigns it to the class's
+    `_logger` attribute.
 
-    参数:
-        cls (class): 需要添加日志功能的类。
+    Args:
+        cls (class): the class to add logging to.
 
-    返回:
-        class: 添加了日志功能的类。
+    Returns:
+        class: the class with logging added.
     """
     from zoo_framework.conf.log_config import log_config_instance
 
-    # 创建类的日志记录器
+    # Create the class's logger
     _logger = logging.getLogger(cls.__name__)
 
     _logger = log_config_instance(_logger)
 
-    # 将日志记录器赋值给类的 _logger 属性
+    # Assign the logger to the class's `_logger` attribute
     cls._logger = _logger
 
     # 定义装饰器函数，用于添加日志记录功能
     def decorator(func):
-        """为函数添加日志记录功能的装饰器。
+        """A decorator adding logging to a function.
 
-        在函数调用前后分别记录调试日志，包括函数名和返回值。
+        Logs debug entries before and after the call, covering the function
+        name and return value.
 
-        参数:
-            func (function): 需要添加日志功能的函数。
+        Args:
+            func (function): the function to add logging to.
 
-        返回:
-            function: 添加了日志功能的函数。
+        Returns:
+            function: the function with logging added.
         """
 
         def wrapper(*args, **kwargs):
-            # 记录方法调用前的日志
+            # Log before the call
             cls._logger.debug(f"Calling {func.__name__}")
 
-            # 执行原始方法
+            # Run the original method
             result = func(*args, **kwargs)
 
-            # 记录方法调用后的日志
+            # Log after the call
             cls._logger.debug(f"{func.__name__} returned: {result}")
 
             return result
 
         return wrapper
 
-    # 遍历类中的方法，并应用装饰器
+    # Iterate over the class's methods and apply the decorator
     for name, method in cls.__dict__.items():
         if callable(method):
             setattr(cls, name, decorator(method))

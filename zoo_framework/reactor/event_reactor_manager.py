@@ -10,12 +10,16 @@ from .event_reactor_req import ChannelType, get_channel_manager
 
 
 class _ReactorMapProxyMeta(type):
-    """类级 `reactor_map` 读代理（变更 absorb-debt-carriers / #50 交付 1，方案 A）.
+    """Class-level `reactor_map` read proxy (change absorb-debt-carriers / #50 deliverable 1, option A).
 
-    注册表状态已降为**进程级实例属性**——容器 reset 天然带走，conftest 不再单独
-    复位类属性。本元类只为**类级读取**（`EventReactorManager.reactor_map`）保提供
-    入口：它转发到进程级实例的同名属性。实例属性查找不经过元类，`self.reactor_map`
-    仍是普通实例属性；既有 classmethod 的 `cls.reactor_map` 写法零改动。
+    The registry state has been downgraded to a **process-level instance
+    attribute** - a container reset takes it away naturally, so conftest no
+    longer resets a class attribute separately. This metaclass exists only to
+    keep the **class-level read** entry point
+    (`EventReactorManager.reactor_map`): it forwards to the process-level
+    instance's attribute of the same name. Instance attribute lookup does not
+    go through the metaclass, so `self.reactor_map` is still a plain instance
+    attribute; existing classmethods that read `cls.reactor_map` are unchanged.
     """
 
     @property
@@ -33,13 +37,15 @@ class _ReactorMapProxyMeta(type):
 
 @process_scoped(thread_safety=ThreadSafety.INSTANCE_GUARANTEED)
 class EventReactorManager(metaclass=_ReactorMapProxyMeta):
-    """事件响应处理器.
+    """Event reactor manager.
 
-    P1 任务：支持事件通道隔离
+    P1 task: event channel isolation.
 
-    注册表归属（变更 absorb-debt-carriers / #50）：`reactor_map` 是**进程级实例**的
-    状态（本类经 `process_scoped` 登记于框架容器），不再是类属性——线程安全声明
-    `INSTANCE_GUARANTEED` 至此与实现一致；容器复位即完全复位。
+    Registry ownership (change absorb-debt-carriers / #50): `reactor_map` is
+    the state of the **process-level instance** (this class is registered in
+    the framework container via `process_scoped`), no longer a class
+    attribute - the `INSTANCE_GUARANTEED` thread-safety declaration is thereby
+    faithful to the implementation; a container reset resets it fully.
     """
 
     # 注册表的读-改-写需要整体互斥：ThreadSafeDict 只保护单次操作，
@@ -60,19 +66,21 @@ class EventReactorManager(metaclass=_ReactorMapProxyMeta):
 
     @classmethod
     def dispatch(cls, topic, content, reactor_name=None, channel: str = ChannelType.DEFAULT.value):
-        """分发事件.
+        """Dispatch an event.
 
-        把主题下、且通过通道校验的所有响应器逐个执行。单个响应器抛出的异常不会
-        阻断其余响应器；主题下没有匹配的响应器时静默返回。
+        Executes each reactor under the topic that passes the channel
+        validation. An exception raised by one reactor does not block the
+        others; returns silently when no reactor matches the topic.
 
         Args:
-            topic: 事件主题
-            content: 事件内容
-            reactor_name: 响应器名称；None 表示不过滤。历史默认哨兵值 "default"
-                同样视为不过滤——它来自本方法的旧签名，且与 `get_reactor` 的
-                "按名称过滤"参数语义冲突（过滤一个名为 default 的响应器必然匹配
-                不到任何响应器）
-            channel: 通道名称
+            topic: the event topic
+            content: the event content
+            reactor_name: the reactor name; None means no filtering. The
+                legacy sentinel value "default" is also treated as no
+                filtering - it comes from this method's old signature and
+                conflicts with `get_reactor`'s "filter by name" semantics
+                (filtering a reactor named default can never match anything)
+            channel: the channel name
         """
         name_filter = None if reactor_name in (None, "default") else [reactor_name]
 
@@ -86,17 +94,17 @@ class EventReactorManager(metaclass=_ReactorMapProxyMeta):
     def get_reactor(
         cls, topic, reactor_names: list[str] | None = None, channel: str | None = None
     ) -> list[Any]:
-        """获取事件处理器.
+        """Get the event reactors.
 
-        P1 任务：支持按通道过滤事件处理器
+        P1 task: filter event reactors by channel.
 
         Args:
-            topic: 事件主题
-            reactor_names: 响应器名称列表
-            channel: 通道名称（P1 新增）
+            topic: the event topic
+            reactor_names: the reactor name list
+            channel: the channel name (added in P1)
 
         Returns:
-            响应器列表
+            The reactor list
         """
         result = cls.reactor_map.get(topic)
 
@@ -120,29 +128,30 @@ class EventReactorManager(metaclass=_ReactorMapProxyMeta):
 
     @classmethod
     def _validate_channel(cls, reactor_name: str, channel: str) -> bool:
-        """验证响应器是否可以处理该通道的事件.
+        """Check whether a reactor may handle events of the channel.
 
-        只做通道判断，不构造完整的事件请求对象——后者会为每个响应器生成一个 UUID，
-        而本方法位于分发热路径上。
+        Only performs the channel check and does not build a full event
+        request object - the latter would generate a UUID per reactor, and
+        this method sits on the dispatch hot path.
 
         Args:
-            reactor_name: 响应器名称
-            channel: 通道名称
+            reactor_name: the reactor name
+            channel: the channel name
 
         Returns:
-            是否可以处理
+            Whether it may handle the channel
         """
         return get_channel_manager().can_handle_channel(reactor_name, channel)
 
     @classmethod
     def register_reactor_channels(cls, reactor_name: str, channels: list[str]) -> None:
-        """注册响应器监听的通道.
+        """Register the channels a reactor listens to.
 
-        P1 任务：支持通道隔离配置
+        P1 task: channel isolation configuration.
 
         Args:
-            reactor_name: 响应器名称
-            channels: 监听的通道列表
+            reactor_name: the reactor name
+            channels: the list of listened channels
         """
         channel_manager = get_channel_manager()
         channel_manager.register_reactor_channels(reactor_name, channels)
@@ -150,18 +159,22 @@ class EventReactorManager(metaclass=_ReactorMapProxyMeta):
 
     @classmethod
     def get_reactor_name_list(cls):
-        """获取事件处理器名称列表."""
+        """Get the event reactor name list."""
         return cls.reactor_map.get_keys()
 
     @classmethod
     def bind_topic_reactor(cls, topic: str, reactor: EventReactor) -> bool:
-        """注册事件处理器.
+        """Register an event reactor.
 
-        **幂等**：同一个响应器对象对同一主题重复注册时，该主题下的响应器集合保持
-        不变——既不重复追加、也不修改已注册对象的名称。历史实现在这种情况下会重命名
-        并追加，导致每构造一次调度器就在主题下多堆积一条记录，在进程内无限增长。
+        **Idempotent**: when the same reactor object is registered for the
+        same topic repeatedly, the reactor set under the topic stays
+        unchanged - neither appended again nor renamed. The legacy
+        implementation renamed and appended in that case, so each scheduler
+        construction piled one more record under the topic and grew without
+        bound within the process.
 
-        这个方法可以被重写，以实现不同的事件注册方式，比如设置重试机制等.
+        This method may be overridden to implement different event
+        registration styles, e.g. adding a retry mechanism.
         """
         with cls._registry_lock:
             reactors = cls.reactor_map.get(topic)
@@ -184,14 +197,14 @@ class EventReactorManager(metaclass=_ReactorMapProxyMeta):
     def dispatch_by_channel(
         cls, topic: str, content: Any, channel: str = ChannelType.DEFAULT.value
     ) -> None:
-        """按通道分发事件.
+        """Dispatch an event by channel.
 
-        P1 任务：支持按通道广播事件
+        P1 task: broadcast events by channel.
 
         Args:
-            topic: 事件主题
-            content: 事件内容
-            channel: 目标通道
+            topic: the event topic
+            content: the event content
+            channel: the target channel
         """
         channel_manager = get_channel_manager()
 

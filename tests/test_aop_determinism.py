@@ -47,7 +47,7 @@ class TestParamsOrderLoudFailure:
             json.dumps({"alpha": {"key": "FROM_CONFIG"}}), encoding="utf-8"
         )
 
-        with pytest.raises(RuntimeError, match="冻结在默认值"):
+        with pytest.raises(RuntimeError, match="frozen at the defaults"):
             _master()
 
     def test_no_config_file_is_a_legal_all_defaults_run(self, tmp_path, monkeypatch):
@@ -122,7 +122,7 @@ class TestConfigureSeal:
         configure(topic="det_late")(late)
 
         assert config_funcs.get("det_late") is late
-        assert any("下一个 Master" in w for w in logged), "封后注册未出声"
+        assert any("registered after a Master" in w for w in logged), "封后注册未出声"
 
     def test_master_consumption_warns_late_reregistration(self, tmp_path, monkeypatch):
         """同进程重复运行入口（重新导入+重新注册+新 Master）：合法，但告警可见."""

@@ -1,27 +1,41 @@
+from typing import Any
+
 from zoo_framework.constant import WaiterConstant
 
 
 class WorkerResult:
-    """Worker 执行结果。
+    """The Worker execution result.
 
-    所有结果统一投递到 ``WaiterConstant.WORKER_RESULT_TOPIC``；``worker_name``
-    标识产生该结果的 Worker，供接收方按 Worker 筛选。``cls_name`` 保留 Worker 的
-    类名，便于接收方区分同类 Worker 的不同实例。
+    All results are delivered to ``WaiterConstant.WORKER_RESULT_TOPIC``;
+    ``worker_name`` identifies the Worker that produced the result, letting
+    receivers filter by Worker. ``cls_name`` keeps the Worker's class name,
+    letting receivers tell apart different instances of the same class.
 
-    ``run_id`` / ``session_id`` 是**显式**的运行标识字段：接收方据此可按运行或按
-    会话筛选结果，MUST NOT 依赖隐式上下文（结果可能在工作线程里产生，而工作线程
-    不会继承调用方的上下文变量）。字段值由派发侧在结算时盖章。
+    ``run_id`` / ``session_id`` are **explicit** run-identity fields:
+    receivers can filter results by run or by session from them, and MUST
+    NOT rely on implicit context (results may be produced in a worker thread,
+    and worker threads do not inherit the caller's context variables). The
+    values are stamped by the dispatch side at settlement.
 
     Args:
-        topic: 投递主题；为空时归入统一结果主题
-        content: Worker 执行体的返回值
-        cls_name: 产生结果的 Worker 类名
-        worker_name: 产生结果的 Worker 实例名（含编号）
-        run_id: 产生该结果的那次运行的标识
-        session_id: 该结果所属会话的标识
+        topic: the delivery topic; empty falls into the unified result topic
+        content: the return value of the Worker's execution body
+        cls_name: the class name of the Worker that produced the result
+        worker_name: the instance name (with ordinal) of the Worker that
+            produced the result
+        run_id: the identity of the run that produced the result
+        session_id: the identity of the session the result belongs to
     """
 
-    def __init__(self, topic, content, cls_name, worker_name=None, run_id=None, session_id=None):
+    def __init__(
+        self,
+        topic: str,
+        content: Any,
+        cls_name: str,
+        worker_name: str | None = None,
+        run_id: str | None = None,
+        session_id: str | None = None,
+    ) -> None:
         self.topic = topic or WaiterConstant.WORKER_RESULT_TOPIC
         self.content = content
         self.cls_name = cls_name

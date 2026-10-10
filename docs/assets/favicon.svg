@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Zoo Framework">
+  <title>Zoo Framework</title>
+  <!-- 小尺寸专用变体（favicon / 列表缩略图 / 头像）。
+       与 mark.svg 同构造，但把细描边环换成实底方块：实心的边缘对比度远高于细线，
+       16px 下才站得住（对比实测见 docs/BRAND.md）。 -->
+  <rect x="1.5" y="1.5" width="29" height="29" rx="7" fill="#223344"/>
+  <g stroke-linecap="round">
+    <rect x="8.5" y="9.8"  width="11"   height="3.4" rx="1.7" fill="#C9D6DE"/>
+    <rect x="8.5" y="14.4" width="14.5" height="3.4" rx="1.7" fill="#33aa99"/>
+    <rect x="8.5" y="19"   width="8"    height="3.4" rx="1.7" fill="#C9D6DE"/>
+  </g>
+</svg>

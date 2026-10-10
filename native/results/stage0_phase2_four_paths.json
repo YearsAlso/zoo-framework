@@ -1,0 +1,127 @@
+{
+  "meta": {
+    "timestamp": "2026-10-09T16:31:06",
+    "python": "3.13.14",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "machine": "AMD64",
+    "warmup_iterations": 300,
+    "measure_iterations": 3000,
+    "extension_installed": true,
+    "extension_file": "F:\\Python\\zoo\\.venv\\Lib\\site-packages\\zoo_framework_native\\__init__.py"
+  },
+  "frames": {
+    "1reg(7B)": {
+      "P1_python_reference": {
+        "p50": 3.4,
+        "p95": 4.0,
+        "p99": 6.2,
+        "mean": 3.581
+      },
+      "P2_c_primitives": {
+        "p50": 1.1,
+        "p95": 1.1,
+        "p99": 1.8,
+        "mean": 1.094
+      },
+      "P3_rust_direct": {
+        "p50": 1.9,
+        "p95": 2.2,
+        "p99": 3.601,
+        "mean": 1.986
+      },
+      "P4_zoo_adapter": {
+        "p50": 3.3,
+        "p95": 3.5,
+        "p99": 4.904,
+        "mean": 3.342
+      },
+      "supp_rust_raw": {
+        "p50": 0.4,
+        "p95": 0.5,
+        "p99": 0.5,
+        "mean": 0.45
+      }
+    },
+    "8reg(21B)": {
+      "P1_python_reference": {
+        "p50": 11.3,
+        "p95": 13.105,
+        "p99": 18.401,
+        "mean": 11.703
+      },
+      "P2_c_primitives": {
+        "p50": 2.9,
+        "p95": 3.2,
+        "p99": 5.101,
+        "mean": 2.951
+      },
+      "P3_rust_direct": {
+        "p50": 2.5,
+        "p95": 2.8,
+        "p99": 4.701,
+        "mean": 2.593
+      },
+      "P4_zoo_adapter": {
+        "p50": 4.0,
+        "p95": 7.2,
+        "p99": 7.9,
+        "mean": 4.586
+      },
+      "supp_rust_raw": {
+        "p50": 0.7,
+        "p95": 0.7,
+        "p99": 0.8,
+        "mean": 0.705
+      }
+    },
+    "125reg(255B)": {
+      "P1_python_reference": {
+        "p50": 145.6,
+        "p95": 206.7,
+        "p99": 239.104,
+        "mean": 153.142
+      },
+      "P2_c_primitives": {
+        "p50": 32.8,
+        "p95": 58.5,
+        "p99": 62.2,
+        "mean": 35.877
+      },
+      "P3_rust_direct": {
+        "p50": 13.3,
+        "p95": 20.8,
+        "p99": 24.701,
+        "mean": 14.188
+      },
+      "P4_zoo_adapter": {
+        "p50": 15.0,
+        "p95": 15.7,
+        "p99": 25.902,
+        "mean": 15.34
+      },
+      "supp_rust_raw": {
+        "p50": 5.1,
+        "p95": 5.2,
+        "p99": 8.001,
+        "mean": 5.194
+      }
+    }
+  },
+  "verdict": {
+    "1reg(7B)": {
+      "speedup_p50": 1.03,
+      "p99_regression": -0.209,
+      "go": false
+    },
+    "8reg(21B)": {
+      "speedup_p50": 2.83,
+      "p99_regression": -0.5707,
+      "go": true
+    },
+    "125reg(255B)": {
+      "speedup_p50": 9.71,
+      "p99_regression": -0.8917,
+      "go": true
+    }
+  }
+}

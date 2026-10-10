@@ -28,7 +28,8 @@ site_dir: site
 theme:
   name: material
   language: zh
-  logo: assets/logo.png
+  logo: assets/mark.svg
+  favicon: assets/favicon.svg
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -50,29 +51,75 @@ theme:
     - content.code.copy
 
 nav:
-  # docs/README.md 作为站点首页 —— MkDocs 把目录下的 README.md 视作 index.md，
-  # 两者只能存在其一；这里用 README.md，避免出现第二份重复的索引页。
+  # 用户侧在前、贡献者侧在后。docs/internal/ 通过 exclude_docs 排除，不进入站点。
   - 首页: README.md
+  - 安装: install.md
+  - 教程:
+      - 总览: tutorial/README.md
+      - 01 五分钟上手: tutorial/01-quickstart.md
+      - 02 状态持久化: tutorial/02-state-persistence.md
+      - 03 事件管道: tutorial/03-event-pipeline.md
+      - 04 作用域容器: tutorial/04-container.md
+      - 05 使用脚手架: tutorial/05-scaffold.md
   - 指南:
-      - 开发环境搭建: DEVELOPMENT.md
-      - 贡献指南: CONTRIBUTING.md
-      - 调试指南: DEBUGGING.md
-  - 设计与实现:
-      - 架构设计: ARCHITECTURE.md
-      - 目录结构: structure.md
-      - API 参考: API_REFERENCE.md
-  - 性能与决策:
-      - 性能基准说明: benchmark.md
-      - 优化方案: OPTIMIZATION_PLAN.md
-  - 规划:
-      - 路线图: ROADMAP.md
-      - 商业计划: BUSINESS_PLAN.md
+      - 总览: guides/README.md
+      - 配置参考: guides/config-reference.md
+      - 超时与熔断: guides/timeouts.md
+      - 状态持久化: guides/state-persistence.md
+      - 事件管道: guides/event-pipeline.md
+      - 作用域容器: guides/container.md
+      - 与其它方案对比: guides/comparison.md
+  - API 参考:
+      - 总览: api/README.md
+      - 运行时: api/runtime.md
+      - Worker: api/workers.md
+      - 调度: api/scheduler.md
+      - 容器: api/container.md
+      - 状态: api/state.md
+      - 事件: api/events.md
+      - 配置: api/config.md
+      - 插件: api/plugins.md
+      - 原生执行: api/native.md
+      - 示例集: api/examples.md
+  - 架构概览: ARCHITECTURE.md
+  - 性能基准: benchmark.md
+  - 迁移指南: MIGRATION.md
+  - 版本政策: VERSION_POLICY.md
+  - 常见问题: FAQ.md
+  - 给贡献者:
+      - 总览: contributing/README.md
+      - 开发环境搭建: contributing/development.md
+      - 目录结构: contributing/structure.md
+      - 调试指南: contributing/debugging.md
+      - 贡献指南: contributing/contributing.md
+      - 品牌与视觉规范: contributing/brand.md
+      - 路线图: contributing/roadmap.md
+      - 维护者待办: contributing/maintainer-backlog.md
 
 plugins:
   - search:
       lang:
         - zh
         - en
+  # API 参考从代码 docstring 自动生成——与实现同步，不手工维护。
+  # 每个签名/参数/返回值/异常都直接取自源码，因此文档不可能与代码漂移。
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: true
+            show_signature_annotations: true
+            show_root_heading: true
+            members_order: source
+            separate_signature: true
+            filters:
+              - "!^_"
+
+# docs/internal/ 是维护者工作日志（商业计划、优化日志、agent 记忆），
+# 不发布到文档站；文件保留在仓库里供维护者查阅。
+exclude_docs: |
+  internal/
 
 markdown_extensions:
   - admonition

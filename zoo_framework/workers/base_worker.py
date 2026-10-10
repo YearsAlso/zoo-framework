@@ -11,10 +11,12 @@ if TYPE_CHECKING:
 
 
 class BaseWorker:
-    """Worker 基类。
+    """Worker base class.
 
-    配置统一由 ``_props`` 字典承载；``is_loop`` / ``run_timeout`` / ``delay_time``
-    均以属性形式暴露，读取时 MUST NOT 需要调用语法，子类 MUST NOT 用实例属性遮蔽它们。
+    Configuration is carried uniformly by the ``_props`` dict; ``is_loop`` /
+    ``run_timeout`` / ``delay_time`` are exposed as properties - reading them
+    MUST NOT require call syntax, and subclasses MUST NOT shadow them with
+    instance attributes.
     """
 
     def __init__(self, props: dict):
@@ -33,41 +35,45 @@ class BaseWorker:
 
     @property
     def is_loop(self) -> bool:
-        """是否在调度轮次之间保留并重复执行。
+        """Whether to keep this Worker across scheduling rounds and re-execute it.
 
-        ``_props`` 是唯一真源；未声明时视为不循环。
+        ``_props`` is the single source of truth; treated as non-looping when
+        undeclared.
         """
         return bool(self._props.get("is_loop", False))
 
     @property
     def run_timeout(self):
-        """本次执行的超时秒数；未声明时返回 None。"""
+        """Timeout in seconds for one execution; None when undeclared."""
         return self._props.get("run_timeout")
 
     @property
     def period(self):
-        """执行周期（秒）。
+        """Execution period in seconds.
 
-        未声明时返回 None，表示按**事件驱动**处理（每一轮调度都视为到点）。
-        周期是逐个 Worker 的声明，MUST NOT 由进程或调度模型统一钉死。
+        None when undeclared, meaning **event-driven** (every scheduling round
+        counts as due). The period is declared per Worker and MUST NOT be
+        pinned uniformly by the process or the scheduling model.
         """
         return self._props.get("period")
 
     @property
     def phase(self):
-        """周期相位偏移（秒）；未声明时返回 0.0。
+        """Period phase offset in seconds; 0.0 when undeclared.
 
-        首次触发时刻相对排期基准存在该偏移，用于错开多个周期 Worker 的触发时刻。
+        The offset of the first trigger relative to the schedule baseline, used
+        to stagger the trigger moments of multiple periodic Workers.
         """
         return self._props.get("phase", 0.0)
 
     @property
     def delay_time(self) -> float:
-        """单次执行结束后的等待秒数；未声明时视为不等待。"""
+        """Seconds to wait after each execution; treated as no wait when undeclared."""
         return self._props.get("delay_time") or 0
 
     @property
     def name(self):
+        """Instance-unique name: the configured name or class name plus the instance number."""
         if self._props.get("name"):
             return str(self._props.get("name")) + "_" + str(self.num)
         return str(self.__class__.__name__) + "_" + str(self.num)
@@ -82,21 +88,26 @@ class BaseWorker:
         pass
 
     def _wait(self, seconds: float) -> None:
-        """延迟等待。
+        """Delayed wait.
 
-        ``props`` 中的 ``sleep_func`` 可替换等待实现，使调度相关的用例无需真实等待。
+        ``sleep_func`` in ``props`` can replace the wait implementation, so
+        scheduling-related test cases need no real waiting.
         """
         sleep_func = self._props.get("sleep_func") or time.sleep
         sleep_func(seconds)
 
     def run(self):
-        """执行一次。
+        """Execute once.
 
-        执行体抛出的异常在记录与调用 ``_on_error`` 之后**继续向上传播**，使调度器
-        能够观测到失败并据此决定是否上报结果——静默吞掉异常会让失败伪装成"空结果"。
+        An exception raised by the execution body **keeps propagating upward**
+        after being logged and after ``_on_error`` is called, so the scheduler
+        can observe the failure and decide whether to report the result -
+        silently swallowing the exception would disguise the failure as an
+        "empty result".
 
         Returns:
-            WorkerResult: 本次执行的结果；执行失败时不返回（异常向上传播）
+            WorkerResult: The result of this execution; not returned on failure
+                (the exception propagates).
         """
         result = {}
         try:

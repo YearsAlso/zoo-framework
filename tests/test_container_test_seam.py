@@ -326,7 +326,7 @@ class TestReplaceValidation:
         with pytest.raises(ValueError) as exc:
             container.replace(target, Scope.process())
 
-        assert "须给出" in str(exc.value)
+        assert "requires a factory or an instance" in str(exc.value)
 
     def test_both_factory_and_instance_is_rejected(self, container):
         target = _cls("both")
@@ -335,7 +335,7 @@ class TestReplaceValidation:
         with pytest.raises(ValueError) as exc:
             container.replace(target, Scope.process(), factory=dict, instance={})
 
-        assert "只能取其一" in str(exc.value)
+        assert "mutually exclusive" in str(exc.value)
 
     def test_scope_handle_is_required(self, container):
         target = _cls("noscope")

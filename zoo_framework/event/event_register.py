@@ -1,12 +1,14 @@
 from zoo_framework.core.container import ThreadSafety, process_scoped
 
 
-# 声明为"仅限单线程"而不是"实例自身保证"：本类的 event_list 是**裸 list**，既没有
-# 锁也不是不可变的（清点时记为 F1）。本模块目前仅被 event/__init__.py 再导出、框架内
-# 无调用点，故这条声明是如实而非限制。
+# Declared SINGLE_THREAD rather than INSTANCE_GUARANTEED: this class's
+# event_list is a **bare list** - neither locked nor immutable (recorded as
+# F1 in the census). The module is currently only re-exported by
+# event/__init__.py with no call sites inside the framework, so this
+# declaration is honest rather than restrictive.
 @process_scoped(thread_safety=ThreadSafety.SINGLE_THREAD)
 class EventRegister:
-    """事件注册器."""
+    """The event registrar."""
 
     def __init__(self):
         self.event_list = []

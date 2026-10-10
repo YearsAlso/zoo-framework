@@ -50,11 +50,7 @@ class TestEventNode:
 
     def test_event_node_creation(self):
         """测试创建 EventNode"""
-        node = EventNode(
-            topic="test.topic",
-            content="test content",
-            channel_name="test_channel"
-        )
+        node = EventNode(topic="test.topic", content="test content", channel_name="test_channel")
 
         assert node.topic == "test.topic"
         assert node.content == "test content"
@@ -64,9 +60,7 @@ class TestEventNode:
     def test_event_node_with_priority_level(self):
         """测试使用 PriorityLevel 创建 EventNode"""
         node = EventNode(
-            topic="test.topic",
-            content="test content",
-            priority_level=PriorityLevel.HIGH
+            topic="test.topic", content="test content", priority_level=PriorityLevel.HIGH
         )
 
         assert node.priority == PriorityLevel.HIGH.value
@@ -123,9 +117,7 @@ class TestEventPriorityCalculator:
         # 基准 MUST 与实现的判定基准一致（单调时钟），否则等待时间会被 max(0,) 钳成 0
         create_time = time.monotonic()
         priority = EventPriorityCalculator.calculate(
-            priority=100,
-            create_time=create_time,
-            wait_time_weight=0.3
+            priority=100, create_time=create_time, wait_time_weight=0.3
         )
 
         assert priority >= 100
@@ -134,9 +126,7 @@ class TestEventPriorityCalculator:
         """测试带等待时间的优先级计算"""
         create_time = time.monotonic() - 10  # 10秒前创建
         priority = EventPriorityCalculator.calculate(
-            priority=100,
-            create_time=create_time,
-            wait_time_weight=0.5
+            priority=100, create_time=create_time, wait_time_weight=0.5
         )
 
         # 等待时间越长，优先级越高
@@ -144,11 +134,11 @@ class TestEventPriorityCalculator:
 
     def test_get_urgency_level(self):
         """测试获取紧急程度"""
-        assert EventPriorityCalculator.get_urgency_level(1000) == "🔴 紧急"
-        assert EventPriorityCalculator.get_urgency_level(500) == "🟠 高"
-        assert EventPriorityCalculator.get_urgency_level(100) == "🟡 中"
-        assert EventPriorityCalculator.get_urgency_level(10) == "🟢 低"
-        assert EventPriorityCalculator.get_urgency_level(1) == "⚪ 后台"
+        assert EventPriorityCalculator.get_urgency_level(1000) == "critical"
+        assert EventPriorityCalculator.get_urgency_level(500) == "high"
+        assert EventPriorityCalculator.get_urgency_level(100) == "normal"
+        assert EventPriorityCalculator.get_urgency_level(10) == "low"
+        assert EventPriorityCalculator.get_urgency_level(1) == "background"
 
 
 class TestEventFIFO:
@@ -166,10 +156,7 @@ class TestEventFIFO:
         """测试推送字典"""
         fifo = EventFIFO()
 
-        fifo.push_value({
-            "topic": "test",
-            "content": "content"
-        })
+        fifo.push_value({"topic": "test", "content": "content"})
         assert fifo.size() == 1
 
     def test_dispatch(self):

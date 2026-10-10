@@ -1,10 +1,10 @@
-"""Master - 优化版本.
+"""Master - the lifecycle entry point.
 
-P2 优化：
-1. 移除冗余参数 loop_interval
-2. 使用新的 WorkerRegistry
-3. 简化配置加载
-4. 优化 SVM 集成
+P2 optimization:
+1. removed the redundant ``loop_interval`` parameter
+2. uses the new WorkerRegistry
+3. simplified config loading
+4. improved SVM integration
 """
 
 import asyncio
@@ -20,7 +20,7 @@ from .worker_registry import get_worker_registry
 
 
 class SVMWorker:
-    """SVM (State Vector Machine) Worker - 状态向量机工作器."""
+    """SVM (State Vector Machine) Worker - per-worker health metrics."""
 
     def __init__(self, check_interval: float = 10):
         self._workers: dict[str, Any] = {}
@@ -30,11 +30,12 @@ class SVMWorker:
         self._running = False
         self._monitor_thread: threading.Thread | None = None
         self._check_interval = check_interval
-        # 用可唤醒的等待替代 sleep：否则停机时要等满一个检查周期，最长 check_interval 秒
+        # A wakeable wait instead of sleep: otherwise shutdown waits out a full
+        # check period, up to check_interval seconds
         self._stop_event = threading.Event()
 
     def register_worker(self, name: str, worker: Any) -> None:
-        """注册 Worker 到 SVM 管理."""
+        """Register a Worker to the SVM manager."""
         with self._lock:
             self._workers[name] = worker
             self._metrics[name] = {
@@ -47,14 +48,14 @@ class SVMWorker:
             LogUtils.info(f"✅ Worker '{name}' registered to SVM")
 
     def unregister_worker(self, name: str) -> None:
-        """从 SVM 管理移除 Worker."""
+        """Remove a Worker from the SVM manager."""
         with self._lock:
             self._workers.pop(name, None)
             self._metrics.pop(name, None)
             LogUtils.info(f"🗑️ Worker '{name}' unregistered from SVM")
 
     def record_execute(self, name: str, duration: float, success: bool = True) -> None:
-        """记录 Worker 执行指标."""
+        """Record a Worker's execution metrics."""
         with self._lock:
             if name not in self._metrics:
                 return
@@ -68,7 +69,7 @@ class SVMWorker:
                 metrics["error_count"] += 1
 
     def get_worker_health(self, name: str) -> dict:
-        """获取 Worker 健康状态."""
+        """Get a Worker's health status."""
         with self._lock:
             if name not in self._metrics:
                 return {"status": "unknown"}
@@ -96,12 +97,12 @@ class SVMWorker:
             }
 
     def get_all_workers_health(self) -> dict[str, dict]:
-        """获取所有 Worker 健康状态."""
+        """Get the health status of all Workers."""
         with self._lock:
             return {name: self.get_worker_health(name) for name in self._workers}
 
     def start_monitoring(self) -> None:
-        """启动监控线程."""
+        """Start the monitoring thread."""
         if self._running:
             return
 
@@ -113,9 +114,10 @@ class SVMWorker:
         LogUtils.info("🔍 SVM monitoring started")
 
     def stop_monitoring(self) -> None:
-        """停止监控线程.
+        """Stop the monitoring thread.
 
-        通过事件唤醒监控循环，使停机不必等满一个检查周期。
+        Wakes the monitor loop via the event so shutdown does not wait out a
+        full check period.
         """
         self._running = False
         self._stop_event.set()
@@ -124,19 +126,19 @@ class SVMWorker:
         LogUtils.info("🛑 SVM monitoring stopped")
 
     def _monitor_loop(self) -> None:
-        """监控循环."""
+        """The monitoring loop."""
         while self._running:
             try:
                 self._check_workers_health()
             except Exception as e:
                 LogUtils.error(f"❌ SVM monitor error: {e}")
 
-            # 可被停机唤醒的等待
+            # A wait that shutdown can wake
             if self._stop_event.wait(self._check_interval):
                 break
 
     def _check_workers_health(self) -> None:
-        """检查所有 Worker 健康状态."""
+        """Check the health status of all Workers."""
         with self._lock:
             for name, metrics in self._metrics.items():
                 execute_count = metrics["execute_count"]
@@ -158,9 +160,9 @@ class SVMWorker:
 
 
 class MasterConfig:
-    """Master 配置类.
+    """Master configuration.
 
-    P2 优化：将配置集中管理
+    P2 optimization: config centralized here.
     """
 
     def __init__(
@@ -177,56 +179,58 @@ class MasterConfig:
 
 
 class Master:
-    """Master - 动物园园长.
+    """Master - the zoo keeper (lifecycle manager).
 
-    P2 优化版本：
-    - 移除冗余的 loop_interval 参数
-    - 使用 WorkerRegistry 管理 Worker
-    - 简化配置
-    - 集成 SVM 监控
+    P2 optimized version:
+    - removed the redundant ``loop_interval`` parameter
+    - manages Workers with WorkerRegistry
+    - simplified config
+    - integrated SVM monitoring
 
     Attributes:
-        config: Master 配置
-        worker_registry: Worker 注册表
-        svm_worker: SVM 监控 Worker
-        waiter: Waiter 调度器
+        config: the Master configuration
+        worker_registry: the Worker registry
+        svm_worker: the SVM monitoring Worker
+        waiter: the Waiter scheduler
     """
 
     def __init__(self, config: MasterConfig | None = None):
-        """初始化 Master.
+        """Initialize the Master.
 
-        P2 优化：简化参数，使用配置对象
+        P2 optimization: simplified parameters via a config object.
 
         Args:
-            config: Master 配置，使用默认配置如果为 None
+            config: the Master configuration; defaults when None
         """
-        # P2 优化：使用配置对象
+        # P2 optimization: use a config object
         self.config = config or MasterConfig()
 
-        # P2 优化：使用新的 WorkerRegistry
+        # P2 optimization: use the new WorkerRegistry
         self.worker_registry = get_worker_registry()
 
-        # 调度主循环的运行时句柄
+        # Runtime handles of the scheduling main loop
         self._loop: asyncio.AbstractEventLoop | None = None
         self._task: asyncio.Task | None = None
         self._shutdown_done = False
 
-        # 加载配置
+        # Load config
         ParamsFactory(self.config.config_path)
 
-        # 顺序核对（变更 aop-determinism / #51）：配置刚被读到，但若有参数类是在
-        # "从未读到配置"的世代里首次导入并解析的，它们的取值已冻结在默认值——
-        # 大声失败并点名，而不是让运行期拿到一份看起来正常、实际全默认的配置。
+        # Sequential check (change aop-determinism / #51): the config has just
+        # been read, but if any params class was first imported and resolved in
+        # a generation that "never saw the config", its values are frozen at the
+        # defaults - fail loudly and name them, rather than let the runtime run
+        # with a config that looks normal but is all defaults.
         if ParamsFactory.generation() > 0:
             from .aop.params import stale_param_classes
 
             stale = stale_param_classes()
             if stale:
                 raise RuntimeError(
-                    f"以下参数类在配置载入之前已被导入并解析，取值冻结在默认值："
-                    f"{stale}。请把参数模块的首次导入移到配置文件可见之处"
-                    f"（与 Master 同工作目录），或在解析前就已载入配置；"
-                    f"框架包根会立即导入内建参数模块，故换目录启动时最容易命中本核对。"
+                    f"these params classes were imported and resolved before the config was loaded; their values are frozen at the defaults:"
+                    f"{stale}. Move the params modules' first import to where the config file is visible"
+                    f"(the same working directory as Master), or load the config before resolving; note that"
+                    f"the package root imports the built-in params modules immediately, so starting from a different directory is the likeliest way to hit this check."
                 )
 
         self._load_config()
@@ -246,10 +250,12 @@ class Master:
         self._create_waiter()
 
     def _load_config(self) -> None:
-        """加载配置：遍历并**无参**调用导入期注册的 @configure 函数.
+        """Load config: iterate and call the import-time @configure functions **without arguments**.
 
-        消费完即封（变更 aop-determinism / #51）：封后 `@configure` 注册大声失败，
-        因为那条注册永远不会再被这里消费——把历史上的静默失效变成报错。
+        Sealed once consumed (change aop-determinism / #51): after sealing, an
+        ``@configure`` registration fails loudly because that registration
+        would never be consumed here again - turning the historical silent
+        no-op into an error.
         """
         from .aop.configure import seal_config_funcs
 
@@ -258,11 +264,11 @@ class Master:
         seal_config_funcs()
 
     def _register_default_workers(self) -> None:
-        """注册默认 Worker.
+        """Register the default Workers.
 
-        P2 优化：使用 WorkerRegistry 注册
+        P2 optimization: registered via WorkerRegistry.
         """
-        # 使用延迟实例化
+        # Lazily instantiate
         self.worker_registry.register_class(
             "StateMachineWorker",
             StateMachineWorker,
@@ -273,92 +279,101 @@ class Master:
         )
 
     def _setup_svm(self) -> None:
-        """设置 SVM 监控."""
-        # 先判空——本文件其余四处取用 svm_worker 时都判了（226/306/381/399），只此处漏；
-        # 未启用 SVM 时 svm_worker 为 None，原先这里会直接 AttributeError。
+        """Set up SVM monitoring."""
+        # Null-check first - the other four uses of svm_worker in this file all
+        # guard (226/306/381/399); only this one missed; with SVM disabled
+        # svm_worker is None and this used to raise AttributeError directly.
         if not self.svm_worker:
             return
 
-        # 注册所有 Worker 到 SVM
+        # Register all Workers to SVM
         for name, worker in self.worker_registry.get_all_workers().items():
             self.svm_worker.register_worker(name, worker)
 
-        # 启动监控
+        # Start monitoring
         self.svm_worker.start_monitoring()
         LogUtils.info("✅ SVM Worker setup completed")
 
     def _create_waiter(self) -> None:
-        """创建 Waiter.
+        """Create the Waiter.
 
-        调度器按**调度模型名**装配（模型名由 ``worker:mode`` 决定，未配置时由
-        ``worker:pool:enable`` 推导）；无法识别的模型名会被明确拒绝。
+        The scheduler is assembled by the **scheduling model name** (the name
+        comes from ``worker:mode``, derived from ``worker:pool:enable`` when
+        unset); an unrecognized model name is rejected explicitly.
         """
         from zoo_framework.core.waiter import WaiterFactory
 
         self.waiter = WaiterFactory.get_waiter()
 
-        # 将 Worker 传递给 Waiter
+        # Hand the Workers to the Waiter
         self.waiter.call_workers(list(self.worker_registry.get_all_workers().values()))
 
     def change_waiter(self, waiter) -> None:
-        """切换 Waiter.
+        """Change the Waiter.
 
         Args:
-            waiter: 新的 Waiter 实例
+            waiter: the new Waiter instance
         """
         if self.waiter is not None:
             raise Exception("Waiter already exists, cannot change")
-        # 【已知缺陷】下面这行**不可达**：`__init__` 必设 `self.waiter`，故上面的守卫恒真、
-        # 赋值永远执行不到 —— 即 `change_waiter` **永远无法完成它的职责**（且全仓库零调用点、
-        # 无任何文档承诺它）。"是该允许替换、还是该保留这条守卫"属未定的语义问题，**故不猜修**
-        # （见 openspec/changes/establish-type-gate/tasks.md 3.1 的记录）；用带锚点的 ignore
-        # 收口，让缺陷保持可见，而不是被静默改掉。
+        # [Known defect] The next line is **unreachable**: __init__ always sets
+        # self.waiter, so the guard above is always true and the assignment
+        # never executes - change_waiter can never fulfill its job (and it has
+        # zero call sites repo-wide, no documented promise). Whether to allow
+        # replacement or keep the guard is an unresolved semantics question,
+        # so we deliberately do not guess a fix (recorded in
+        # openspec/changes/establish-type-gate/tasks.md 3.1); an anchored ignore
+        # keeps the defect visible instead of silently fixing it away.
         self.waiter = waiter  # type: ignore[unreachable]
 
     def register_worker(self, name: str, worker_class: type, metadata: dict | None = None) -> None:
-        """注册 Worker.
+        """Register a Worker.
 
-        P2 优化：提供简洁的注册接口
+        P2 optimization: a concise registration interface.
 
         Args:
-            name: Worker 名称
-            worker_class: Worker 类
-            metadata: 元数据
+            name: the Worker name
+            worker_class: the Worker class
+            metadata: metadata
         """
         self.worker_registry.register_class(name, worker_class, metadata)
 
-        # 调度列表由 Waiter 持有：只在注册表登记不会让 Worker 被派发，
-        # 必须同步加入调度，否则运行期注册的 Worker 永远不会执行。
+        # The scheduling list is held by the Waiter: registering in the registry
+        # alone does not get the Worker dispatched - it must be added to
+        # scheduling too, or a runtime-registered Worker would never execute.
         worker = self.worker_registry.get_worker(name)
         if worker is None:
             return
 
         self.waiter.add_worker(worker)
 
-        # 如果 SVM 已启用，注册到 SVM
+        # Register to SVM when SVM is enabled
         if self.svm_worker:
             self.svm_worker.register_worker(name, worker)
 
     async def perform(self) -> None:
-        """执行任务主循环."""
+        """The task main loop."""
         while True:
             self.waiter.execute_service()
-            # P2 优化：使用配置中的间隔
+            # P2 optimization: use the configured interval
             await asyncio.sleep(1)
 
     def run(self) -> None:
-        """运行 Master."""
+        """Run the Master."""
         try:
             LogUtils.info("🎪 Master started, zoo is open!")
-            # 显式新建事件循环：asyncio.get_event_loop() 在无运行循环时已弃用，
-            # 且会复用上一个循环，使重复启动的 Master 相互干扰。
+            # Create the event loop explicitly: asyncio.get_event_loop() is
+            # deprecated when no loop is running, and it would reuse the last
+            # loop, making repeated Master starts interfere with each other.
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             self._loop = loop
 
             self._task = loop.create_task(self.perform())
-            # 调度任务抛异常时必须可见并停止主循环；否则 run_forever() 会持续空转，
-            # 而调度其实早已停止——表现为进程活着但什么都不做。
+            # An exception out of the scheduling task must be visible and stop
+            # the main loop; otherwise run_forever() would keep spinning while
+            # scheduling has long stopped - the process is alive but does
+            # nothing.
             self._task.add_done_callback(self._on_schedule_task_done)
 
             loop.run_forever()
@@ -368,28 +383,31 @@ class Master:
             self.shutdown()
 
     def _on_schedule_task_done(self, task: asyncio.Task) -> None:
-        """调度主循环结束时的收口：异常可见，并停止事件循环。
+        """The close-out when the scheduling main loop ends: exceptions visible, event loop stopped.
 
         Args:
-            task: 调度任务
+            task: the scheduling task
         """
         if task.cancelled():
             return
 
         error = task.exception()
         if error is not None:
-            LogUtils.error(f"❌ 调度主循环异常终止: {error!r}")
+            LogUtils.error(f"scheduling main loop terminated with an exception: {error!r}")
 
-        # 用 call_soon_threadsafe 以便本回调无论从哪个线程触发都能安全停止循环
+        # call_soon_threadsafe so this callback can stop the loop safely no
+        # matter which thread triggers it
         loop = self._loop
         if loop is not None and loop.is_running():
             loop.call_soon_threadsafe(loop.stop)
 
     def shutdown(self) -> None:
-        """优雅关闭 Master.
+        """Shut the Master down gracefully.
 
-        顺序：先停调度（不再派发）→ 取消调度任务 → 停事件循环 → 停监控 →
-        注销 Worker（触发其销毁钩子，状态机在此落盘）。MUST 可重复调用。
+        Order: stop scheduling first (no more dispatches) -> cancel the
+        scheduling task -> stop the event loop -> stop monitoring ->
+        unregister Workers (firing their destroy hooks; the state machine
+        persists here). MUST be repeatable.
         """
         if self._shutdown_done:
             return
@@ -397,7 +415,8 @@ class Master:
 
         LogUtils.info("🧹 Shutting down Master...")
 
-        # 先停调度器：停机过程中 MUST NOT 再派发新的 Worker
+        # Stop the scheduler first: no new Worker MUST be dispatched during
+        # shutdown
         if getattr(self, "waiter", None) is not None:
             self.waiter.shutdown()
 
@@ -410,12 +429,13 @@ class Master:
         if loop is not None and loop.is_running():
             loop.call_soon_threadsafe(loop.stop)
 
-        # 停止 SVM 监控
+        # Stop SVM monitoring
         if self.svm_worker:
             self.svm_worker.stop_monitoring()
 
-        # 注销已注册的 Worker：WorkerRegistry.unregister 会调用其销毁钩子，
-        # 状态机 Worker 的最后一次落盘发生在这里。
+        # Unregister the registered Workers: WorkerRegistry.unregister fires
+        # their destroy hooks; the state machine Worker's last persistence
+        # happens here.
         registry = getattr(self, "worker_registry", None)
         if registry is not None:
             for name in list(registry.get_all_workers().keys()):
@@ -424,23 +444,23 @@ class Master:
         LogUtils.info("👋 Master stopped")
 
     def get_health_report(self) -> dict[str, dict]:
-        """获取健康报告.
+        """Get the health report.
 
         Returns:
-            所有 Worker 的健康状态
+            The health status of all Workers
         """
         if self.svm_worker:
             return self.svm_worker.get_all_workers_health()
         return {}
 
     def get_worker_stats(self, worker_name: str) -> dict | None:
-        """获取 Worker 统计信息.
+        """Get a Worker's statistics.
 
         Args:
-            worker_name: Worker 名称
+            worker_name: the Worker name
 
         Returns:
-            统计信息字典
+            A statistics dict
         """
         worker = self.worker_registry.get_worker(worker_name)
         if worker is None:
@@ -457,18 +477,18 @@ class Master:
         }
 
 
-# 便捷函数
+# Convenience function
 def create_master(config_path: str = "./config.json", enable_svm: bool = True) -> Master:
-    """创建 Master 实例.
+    """Create a Master instance.
 
-    P2 优化：提供简洁的创建接口
+    P2 optimization: a concise creation interface.
 
     Args:
-        config_path: 配置文件路径
-        enable_svm: 是否启用 SVM 监控
+        config_path: the config file path
+        enable_svm: whether to enable SVM monitoring
 
     Returns:
-        Master 实例
+        A Master instance
     """
     config = MasterConfig(config_path=config_path, enable_svm=enable_svm)
     return Master(config)

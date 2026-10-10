@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 104 104" width="104" height="104" role="img" aria-label="Zoo Framework">
+  <title>Zoo Framework</title>
+  <!-- 构造：环 + 三条横条（左对齐，长度不等）
+       环     = 生命周期 / 容器作用域（对应 Master 与 ScopedContainer）
+       三条横条 = 同一调度器下负载不同的任务，左端对齐、右端参差 —— 视觉上即一条队列在排空
+       中间条用强调色且最长 = 当前被观测 / 正在推进的那个任务
+       左对齐（而非居中对齐）：使右端的参差边缘成为唯一的"参差"信号，形态更像一个 z，
+       与品牌名首字母形成关联（"zoo" → z） -->
+  <circle cx="52" cy="52" r="40" fill="none" stroke="#223344" stroke-width="7"/>
+  <g stroke-linecap="round">
+    <rect x="30" y="33.5" width="36" height="8.5" rx="4.25" fill="#223344"/>
+    <rect x="30" y="48"   width="46" height="8.5" rx="4.25" fill="#33aa99"/>
+    <rect x="30" y="62.5" width="26" height="8.5" rx="4.25" fill="#223344"/>
+  </g>
+</svg>

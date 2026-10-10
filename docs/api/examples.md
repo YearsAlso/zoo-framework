@@ -1,15 +1,20 @@
-# 📊 API 参考
+# 示例集
 
-Zoo Framework 核心 API 速查手册。
+> ⚠️ **这不是 API 参考。** 本页是手工维护的**使用片段**，用于快速建立印象；
+> 签名、参数、返回值与异常的权威来源是[自动生成的 API 参考](README.md)。
+> 若本页与代码不符，以自动生成的页面为准。
+
+Zoo Framework 使用片段速查。
 
 ---
 
-## 👨‍🌾 Master API
+## 运行时 API（Master）
 
 ### Master
 
 ```python
-from zoo_framework.core import Master, MasterConfig
+from zoo_framework.core import Master
+from zoo_framework.core.master import MasterConfig
 
 # 创建 Master
 master = Master()
@@ -36,7 +41,7 @@ master.shutdown()
 
 ---
 
-## 👷 Worker API
+## Worker API
 
 ### BaseWorker
 
@@ -142,9 +147,107 @@ class MyStateWorker(StateMachineWorker):
         sm.add_state("my_machine", "idle")
 ```
 
+### DualArmWorker
+
+双臂 Worker 基类：以在线自学的 ε-greedy 决策在「原生执行 / Python 执行」两条
+语义等价的臂之间逐 Worker 类选择。**默认关闭**（`adaptive:enabled=false`）——
+关闭时按纯 python 臂执行，与普通 Worker 无差异。
+
+```python
+from zoo_framework.workers import DualArmWorker
+
+
+class ModbusWorker(DualArmWorker):
+    """原生臂看门人：声明原生任务名后，框架按逐类统计自动选臂."""
+
+    def __init__(self, props: dict):
+        # modbus_rtu.parse_response 是当前扩展唯一注册的真实任务；
+        # 换其他任务名前需先在扩展侧注册
+        props = {**props, "native_task_name": "modbus_rtu.parse_response"}
+        super().__init__(props)
+
+    def _execute_python(self):
+        """python 臂执行体（必须实现）"""
+        return self._poll_modbus_python()
+
+    def _prepare_native_input(self) -> bytes:
+        """原生臂载荷（可选钩子；默认取 props["input"]）"""
+        return self._build_request_bytes()
+```
+
+**配置键族**（`config.json`，全部有保守默认值）：
+
+| 键 | 默认 | 含义 |
+|----|------|------|
+| `adaptive:enabled` | `false` | 自适应决策总开关；关闭 = 零分支零锁 |
+| `adaptive:exploration` | `0.05` | ε-greedy 探索率 |
+| `adaptive:explorationOverride:<Worker类名>` | 全局值 | 按类覆盖探索率（两段键：前缀 + 类名，键值为探索率） |
+| `adaptive:statsPath` | `""`（空 = 不持久化） | 两臂统计的 JSON 快照路径（原子写 + MD5 校验，重启恢复为先验） |
+
+**两条硬语义**：
+
+- **显式拒绝**：声明了 `native_task_name` 但 `native:enabled=false`（或扩展缺失）
+  → 构造期报错，绝不静默回退 python 臂；`native:enabled` 与 `adaptive:enabled`
+  相互独立判定
+- **fail-open**：决策/统计/持久化任何异常都不传导为任务失败；双臂执行体自身的
+  异常照 `BaseWorker` 契约 `_on_error` 传播
+
+### NativeTaskWorker
+
+原生任务 Worker：复用既有 Worker 生命周期，执行一个**原生扩展注册的任务**。
+公共面在 `zoo_framework.native`（不经 `zoo_framework.workers` 导出）。任务交给
+适配器，由适配器负责加载扩展、握手、转换输入输出、映射错误；结果只经既有单一
+结算点（`run_and_settle → settle`）投递，适配器不投递、不碰 run_id/session_id。
+
+```python
+from zoo_framework.native import NativeTaskWorker
+
+
+class DigestTaskWorker(NativeTaskWorker):
+    def __init__(self):
+        super().__init__(
+            {
+                "name": "digest-task",
+                "task_name": "digest_sha256",  # 必需：原生任务按显式名称注册，缺省报错
+                "input": b"hello",
+            }
+        )
+```
+
+- `_execute()` 链路：`adapter.contract()` → `prepare_input()` → `execute()` →
+  `convert_output()`，返回值进 `WorkerResult.content`
+- 原生执行体运行期间**释放 GIL**——长任务跑着时 Python 控制线程（调度轮、其他
+  Worker、事件管线）照常推进
+- **显式拒绝，不静默回退**：扩展缺失 / 契约版本不匹配 / 能力不支持 / 任务未注册 /
+  输入格式或尺寸不合格 → 执行前 `NativeInvalidInput`，绝无静默回退 Python 实现的路径
+- **错误三族**（基类 `NativeTaskError`）：`NativeInvalidInput`（输入侧与握手在执行前拒绝；输出解码失败发生在执行后，同属本族）/
+  `NativeTaskFailed`（受控业务失败）/ `NativePanic`（panic 兜底；**不是进程隔离**）
+
+**执行契约**（`NativeTaskContract`，语言无关，不含 PyO3 / Tokio 类型）：
+`name` / `contract_version`（当前 `CONTRACT_VERSION = 1`，扩展上报值必须相等）/
+`input_format`、`output_format`（首版 `bytes` 直传与 `json`）/
+`max_input_bytes`（超限执行前拒绝）/ `error_classes` / `capabilities`
+（`internal_parallel`、`zero_copy` 首版声明不支持，扩展声明即拒绝）。
+
+**可选安装**：原生扩展（Rust crate `native/`，maturin 构建后端）**不随主包分发**，
+需要时从仓库源码安装（要求 Rust 工具链；产物模块名 `zoo_framework_native`）：
+
+```bash
+uv pip install --python .venv/Scripts/python.exe ./native
+```
+
+未安装时既有功能不受影响；请求原生任务会收到指明「缺的是扩展」的显式错误。
+
+**注册**：零参构造的子类走 `Master.register_worker(name, worker_class)`；构造需要
+参数的走 `worker_registry.register_factory(...)` + `waiter.add_worker(...)`——
+只登记注册表不加调度列表的 Worker 永远不会被派发。
+
+**进程级单例**：`get_native_adapter()` 取单例（首次访问创建，懒握手），`reset_native_adapter()`
+供测试与新扩展热加载。
+
 ---
 
-## 🏠 Cage API
+## 容器 API（ScopedContainer）
 
 笼子对应 **`ScopedContainer`**：按作用域持有共享实例。**`@cage` 装饰器已删除**（它用
 "替换类"提供单例，导致 `issubclass` / `isinstance` 失效）。
@@ -198,7 +301,7 @@ value = data.get("key")
 
 ---
 
-## 🔄 StateMachine API
+## 状态 API（StateMachine）
 
 ### StateMachineManager
 
@@ -232,7 +335,7 @@ value = sm.get_state("key")
 ### StateScope
 
 ```python
-from zoo_framework.statemachine import StateScope
+from zoo_framework.statemachine.state_scope import StateScope
 
 scope = StateScope(index_type="dict")
 
@@ -251,7 +354,7 @@ scope.unobserve_state_node("key", callback)
 
 ---
 
-## 📢 Event API
+## 事件 API
 
 ### EventReactorManager
 
@@ -281,7 +384,8 @@ EventReactorManager.register_reactor_channels(
 ### EventNode
 
 ```python
-from zoo_framework.fifo.node import EventNode, PriorityLevel
+from zoo_framework.fifo.node import EventNode
+from zoo_framework.fifo.node.event_fifo_node import PriorityLevel
 
 # 创建事件节点
 node = EventNode(
@@ -301,7 +405,7 @@ urgency = node.get_urgency()
 
 ---
 
-## 💾 Persistence API
+## 持久化 API
 
 ### PersistenceScheduler
 
@@ -347,7 +451,7 @@ success = backup_mgr.restore_backup("data.pkl")
 
 ---
 
-## 🔌 Plugin API
+## Plugin API
 
 ### PluginManager
 
@@ -375,20 +479,25 @@ pm.disable_plugin("plugin_name")
 
 ```python
 from zoo_framework.plugin import WorkerDelayManager
-from zoo_framework.plugin import ExponentialDelayStrategy
 
 delay_mgr = WorkerDelayManager()
 
-# 设置延迟策略
-delay_mgr.set_delay_strategy(ExponentialDelayStrategy(base_delay=1.0))
-
-# 设置 Worker 延迟
+# 直接设置固定延迟（秒）
 delay_mgr.set_delay("worker_name", 5.0)
+delay_mgr.get_delay("worker_name")          # -> 5.0
+
+# 或让延迟按执行次数指数退避
+delay_mgr.record_execute("worker_name")
+delay_mgr.exponential_backoff("worker_name")
+delay_mgr.adaptive_delay("worker_name")
+
+# 复位
+delay_mgr.reset("worker_name")
 ```
 
 ---
 
-## 📝 Logging API
+## Logging API
 
 ### StructuredLogUtils
 
@@ -413,7 +522,7 @@ logger.unbind("worker_id")
 
 ---
 
-## 🛠️ Utils API
+## Utils API
 
 ### LogUtils
 
@@ -442,10 +551,10 @@ FileUtils.write_file("path/to/file", content)
 
 ---
 
-## 🔧 WorkerRegistry API
+## WorkerRegistry API
 
 ```python
-from zoo_framework.core.worker_registry import WorkerRegistry, register_worker
+from zoo_framework.core.worker_registry import WorkerRegistry, get_worker_registry
 
 registry = WorkerRegistry()
 
@@ -476,7 +585,7 @@ class MyWorker(BaseWorker):
 
 ---
 
-## 📚 类型定义
+## 类型定义
 
 ```python
 from typing import Dict, Any, Optional, Callable, Awaitable
@@ -496,7 +605,7 @@ StateObserver = Callable[[Any], None]
 
 ---
 
-## 🎯 快速示例
+## 快速示例
 
 ### 完整 Worker 示例
 
