@@ -48,7 +48,7 @@ venv\Scripts\activate
 
 ```bash
 # 创建环境
-conda create -n zoo python=3.11
+conda create -n zoo python=3.13
 
 # 激活
 conda activate zoo
@@ -70,15 +70,8 @@ pip install -e ".[dev]"
 - 所有开发工具（Ruff, MyPy, pytest 等）
 - 测试工具（pytest-cov, pytest-asyncio 等）
 
-### 方式二：分步安装
-
-```bash
-# 1. 安装项目
-pip install -e .
-
-# 2. 安装开发依赖
-pip install -r requirements-dev.txt
-```
+依赖的唯一真源是 `pyproject.toml`（`[project.optional-dependencies]` 的
+`dev` / `docs` extras）；项目不维护 `requirements*.txt` 并列清单。
 
 ### 验证安装
 

@@ -57,6 +57,7 @@ Zoo Framework 把这些决定从你的代码里拿走：
 from zoo_framework.core import Master
 from zoo_framework.workers import BaseWorker
 
+
 class MyWorker(BaseWorker):
     """一个循环执行的任务单元。"""
 
@@ -74,6 +75,7 @@ class MyWorker(BaseWorker):
     def _execute(self):
         self.counter += 1
         print(f"Hello from MyWorker! 计数: {self.counter}")
+
 
 if __name__ == "__main__":
     master = Master()
@@ -258,6 +260,7 @@ flowchart TB
 ```python
 from zoo_framework.core.aop import event
 
+
 @event(topic="order.created", channel="business")
 def on_order_created(req):
     print(req.topic, req.content)
@@ -376,13 +379,12 @@ Windows / Python 3.13 实测，负载为代表性任务（JSON 编解码 + 字�
 ```bash
 git clone https://github.com/YearsAlso/zoo-framework.git
 cd zoo-framework
-pip install -e ".[dev]"       # 请勿使用 `uv sync` —— uv.lock 陈旧，见 CONTRIBUTING.md
+pip install -e ".[dev]"       # 或：uv sync --extra dev（uv.lock 保持同步）
 pre-commit install
 pytest                        # 套件当前状态见 Tests 徽章
 ```
 
-注意使用明确的 Python 3.13 解释器（Windows 上是 `.venv/Scripts/python.exe`；
-偏好 uv 的话用 `uv run --no-sync`，裸 `uv run` 会从陈旧的 `uv.lock` 重新解析）。
+pip 读 `pyproject.toml` 与 `uv sync` 读已入库的 `uv.lock`，两者解析出同一套依赖，皆可用。
 CI 中 `ruff check`、`ruff format`、`pytest`、`mypy` 与
 `bandit` 都是硬性门禁。
 

@@ -28,12 +28,10 @@ Comments, docstrings, docs and config comments in this repo are written in Chine
 ## Commands
 
 ```bash
-# Setup — use the pip path. `uv.lock` is committed but STALE: it still describes the
-# 0.7.0 dependency set and pins greenlet 3.0.3, which ships no cp313 wheel. Running
-# `uv sync` (or `uv run`, which syncs first) today re-locks from that state, downgrades
-# the runtime deps, and uninstalls the dev toolchain (ruff/mypy/pytest/pre-commit/bandit).
-# Rebuilding the lock is a separate change; until then:
-pip install -e ".[dev]"
+# Setup — pip and uv are both supported: pip reads pyproject.toml, uv sync reads the
+# committed uv.lock, and they resolve the same dependency set (`uv lock` refreshes the
+# lock after dependency changes; `uv lock --check` verifies it).
+pip install -e ".[dev]"  # or: uv sync --extra dev
 pre-commit install
 
 # Tests (testpaths = tests, configured in pyproject.toml)
@@ -59,7 +57,7 @@ python -m build
 
 Design docs live in `docs/` (`ARCHITECTURE.md`, `DEVELOPMENT.md`, `OPTIMIZATION_PLAN.md`, `ROADMAP.md`). Development is also driven by **OpenSpec** (`openspec/`): `openspec/specs/<capability>/spec.md` are the authoritative behavior specs, `openspec/changes/<id>/` holds in-flight changes (proposal → design → spec deltas → tasks), and completed ones move to `openspec/changes/archive/<date>-<id>/`. `openspec validate --strict` gates each change; `openspec/config.yaml` pins artifacts to zh-CN while structural headings and SHALL/MUST keywords stay English.
 
-Note: a Python 3.9 `venv/` sits in the working tree and bare `python` on this machine resolves to it. It cannot import the package. Use `.venv/Scripts/python.exe` or another explicit 3.13 interpreter. (`venv/` is untracked and now covered by `.gitignore`; if you prefer uv, use `uv run --no-sync` — plain `uv run` re-locks from the stale `uv.lock`, see Commands above.)
+Note: a Python 3.9 `venv/` sits in the working tree and bare `python` on this machine resolves to it. It cannot import the package. Use `.venv/Scripts/python.exe` or another explicit 3.13 interpreter. (`venv/` is untracked and now covered by `.gitignore`; if you prefer uv, use `uv run` — the committed `uv.lock` is kept in sync, see Commands above.)
 
 ## Architecture
 
@@ -148,7 +146,7 @@ Two findings in `DECISION.md` matter more than the Rust question itself:
 - Ruff runs with a large `select` set (pyflakes, pycodestyle, isort, pydocstyle/google, pyupgrade, bugbear, simplify, comprehensions, builtins, return, unused-args, type-checking, perflint, RUF) and a long `ignore` list that specifically permits Chinese characters (`RUF001-003`), missing docstrings (`D1xx`), long lines (`E501`), and bare `except` (`E722`). Per-file ignores drop `D` and `S101` for `tests/`, `test/`, `example/`. `line-length = 100`, double quotes.
 - MyPy is a **hard gate** in both `quality.yml` and `release.yml` — the `continue-on-error` was removed by `establish-type-gate` (4.1/4.2), and the repo is at zero errors. `disallow_untyped_defs` is off globally but **on for `zoo_framework.utils.*`** via `[tool.mypy.overrides]`; the local pre-commit mypy hook runs at the **default** stage with `files: ^zoo_framework/` (so a doc-only commit skips it). Ruff and pytest are hard gates too.
 - CI runs on Python 3.13 across ubuntu/windows/macos and requires `--cov-fail-under=30`. A `benchmark` job that ran `pytest tests/benchmarks/` (a directory that has never existed, with the step `continue-on-error`) was **removed** by `establish-type-gate` (6.4) — do not confuse that directory with the real `bench/` directory, which is unrelated (see below).
-- The version lives in **three** places that must be bumped together: `pyproject.toml` (`[project].version`), `.env` (`VERSION`), and `zoo_framework/__init__.py` (`__version__`). They **had drifted**, and the reason is worth knowing: the release `sed` matched on the version **value**, so once `__init__.py` drifted the pattern matched nothing and the bump silently no-opped (it reported success while doing nothing). The sed now matches the **key** instead, so it is drift-proof. `[tool.bumpversion].current_version` is still stale. Note the *value* is deliberately not recorded here (it changes every release) — read the three files, or the `grep` in the release workflow, if you need it. The `release.yml` workflow bumps them on push to `dev` (patch, `-beta`) or `main` (minor, stable) and publishes to pypi.org.
+- The version lives in **three** places that must be bumped together: `pyproject.toml` (`[project].version`), `.env` (`VERSION`), and `zoo_framework/__init__.py` (`__version__`). They **had drifted**, and the reason is worth knowing: the release `sed` matched on the version **value**, so once `__init__.py` drifted the pattern matched nothing and the bump silently no-opped (it reported success while doing nothing). The sed now matches the **key** instead, so it is drift-proof; the release flow is script-driven (`scripts/next_version.py` + `sed`) and uses no version-bump tool. Note the *value* is deliberately not recorded here (it changes every release) — read the three files, or the `grep` in the release workflow, if you need it. The `release.yml` workflow bumps them on push to `dev` (patch, `-beta`) or `main` (minor, stable) and publishes to pypi.org.
 - Release triggers only fire on changes under `zoo_framework/`, `pyproject.toml`, `.env`, or the workflow itself — doc-only and test-only commits on `dev`/`main` do not release.
 - The legacy `setup.py` build path has been **removed**, together with `script/pro.{sh,bat}`. It could not have worked: `setup.py` imported `distutils`, which was dropped from the standard library in Python 3.12, i.e. before every version this project supports. Packaging is now entirely `pyproject.toml` + hatchling.
 - `example/main.py` and `example/event/demo_event.py` were **corrected** against the current API by `establish-type-gate` (7.1/7.2): the former now calls `Master()` instead of `Master(1)`, the latter imports `event` from `zoo_framework.core` instead of `build.lib.zoo_framework`. Note `example/threads/demo_thread.py` is **not** a working demonstration of a scheduled worker: its `@worker(count=20)` registers through the **legacy** `worker_register`, while `Master` schedules from `WorkerRegistry` — so that worker is registered but never dispatched.

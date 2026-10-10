@@ -60,6 +60,7 @@ Save as `main.py` and run with Python 3.13+:
 from zoo_framework.core import Master
 from zoo_framework.workers import BaseWorker
 
+
 class MyWorker(BaseWorker):
     """A task unit that runs in a loop."""
 
@@ -77,6 +78,7 @@ class MyWorker(BaseWorker):
     def _execute(self):
         self.counter += 1
         print(f"Hello from MyWorker! Count: {self.counter}")
+
 
 if __name__ == "__main__":
     master = Master()
@@ -275,6 +277,7 @@ semantics** — if a name is unclear, read the right-hand column:
 ```python
 from zoo_framework.core.aop import event
 
+
 @event(topic="order.created", channel="business")
 def on_order_created(req):
     print(req.topic, req.content)
@@ -406,13 +409,13 @@ and [docs/BRANCHING.md](docs/BRANCHING.md) for the branch model.
 ```bash
 git clone https://github.com/YearsAlso/zoo-framework.git
 cd zoo-framework
-pip install -e ".[dev]"       # NOT `uv sync` — uv.lock is stale, see CONTRIBUTING.md
+pip install -e ".[dev]"       # or: uv sync --extra dev (uv.lock is kept in sync)
 pre-commit install
 pytest                        # see the Tests badge for current suite status
 ```
 
-Note: use an explicit Python 3.13 interpreter (`.venv/Scripts/python.exe` on Windows —
-if you prefer uv, `uv run --no-sync`; plain `uv run` re-locks from the stale `uv.lock`).
+pip via `pyproject.toml` and `uv sync` via the committed `uv.lock` are both supported —
+they resolve the same dependency set.
 `ruff check`, `ruff format`, `pytest`, `mypy` and `bandit` are all hard CI
 gates.
 

@@ -35,18 +35,15 @@ Python **3.13+** is required, and this matters in practice:
 git clone https://github.com/YearsAlso/zoo-framework.git
 cd zoo-framework
 
-pip install -e ".[dev]"    # do NOT use `uv sync` — see the note below
+pip install -e ".[dev]"    # or: uv sync --extra dev
 
 pre-commit install         # installs the git hooks
 pytest                     # see the Tests badge for current suite status
 ```
 
-> **Do not use `uv sync` / `uv run` yet.** `uv.lock` is committed, but it is stale: it
-> still describes the `0.7.0` dependency set and pins `greenlet 3.0.3`, which ships **no
-> cp313 wheel** (`3.1.0` is the first release that has one). Running `uv sync` today
-> re-locks from that stale state, downgrades the runtime dependencies, and uninstalls the
-> dev toolchain (ruff / mypy / pytest / pre-commit / bandit). Rebuilding the lock is
-> tracked separately; until then use `pip install -e ".[dev]"`.
+> Both package managers work: pip reads `pyproject.toml`, `uv sync` reads the committed
+> `uv.lock` — they resolve the same dependency set. `uv lock --check` verifies the lock
+> is in sync if you change dependencies.
 
 If `pytest` cannot import `zoo_framework`, you are almost certainly on the wrong
 interpreter — check `python -c "import sys; print(sys.executable)"` before anything else.
@@ -312,17 +309,14 @@ All participation is covered by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 git clone https://github.com/YearsAlso/zoo-framework.git
 cd zoo-framework
 
-pip install -e ".[dev]"    # 请勿使用 `uv sync` —— 原因见下方说明
+pip install -e ".[dev]"    # 或：uv sync --extra dev
 
 pre-commit install         # 安装 git 钩子
 pytest                     # 套件当前状态见 Tests 徽章
 ```
 
-> **暂时不要用 `uv sync` / `uv run`。** `uv.lock` 虽已入库，但它是陈旧的：仍停留在
-> `0.7.0` 的依赖集合，且把 `greenlet` 钉在 `3.0.3` —— 该版本**没有任何 cp313 轮子**
-> （`3.1.0` 才是第一个带 cp313 的版本）。现在跑 `uv sync` 会从这个陈旧状态重新解析，
-> 降级运行时依赖，并卸载开发工具链（ruff / mypy / pytest / pre-commit / bandit）。
-> 重建锁文件另立变更跟踪；在那之前请用 `pip install -e ".[dev]"`。
+> 两种包管理器皆可用：pip 读 `pyproject.toml`，`uv sync` 读已入库的 `uv.lock` ——
+> 两者解析出同一套依赖。改动依赖后跑 `uv lock --check` 校验锁文件未漂移。
 
 如果 `pytest` 报无法导入 `zoo_framework`，几乎可以肯定你用错了解释器 —— 先跑一下
 `python -c "import sys; print(sys.executable)"` 确认。
