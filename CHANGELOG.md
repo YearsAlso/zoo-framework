@@ -10,6 +10,15 @@
 
 ## [Unreleased]
 
+### Security
+
+- 供应链加固状态收口（#121）：新增 `docs/SECURITY_MODEL.md`（使用者视角的安全说明，含
+  "未做的事"）与 `docs/security-supply-chain.md`（#89–#95 的实际生效状态，逐条带证据）。
+  依赖漏洞状态复核结论：**锁定集合扫描 0 命中**，未改动任何依赖版本；第二份依赖清单
+  （`requirements*.txt`）已删除，真源唯一。
+- 补齐最后一处 action 未钉 SHA（#91）：`release.yml` 的 `actions/checkout` 由 `@v4` 钉到
+  commit SHA；`SECURITY.md` 的支持版本表去掉会漂移的版本举例（#97 的收尾）。
+
 ## [0.10.6-beta] - 2026-10-10
 
 ### Changed

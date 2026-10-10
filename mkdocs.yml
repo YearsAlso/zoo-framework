@@ -95,6 +95,10 @@ nav:
   - 性能基准: benchmark.md
   - 迁移指南: MIGRATION.md
   - 版本政策: VERSION_POLICY.md
+  - 安全:
+      # 使用者视角的安全说明 + 供应链加固的实际状态（含默认分支与开发线的差异）
+      - 安全模型: SECURITY_MODEL.md
+      - 供应链加固状态: security-supply-chain.md
   - 常见问题: FAQ.md
   - 给贡献者:
       - 总览: contributing/README.md
