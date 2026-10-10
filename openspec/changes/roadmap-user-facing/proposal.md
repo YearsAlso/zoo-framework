@@ -55,7 +55,9 @@ business-plan 已在 `docs/internal/`（不发布，mkdocs.yml:118 注释明确�
 ### 4. 索引同步（机械一致性）
 
 - `docs/contributing/README.md` 的"路线图"一行补上 maintainer-backlog 入口；
-- `mkdocs.yml` 不动结构（"路线图"路径不变，仅内容换血）；
+- `mkdocs.yml` 仅在「给贡献者」分组补一行维护者待办台账的导航项（roadmap 路径不变；
+  不补导航会让 `mkdocs build` 报 "not included in the nav"，与本变更"构建无死链/无告警"
+  的验收冲突）；
 - README / README.zh.md 已经链接 `docs/contributing/roadmap.md`，路径不变。
 
 ## Impact（影响面）

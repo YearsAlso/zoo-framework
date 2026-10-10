@@ -10,7 +10,8 @@
 | [调试指南](debugging.md) | 常见问题排查与诊断工具 |
 | [贡献指南](contributing.md) | 分支规范、提交规范、质量门禁、OpenSpec 流程 |
 | [品牌与视觉规范](brand.md) | 标识、色彩、字体、图表规范（改文档或素材前必读） |
-| [路线图](roadmap.md) | 项目方向与维护者待办 |
+| [路线图](roadmap.md) | 使用者可感知的能力路线图（Now／Next／Later） |
+| [维护者待办台账](maintainer-backlog.md) | 维护者自己的债务与整改项索引（issue 编号） |
 
 ## 与用户文档的边界
 
