@@ -27,7 +27,8 @@ from zoo_framework.utils import FileUtils
 
 DEFAULT_CONF = {
     "_exports": [],
-    "log": {"path": "./logs", "level": "debug"},
+    # 默认最静：框架心跳与启动横幅不输出；诊断时把 level 改回 debug/info
+    "log": {"path": "./logs", "level": "warning"},
     "worker": {"runPolicy": "simple", "pool": {"size": 5, "enabled": False}},
     # Read by the params example module; the path is demo:greeting
     "demo": {"greeting": "hello from config.json"},

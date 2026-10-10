@@ -41,7 +41,8 @@ def log_config_instance(logger, level: str = "info"):
 
     choler = SafeStreamHandler()  # 输出到控制台的handler
     choler.setFormatter(formatter)
-    choler.setLevel(logging.INFO)  # 也可以不设置，不设置就默认用logger的level
+    # handler 不再自带级别硬门：跟随 logger 级别。原先固定 INFO 会把 log.level=debug
+    # 的记录在 handler 层整段过滤，"诊断时改回 debug"路径形同虚设（#111 实测复现）
 
     log_dir_path = os.path.join(LogParams.LOG_BASE_PATH, DateTimeUtils.get_format_now("%Y-%m-%d"))
 
