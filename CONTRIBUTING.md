@@ -15,7 +15,7 @@
 
 ### 1. Set up and run the tests
 
-Python **3.13+**:
+Python **3.11+**:
 
 ```bash
 git clone https://github.com/YearsAlso/zoo-framework.git && cd zoo-framework
@@ -26,7 +26,9 @@ pytest                     # full suite; add a path to run a single file while y
 
 If `pytest` cannot import `zoo_framework` you are on the wrong interpreter — check
 `python -c "import sys; print(sys.executable)"`. CI runs `ruff` + `pytest` + `mypy` +
-`bandit` on Python 3.13 across ubuntu / windows / macos; green CI is the merge bar.
+`bandit` on Python 3.11 and 3.13 across ubuntu / windows / macos; green CI is the merge bar.
+(3.11 is the floor declared in `pyproject.toml`; the matrix lives in
+`.github/workflows/tests.yml`.)
 
 ### 2. Send the pull request
 
@@ -62,7 +64,7 @@ listed in [CONTRIBUTORS.md](CONTRIBUTORS.md); for a scoped 15–60 minute first 
 
 ### 1. 搭环境、跑测试
 
-需要 Python **3.13+**：
+需要 Python **3.11+**：
 
 ```bash
 git clone https://github.com/YearsAlso/zoo-framework.git && cd zoo-framework
@@ -72,8 +74,9 @@ pytest                     # 跑全量；开发时加个路径可以只跑一个
 ```
 
 `pytest` 报无法导入 `zoo_framework` 几乎肯定是解释器用错了 —— 跑
-`python -c "import sys; print(sys.executable)"` 确认。CI 在 Python 3.13 上跑 `ruff` +
-`pytest` + `mypy` + `bandit`（ubuntu / windows / macos 三平台），**CI 全绿是合并门槛**。
+`python -c "import sys; print(sys.executable)"` 确认。CI 在 Python 3.11 与 3.13 上跑
+`ruff` + `pytest` + `mypy` + `bandit`（ubuntu / windows / macos 三平台），**CI 全绿是合并
+门槛**（3.11 是 `pyproject.toml` 声明的下界，矩阵见 `.github/workflows/tests.yml`）。
 
 ### 2. 提 PR
 

@@ -33,8 +33,9 @@ Three caveats about the tree:
 - `example/` is the runnable-examples area — each entry is documented in
   `example/README.md` (what it demonstrates, how to run it, expected output).
 - The legacy `setup.py` + `script/pro.{sh,bat}` release path was **removed**: `setup.py`
-  imported `distutils`, which left the standard library in Python 3.12, so it could not run
-  on any Python this project supports (`>= 3.13`). Releases go through `python -m build`
+  imported `distutils`, which the standard library dropped in Python 3.12 — so on the
+  interpreters this project shipped on back then (the floor was 3.13) it could never have
+  worked. Releases go through `python -m build`
   (hatchling) and the release workflow.
 
 ### `zoo_framework/` by concern
@@ -181,7 +182,7 @@ zoo-framework/
 - `example/` 是可运行示例区 —— 每个条目在 `example/README.md` 里说明（演示什么、
   怎么跑、期望输出）。
 - 遗留的 `setup.py` + `script/pro.{sh,bat}` 发布路径**已删除**：`setup.py` 导入 `distutils`，
-  而它在 Python 3.12 已从标准库移除，因此在本项目支持的 Python 版本（`>= 3.13`）上根本
+  而它在 Python 3.12 已从标准库移除 —— 因此在当时的支持版本（下界曾是 3.13）上根本
   跑不起来。发布走 `python -m build`（hatchling）与发布工作流。
 
 ### `zoo_framework/` 按关注点划分

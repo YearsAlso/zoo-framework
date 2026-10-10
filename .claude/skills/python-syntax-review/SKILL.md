@@ -25,7 +25,7 @@ description: Python（含 Rust 探针）语法审查与编码约束 Skill — �
 
 ### 3. 类型注解规范
 - 公开 API（模块级函数、类的公开方法、`__init__` 参数）必须有类型注解
-- 用现代联合语法 `X | None`（项目要求 Python 3.13+），不再用 `Optional[X]`/`Union[...]`
+- 用现代联合语法 `X | None`（项目要求 Python 3.11+），不再用 `Optional[X]`/`Union[...]`
 - mypy 现状 `continue-on-error`，但**新增代码不得引入新的 mypy 错误**（establish-type-gate 变更目标是逐步收紧）
 - 容器/映射尽量给参数化类型（`dict[str, int]`），避免裸 `dict`/`list`
 

@@ -60,8 +60,10 @@ URL 已指向它——保持两处一致。
 - **keywords**（19 个，与上面三类意图一一对应，另保留 `framework` / `async` /
   `state-machine` / `event-driven` 四个原有领域词）：见 pyproject `[project].keywords`。
 - **classifiers** 必须含：
-  - `Programming Language :: Python :: 3.14` —— `requires-python = ">=3.13"` 使 3.14
-    兼容；PyPI 按 classifier 过滤时 3.14 用户能找到包
+  - `Programming Language :: Python :: 3.11` / `3.12` / `3.13` / `3.14` —— 列出
+    `requires-python = ">=3.11"` 覆盖的整段区间；PyPI 按 classifier 过滤时这些版本的
+    用户能找到包。**这是"声明支持"，不等于"CI 实测过"**：CI 只跑矩阵里的版本
+    （`.github/workflows/tests.yml`），两个口径不同，不能互相当作证据
   - `Topic :: System :: Distributed Computing` —— 面向"分布式计算领域开发者"的检索意图。
     **如实记录一个取舍**：本项目是进程内（in-process）框架、不做跨机调度，该 Topic 的
     语义并非精确匹配；保留它是因为该 Topic 下的浏览人群与目标读者重合度最高，且它是

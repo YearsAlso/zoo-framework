@@ -32,7 +32,7 @@ not need a pre-issued issue.
 
 ### Development setup
 
-Python **3.13+** is required, and this matters in practice:
+Python **3.11+** is required, and this matters in practice:
 
 > **Use an explicit interpreter.** On some machines a bare `python` resolves to an
 > unrelated older virtualenv that cannot import the package at all. Use `uv run`, or
@@ -116,7 +116,7 @@ Reference issues in the footer (`Closes #123`, `Fixes #456`).
 
 ### Quality gates
 
-These are what CI actually enforces, on Python 3.13 across ubuntu / windows / macos:
+These are what CI actually enforces, on Python 3.11 and 3.13 across ubuntu / windows / macos:
 
 | Gate | Command | Enforced? |
 |---|---|---|
@@ -342,7 +342,7 @@ All participation is covered by [CODE_OF_CONDUCT.md](https://github.com/YearsAls
 
 ### 开发环境搭建
 
-需要 Python **3.13+**，这一点在实际操作中很关键：
+需要 Python **3.11+**，这一点在实际操作中很关键：
 
 > **请使用明确的解释器。** 在某些机器上，裸 `python` 会解析到一个无关的旧虚拟环境，
 > 那个环境**完全无法导入本包**。请使用 `uv run`，或 Windows 上的
@@ -423,7 +423,7 @@ docs(openspec): 同步 fix-worker-scheduling 的 delta spec 并归档
 
 ### 质量门禁
 
-以下是 CI 在 Python 3.13、ubuntu / windows / macos 三平台上真正执行的内容：
+以下是 CI 在 Python 3.11 与 3.13、ubuntu / windows / macos 三平台上真正执行的内容：
 
 | 门禁 | 命令 | 是否强制 |
 |---|---|---|

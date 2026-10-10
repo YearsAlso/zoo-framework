@@ -22,7 +22,7 @@ Zoo Framework 让你在**自己的进程里**运行长期存活的后台任务�
 pip install zoo-framework
 ```
 
-需要 **Python 3.13+**。
+需要 **Python 3.11+**（下界依据见[开发指南](contributing/development.md)）。
 
 ---
 

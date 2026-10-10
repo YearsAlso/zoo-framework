@@ -15,8 +15,11 @@ is required to build an application with it.
 pip install zoo-framework
 ```
 
-**Python 3.13 or newer is required** (`requires-python = ">=3.13"`). Importing the package on
-an older interpreter is not supported; check `python --version` before generating code.
+**Python 3.11 or newer is required** (`requires-python = ">=3.11"`). Importing the package on
+an older interpreter is not supported; check `python --version` before generating code. The
+optional native-execution extension has its **own** floor (Python 3.13+) and is not published
+yet, so its install is rejected with an explicit error on 3.11 — that does not affect the
+pure-Python framework.
 
 To scaffold an application instead of installing by hand:
 

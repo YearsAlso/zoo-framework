@@ -33,7 +33,11 @@ best-effort commitments.
 
 ### Dependency policy
 
-Runtime dependencies (**4**): click, pyyaml, python-dotenv, typing-extensions.
+Runtime dependencies (**3**): click, pyyaml, python-dotenv.
+
+- **A declared dependency must be a used dependency.** `typing-extensions` used to be declared
+  with zero imports anywhere in the repository; it was removed (issue #124) rather than kept as
+  a dependency nobody uses.
 
 - **The manifest is the only source.** `pyproject.toml` declares, `uv.lock` pins. There is
   no second, hand-maintained requirement list — one used to exist and it drifted from the
@@ -90,7 +94,10 @@ Zoo Framework 尚未发布 1.0。**只有最新的 minor 线会收到安全修�
 
 ### 依赖策略
 
-运行依赖（4 个）：click、pyyaml、python-dotenv、typing-extensions。
+运行依赖（3 个）：click、pyyaml、python-dotenv。
+
+- **声明了就得有人用。** `typing-extensions` 曾被声明为运行依赖，而全仓 0 处 import；
+  它是被移除（issue #124），而不是继续挂着一个没人用的依赖。
 
 - **清单是唯一真源。** `pyproject.toml` 声明，`uv.lock` 锁定。不存在第二份手工维护的依赖
   清单——历史上曾有一份，且它与清单长期漂移，那正是"被迫背着一堆自己从未选择的通告"的

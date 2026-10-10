@@ -8,7 +8,7 @@
 
 Python declarative multi-task orchestration framework powering next-gen Agents and workflows
 
-[![Python](https://img.shields.io/badge/Python-3.13%2B-blue)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/zoo-framework)](https://pypi.org/project/zoo-framework/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 [![Tests](https://github.com/YearsAlso/zoo-framework/workflows/Tests/badge.svg)](https://github.com/YearsAlso/zoo-framework/actions/workflows/tests.yml)
@@ -54,7 +54,7 @@ Zoo Framework takes those decisions out of your code:
 
 ### The whole thing in 30 seconds
 
-Save as `main.py` and run with Python 3.13+:
+Save as `main.py` and run with Python 3.11+:
 
 ```python
 from zoo_framework.core import Master
@@ -178,7 +178,8 @@ suite status.
 pip install zoo-framework
 ```
 
-Requires Python 3.13+.
+Requires Python 3.11+ (the floor is backed by evidence, in the
+[「Python 下界的依据」section of the development guide](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/contributing/development.md)).
 
 ### Quick Start
 

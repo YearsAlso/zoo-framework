@@ -14,7 +14,11 @@ readme = "README.md"
 # PyPI / SBOM / 合规扫描器机器读取），许可证文件由 license-files 列出。
 license = "Apache-2.0"
 license-files = ["LICENSE"]
-requires-python = ">=3.13"
+# 下界取 3.11：由扫描证据与"在下界解释器上实跑全量测试"共同支撑，依据与复核方式见
+# docs/contributing/development.md 的「Python 下界的依据」一节。提高门槛 MUST 先在该节
+# 写下依据。工具链 target（ruff / mypy）、uv.lock、CI 测试矩阵与文档门槛声明都跟随此值，
+# 由 tests/test_doc_consistency.py 守住"同源"。
+requires-python = ">=3.11"
 authors = [
     {name = "XiangMeng", email = "mengxiang931015@live.com"},
 ]
@@ -50,6 +54,10 @@ classifiers = [
     # 工具会报错，且前者是可机器读取的真源（docs/REPO_METADATA.md 的必须清单不含它）
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    # classifiers 列出 requires-python 覆盖的**整段区间**：这是"声明支持"，
+    # 不等同于"CI 实测过"（实测集合见 .github/workflows/tests.yml 的矩阵）。
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
@@ -64,7 +72,9 @@ dependencies = [
     # concurrent.futures 线程执行器；greenlet 系在 free-threaded 构建上不可用
     "pyyaml>=6.0",
     "python-dotenv>=1.0.0",
-    "typing-extensions>=4.7.0",
+    # typing-extensions 已移除（python-floor）：全仓 0 处 import，却被声明为运行依赖
+    # 并计入文档的"运行时依赖 4 个"。声明必须与实际使用一致，见
+    # openspec/specs/ci-and-packaging 的「运行时依赖 MUST 与实际使用一致」。
 ]
 
 [project.optional-dependencies]
@@ -108,7 +118,7 @@ packages = ["zoo_framework"]
 # Ruff 配置 (P0: 代码质量工具)
 # ============================================
 [tool.ruff]
-target-version = "py313"  # 仅支持 Python 3.13+
+target-version = "py311"  # 跟随 requires-python：按项目声明的下界检查语法
 line-length = 100
 indent-width = 4
 
@@ -203,7 +213,8 @@ line-ending = "auto"
 # MyPy 配置 (P0: 类型安全)
 # ============================================
 [tool.mypy]
-python_version = "3.13"
+# 跟随 requires-python：按项目声明的下界决定标准库存根
+python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false  # 暂时允许，后续逐步添加类型注解

@@ -8,7 +8,7 @@
 
 Python 声明式多任务编排框架，一站式支撑下一代 Agent 与工作流
 
-[![Python](https://img.shields.io/badge/Python-3.13%2B-blue)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/zoo-framework)](https://pypi.org/project/zoo-framework/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 [![Tests](https://github.com/YearsAlso/zoo-framework/workflows/Tests/badge.svg)](https://github.com/YearsAlso/zoo-framework/actions/workflows/tests.yml)
@@ -51,7 +51,7 @@ Zoo Framework 把这些决定从你的代码里拿走：
 
 ### 30 秒看完整个东西
 
-存成 `main.py`，用 Python 3.13+ 运行：
+存成 `main.py`，用 Python 3.11+ 运行：
 
 ```python
 from zoo_framework.core import Master
@@ -165,7 +165,7 @@ Worker 只依赖传给 `__init__` 的 props 字典，不感知框架内部结构
 pip install zoo-framework
 ```
 
-需要 Python 3.13+。
+需要 Python 3.11+（下界由实测证据支撑，见[开发指南的「Python 下界的依据」一节](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/contributing/development.md)）。
 
 ### 快速开始
 

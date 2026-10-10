@@ -5,11 +5,12 @@
 实测就抓到过两处（`zoo_framework.core.MasterConfig` 与
 `zoo_framework.statemachine.StateScope` 都不存在，但都写在文档里）。
 
-因此这里把三类可机械判定的约定变成 CI 能拦住的断言：
+因此这里把四类可机械判定的约定变成 CI 能拦住的断言：
 
 1. ``docs/api/**`` 里的 mkdocstrings 指令必须指向真实可导入的对象；
 2. 文档 python 代码块里的 import 语句必须真的能执行；
-3. 文档里的相对链接与资源引用必须指向存在的文件。
+3. 文档里的相对链接与资源引用必须指向存在的文件；
+4. 文档宣称（测试规模 / Python 门槛 / 隐喻表 / 健康监控 / 测量环境）与仓库实况一致。
 
 对应 ``docs/contributing/brand.md`` 与 ``docs/contributing/contributing.md`` 中
 "文档改动 MUST 保持可执行"的约定。
@@ -19,6 +20,7 @@ from __future__ import annotations
 
 import importlib
 import re
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -425,3 +427,293 @@ def test_no_dead_health_claims():
         if _DEAD_CLAIM in py.read_text(encoding="utf-8"):
             bad.append(f"    {py.relative_to(REPO_ROOT)}: 源码出现废弃宣称字样")
     assert not bad, "健康监控宣称与实况不符：\n" + "\n".join(bad)
+
+
+# ================================================================
+# 4.5 Python 下界只有一处真源（python-floor #124）
+#
+# 下界此前散在五个载体里各写一份——元数据、工具链 target、锁文件、CI 矩阵、文档门槛句
+# ——彼此之间没有任何联动，于是它停在了一个无人评估过的历史默认值上，文档口径也与元数据
+# 分叉。契约：``pyproject.toml`` 的 ``requires-python`` 是唯一真源，本节每条断言都以它为
+# 基准；改它必须同步改下面这些载体，漏改任何一处 CI 会红。
+#
+# 与"测量环境声明"的区别（design D4）：``Measured on ... Python 3.13`` / ``实测`` /
+# ``测得`` 说的是**测在哪**，不是**要求谁**，MUST NOT 被下界改写。门槛扫描因此只认三种
+# 门槛惯用写法（``3.13+`` / ``>=3.13`` / ``3.13 or newer``），裸版本号不在其列。
+# ================================================================
+
+_PYPROJECT = "pyproject.toml"
+_UV_LOCK = "uv.lock"
+_DEV_PYTHON = ".python-version"
+_TESTS_WORKFLOW = ".github/workflows/tests.yml"
+
+# 扫描范围：读者能看到门槛陈述的地方（文档站、仓库根、agent 指令、issue 模板与 workflow）
+_FLOOR_SCAN_DIRS = (".claude", ".github", "docs")
+_FLOOR_SCAN_SUFFIXES = (".md", ".txt", ".yml", ".yaml")
+_FLOOR_SCAN_ROOT_FILES = (
+    "AGENTS.md",
+    "CLAUDE.md",
+    "CONTRIBUTING.md",
+    "README.md",
+    "README.zh.md",
+    "llms.txt",
+)
+
+# 门槛陈述的三种惯用写法
+_FLOOR_CLAIM_PATTERNS = (
+    # "3.11+" / "3.11 及以上" / "3.11 或更高"：门槛惯用写法，依赖版本不用这种写法
+    ("suffix", re.compile(r"\b3\.(\d+)\s*(?:\+|及以上|或更高)")),
+    # ">=3.11"：依赖 pin 也用这种写法（如 ``pyyaml>=6.0``），故要求同行出现 Python 语境
+    ("gte", re.compile(r">=\s*3\.(\d+)")),
+    # "Requires Python 3.11 or newer"
+    ("or-newer", re.compile(r"\b3\.(\d+)\s+or\s+newer", re.IGNORECASE)),
+)
+_PY_CONTEXT_RE = re.compile(r"Python|python|解释器|下界|门槛")
+
+# 这些文件 MUST 陈述门槛。全都检不出即说明扫描范围（后缀/目录）坏了，而不是"没有门槛句"
+_FLOOR_MUST_BE_STATED_IN = (
+    "AGENTS.md",
+    "CLAUDE.md",
+    "CONTRIBUTING.md",
+    "README.md",
+    "README.zh.md",
+    "docs/FAQ.md",
+    "docs/README.md",
+    "docs/contributing/development.md",
+    "docs/install.md",
+    "llms.txt",
+)
+
+# 豁免：这些 ``3.13+`` 指 native 扩展**自己的**下界（design D6：与主包解耦、CI 不覆盖
+# ``native/``、故不做未验证的下调）。每条豁免 MUST 仍然命中——命不中说明该行已改写，
+# 豁免清单本身腐烂了，此时要么删条目要么随改写更新（防"过期豁免沉默地扩大"）。
+_FLOOR_CLAIM_EXEMPTIONS = {
+    "AGENTS.md": r"native",
+    "docs/install.md": r"原生",
+    "docs/VERSION_POLICY.md": r"原生",
+    "docs/contributing/development.md": r"native/pyproject\.toml",
+}
+
+# 测量环境声明的位置（design D4 的豁免清单）：这些行 MUST 仍然存在（抹掉就等于抹掉数据
+# 来源），且 MUST NOT 被写成门槛句——用测量环境去抬高支持面声明是两类版本陈述的混淆。
+_ENV_CLAIM_SITES = (
+    ("README.md", r"Measured on Windows, Python 3\.13"),
+    ("README.zh.md", r"Windows / Python 3\.13 实测"),
+    ("bench/README.md", r"^\s*- Python 3\.13\s*$"),
+    ("docs/benchmark.md", r"Windows, Python 3\.13"),
+    ("docs/benchmark.md", r"需要 Python 3\.13"),
+    ("docs/MIGRATION.md", r"在 Python 3\.13 上"),
+    ("native/DECISION.md", r"CPython 3\.13\.14"),
+    ("CLAUDE.md", r"needs Python 3\.13"),
+    (".claude/agents/perf-guardian.md", r"Python 3\.13"),
+    ("docs/contributing/brand.md", r"采集于 Windows 11 / Python 3\.13"),
+)
+
+# 合成样本：证明门槛正则没被改坏（防空跑）
+_SYNTHETIC_FLOOR_CLAIMS = (
+    ("本项目需要 Python 3.13+ 运行", "3.13"),
+    ("Requires Python 3.14 or newer.", "3.14"),
+    ('requires-python = ">=3.13"', "3.13"),
+    ("Python 3.14 及以上", "3.14"),
+)
+_SYNTHETIC_NON_CLAIMS = (
+    "Measured on Windows, Python 3.13, with a representative workload",
+    "Windows / Python 3.13 实测，负载为代表性任务",
+    "Requires Python 3.13, the project's runtime dependencies, a Rust toolchain",
+    "python-version: '3.13'",
+    '    "pyyaml>=6.0",',
+    'requires = ["maturin>=1.0,<2.0"]',
+    ":    - Python 3.13",
+)
+
+
+def _floor() -> str:
+    """从 ``pyproject.toml`` 的 ``requires-python`` 解析下界，返回 ``3.11`` 形式。"""
+    spec = _pyproject_requires_python()
+    m = re.search(r">=\s*(\d+\.\d+)", spec)
+    assert m, f"无法从 requires-python 解析下界：{spec!r}"
+    return m.group(1)
+
+
+def _load_toml(name: str) -> dict:
+    """读取仓库内的 TOML——pyproject 与 uv.lock 都是 TOML，用解析器而非正则。"""
+    return tomllib.loads((REPO_ROOT / name).read_text(encoding="utf-8"))
+
+
+def _floor_claims(text: str) -> list[tuple[int, str, str]]:
+    """检出文本里的门槛陈述，返回 ``(行号, 声称的版本, 原文行)``。"""
+    out = []
+    for line_no, line in enumerate(text.splitlines(), 1):
+        for label, rx in _FLOOR_CLAIM_PATTERNS:
+            m = rx.search(line)
+            if m is None:
+                continue
+            if label == "gte" and not _PY_CONTEXT_RE.search(line):
+                continue
+            out.append((line_no, f"3.{m.group(1)}", line.strip()))
+            break
+    return out
+
+
+def _floor_scan_files() -> list[Path]:
+    """门槛陈述的扫描文件集：``.claude``/``.github``/``docs`` 下的文本 + 仓库根关键文件。"""
+    files = set()
+    for sub in _FLOOR_SCAN_DIRS:
+        for path in (REPO_ROOT / sub).rglob("*"):
+            if path.suffix not in _FLOOR_SCAN_SUFFIXES or not path.is_file():
+                continue
+            if any(part in _EXCLUDED_DIRS for part in path.parts):
+                continue
+            files.add(path)
+    for name in _FLOOR_SCAN_ROOT_FILES:
+        path = REPO_ROOT / name
+        if path.is_file():
+            files.add(path)
+    return sorted(files)
+
+
+def _yaml_list(text: str, key: str) -> set[str]:
+    """取 workflow 里 ``key: [a, b]`` 的内联列表；块状写法返回空集，由调用方报错。"""
+    m = re.search(rf"^\s*{re.escape(key)}:\s*\[([^\]]*)\]", text, re.MULTILINE)
+    if m is None:
+        return set()
+    return {item.strip().strip("\"'") for item in m.group(1).split(",") if item.strip()}
+
+
+def test_python_floor_is_single_source():
+    """下界在元数据、工具链 target 与锁文件里必须同源（``pyproject.toml`` 是真源）。
+
+    牙齿：把 ``[tool.ruff] target-version`` 改回 ``py313``、或把 ``uv.lock`` 的
+    ``requires-python`` 改回 ``>=3.13``，本断言即红——这三处此前各写一个版本、互不
+    联动，元数据换了而锁文件与工具链留在原地是无声的（用户装不上、语法却按高位版本放行）。
+    """
+    floor = _floor()
+    pyproject = _load_toml(_PYPROJECT)
+
+    declared = pyproject["project"]["requires-python"]
+    assert re.search(rf">=\s*{re.escape(floor)}\b", declared), (
+        f"pyproject 的 requires-python 是 {declared!r}，与解析出的下界 {floor} 不一致"
+    )
+
+    target = pyproject["tool"]["ruff"]["target-version"]
+    assert target == f"py3{floor.split('.')[1]}", (
+        f"ruff target-version 是 {target!r}，与下界 {floor} 不一致——越界语法会在本地静默通过"
+    )
+    mypy_target = pyproject["tool"]["mypy"]["python_version"]
+    assert mypy_target == floor, f"mypy python_version 是 {mypy_target!r}，与下界 {floor} 不一致"
+
+    lock_spec = _load_toml(_UV_LOCK).get("requires-python")
+    assert lock_spec, "uv.lock 缺少顶层 requires-python"
+    lock_floor = re.search(r">=\s*(\d+\.\d+)", lock_spec)
+    assert lock_floor and lock_floor.group(1) == floor, (
+        f"uv.lock 的 requires-python 是 {lock_spec!r}，与下界 {floor} 不一致"
+        "——改完 pyproject 后须运行 uv lock"
+    )
+
+
+def test_ci_matrix_covers_floor_and_platforms():
+    """测试矩阵必须同时覆盖下界与开发解释器，且三平台齐全。
+
+    牙齿：把矩阵里的 ``"3.11"`` 删掉（只留 3.13）即红——那正是"元数据声明支持 3.11、
+    CI 却从没在 3.11 上跑过"的状态，而本变更的支持面承诺全部押在 CI 覆盖上。
+    """
+    floor = _floor()
+    workflow = (REPO_ROOT / _TESTS_WORKFLOW).read_text(encoding="utf-8")
+
+    versions = _yaml_list(workflow, "python-version")
+    assert versions, f"{_TESTS_WORKFLOW} 的 python-version 不是内联列表，无法机械核对"
+    assert floor in versions, f"测试矩阵 {sorted(versions)} 未覆盖下界 {floor}"
+
+    dev = (REPO_ROOT / _DEV_PYTHON).read_text(encoding="utf-8").strip()
+    assert dev in versions, f"测试矩阵 {sorted(versions)} 未覆盖开发解释器 {dev}（.python-version）"
+
+    assert all(re.fullmatch(r"\d+\.\d+", v) for v in versions), (
+        f"矩阵版本格式异常：{sorted(versions)}"
+    )
+
+    def _key(version: str) -> tuple[int, int]:
+        return tuple(int(part) for part in version.split("."))  # type: ignore[return-value]
+
+    assert min(map(_key, versions)) >= _key(floor), (
+        f"测试矩阵 {sorted(versions)} 里有低于下界 {floor} 的作业"
+    )
+
+    platforms = _yaml_list(workflow, "os")
+    assert platforms == {"ubuntu-latest", "windows-latest", "macos-latest"}, (
+        f"测试矩阵的平台集合是 {sorted(platforms)}——三平台覆盖是 cross-platform-io 规格的前提"
+    )
+
+
+def test_floor_claims_equal_the_floor():
+    """仓库内的门槛陈述必须等于下界。
+
+    牙齿：在任意文档里塞回一句 ``Python 3.13+``（或 ``Requires Python 3.13 or newer``）
+    即红——本次变更前散落 12+ 处的独立副本就是这个形态，每处都"当时看起来对"。
+    """
+    floor = _floor()
+    claims = {
+        path.relative_to(REPO_ROOT).as_posix(): _floor_claims(path.read_text(encoding="utf-8"))
+        for path in _floor_scan_files()
+    }
+
+    # 防空跑：这些文件必须检出门槛陈述（检不出说明扫描范围/正则失效，而不是"没有门槛句"）
+    silent = [name for name in _FLOOR_MUST_BE_STATED_IN if not claims.get(name)]
+    assert not silent, f"下列文件未检出任何 Python 门槛陈述（扫描范围或正则可能已失效）：{silent}"
+
+    bad, used = [], set()
+    for name, hits in claims.items():
+        exemption = _FLOOR_CLAIM_EXEMPTIONS.get(name)
+        for line_no, claimed, line in hits:
+            if exemption is not None and re.search(exemption, line):
+                used.add(name)
+                continue
+            if claimed != floor:
+                bad.append(
+                    f"    {name}:{line_no}: 门槛陈述写的是 {claimed}，下界是 {floor}：{line[:70]}"
+                )
+    assert not bad, "门槛陈述与 pyproject 的下界不一致：\n" + "\n".join(bad)
+
+    stale = sorted(set(_FLOOR_CLAIM_EXEMPTIONS) - used)
+    assert not stale, (
+        f"豁免清单里这些文件已无匹配的门槛陈述：{stale}——豁免条目须随改写同步更新或删除"
+    )
+
+
+def test_environment_claims_are_not_reformulated_as_floor_claims():
+    """测量环境声明 MUST 保持"测在哪"的措辞，不得被改写成门槛。
+
+    牙齿：把 ``docs/benchmark.md`` 的 ``需要 Python 3.13`` 改成 ``需要 Python 3.13+``
+    即红——bench 数据是在 3.13 上测的，那不等于"用户需要 3.13+"；改写成门槛句就是用
+    测量环境去抬高支持面声明（design D4 的两类版本陈述）。
+    """
+    bad: list[str] = []
+    for name, pattern in _ENV_CLAIM_SITES:
+        lines = [
+            line
+            for line in (REPO_ROOT / name).read_text(encoding="utf-8").splitlines()
+            if re.search(pattern, line)
+        ]
+        assert lines, f"{name} 里找不到测量环境声明（{pattern!r}）——文件已改写，请更新本清单"
+        bad.extend(
+            f"    {name}: 测量环境声明被写成了门槛句：{line.strip()[:70]}"
+            for line in lines
+            if _floor_claims(line)
+        )
+    assert not bad, "测量环境声明被改写成门槛陈述：\n" + "\n".join(bad)
+
+
+def test_floor_claim_scanner_has_teeth():
+    """门槛扫描器的正反样本自检（防空跑）。
+
+    牙齿：把 ``_FLOOR_CLAIM_PATTERNS`` 里任一正则改坏（如去掉 ``\\+``）后本断言立刻
+    变红，而不是让 ``test_floor_claims_equal_the_floor`` 静默退化为通过。
+    """
+    for sample, expected in _SYNTHETIC_FLOOR_CLAIMS:
+        found = _floor_claims(sample)
+        assert found, f"合成违规样本未被门槛扫描检出：{sample!r}"
+        # 捕获的版本号必须是样本里那个——否则"等于下界"的比对基准本身就错了
+        assert [claim[1] for claim in found] == [expected], (
+            f"样本 {sample!r} 检出的版本是 {[claim[1] for claim in found]}，期望 {expected!r}"
+        )
+    hurt = [sample for sample in _SYNTHETIC_NON_CLAIMS if _floor_claims(sample)]
+    assert not hurt, f"以下非门槛写法被门槛扫描误伤：{hurt}"

@@ -8,9 +8,72 @@
 
 | 项目 | 最低版本 | 推荐版本 |
 |------|----------|----------|
-| Python | 3.13 | 3.13 |
+| Python | 3.11 | 3.13 |
 | pip | 21.0 | 最新 |
 | Git | 2.30 | 最新 |
+
+「最低版本」是 `pyproject.toml` 里 `requires-python` 声明的门槛，「推荐版本」是开发时
+用的解释器版本（`.venv` 与 `.python-version` 就是它）。两者的依据见下一节。
+
+---
+
+## Python 下界的依据
+
+门槛是 **3.11**，依据如下。**注意别把两种版本陈述混为一谈**：`.python-version` 里的
+`3.13` 是"开发环境的解释器版本"，不是门槛。
+
+### 结论怎么来的
+
+1. **可行性扫描**：全仓 Python 源码里没有 3.11 之后才引入的语法或标准库用法——
+   PEP 695 泛型与类型别名 0 处、`match` 0 处、3.12／3.13 专属标准库 API 0 处、
+   `typing` 的 `Self` / `Never` / `override` / `TypeIs` 0 处。唯一的 3.11 硬依赖是测试里
+   用的 `tomllib`（3.11 起进标准库）。
+2. **更早的硬性约束**：有 40 多个文件在**没有** `from __future__ import annotations` 的
+   情况下使用 PEP 604 注解（`X | None`）。注解在 import 期求值，所以下限被顶到 **3.10**。
+3. **实跑验证**：在下界解释器上跑全量测试通过；在 3.10 上测试**连收集都失败**（缺
+   `tomllib`）。自己复跑一遍：
+
+   ```bash
+   uv python install 3.11
+   uv venv --python 3.11 .venv311
+   uv pip install --python .venv311 click pyyaml python-dotenv pytest pytest-cov
+   PYTHONPATH=. .venv311/bin/python -m pytest       # Windows 用 .venv311\Scripts\python.exe
+   ```
+
+   在 3.11.15（Windows）上实跑得到 1111 passed + 1 skipped；同一棵树在 3.13.14 上是
+   1124 passed，差额是 3.13 才装得上的可选扩展模块用例。这次实跑还抓到一处**既有的**时限
+   断言脆弱点：`tests/test_execution_time.py` 用"时限 0.05 + 睡眠 0.06"建立"已超时"前置，
+   而 Windows 上 3.11／3.12 的 `time.monotonic()` 粒度约 15.6 ms，实测增量可能是 46.8 ms
+   （量化到 3 个 tick，比时限还小），于是断言随相位偶发翻红（本机 3/20 次）——CI 新增的
+   windows × 3.11 作业会踩到。处置是把余量放大到 0.19 s（时限 0.01／等待 0.2），规则与
+   实测数字写在用例上方的注释里。
+
+4. **商业理由**：门槛决定本框架能被哪些上游写进依赖。3.11 一次放开 3.11 与 3.12 两个仍在
+   生产中的版本带，而且是零适配成本的最低点；再降到 3.10 就得给测试引入 `tomli` 依赖或
+   条件导入——那是把"门槛成本"换成"依赖成本"，还让最老的支持版本跑不到供应链门禁。
+
+### 门槛变了要一起改什么
+
+`requires-python` 是唯一真源，下列位置都跟随它（`tests/test_doc_consistency.py` 断言这一
+致性）：
+
+| 位置 | 跟随方式 |
+|---|---|
+| `uv.lock` 的 `requires-python` | 跑 `uv lock` 更新；改完核对 diff 里没有无关的依赖升级 |
+| `[tool.ruff] target-version` | `py311` 形式，与下界同版本 |
+| `[tool.mypy] python_version` | 与下界同版本 |
+| `.github/workflows/tests.yml` 的矩阵 | 必须包含下界，且 ubuntu / windows / macos 三平台各跑一次 |
+| 文档里的门槛句（两份 README、贡献入口、安装页、本页、FAQ、版本政策……） | 措辞跟上下界 |
+
+**有两类不要跟着改**：
+
+- **测量环境声明**："bench 在 Python 3.13 上实测""迁移指南的报错原文取自 3.13"说的是
+  *当时在哪个解释器上取数*，不是门槛——改掉就变成假话。
+- **可选原生扩展的下界**（`native/pyproject.toml`，3.13+）：它是可选编译扩展、CI 不覆盖，
+  跟降等于写一条无法验证的声明。它不抬高主包的门槛。
+
+**提高门槛前，必须先把依据写在本节。** 一个既没有扫描结论、也没有下界解释器实跑记录的
+门槛，就是这次被修掉的那种历史默认值。
 
 ---
 
@@ -346,7 +409,7 @@ pytest --cov=zoo_framework --cov-report=term-missing
 
 ## 开发环境检查清单
 
-- [ ] Python 3.13+ 已安装
+- [ ] Python 3.11+ 已安装（推荐用 3.13，见「Python 下界的依据」）
 - [ ] 虚拟环境已创建并激活
 - [ ] `pip install -e ".[dev]"` 成功
 - [ ] `pre-commit install` 成功

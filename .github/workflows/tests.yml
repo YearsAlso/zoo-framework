@@ -21,7 +21,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ["3.13"]
+        # 下界（pyproject 的 requires-python）与当前最新版各跑一次，三平台全覆盖：
+        # 门槛放宽之后，只有下界那一档能证明"降下来是真能跑"。
+        # 改动这里时同步 tests/test_doc_consistency.py 的"矩阵覆盖下界"断言与
+        # 文档里描述 CI 版本的句子。
+        python-version: ["3.11", "3.13"]
 
     steps:
       - name: Checkout code

@@ -3,7 +3,7 @@
 > Zoo Framework runs long-lived background tasks **inside your own Python process** — no
 > broker, no Redis/RabbitMQ, no distributed setup. It is a multi-threaded orchestration
 > framework: you declare task units ("Workers"), register them, and the framework keeps
-> them running — scheduled, observable, and with state on disk. Python 3.13+.
+> them running — scheduled, observable, and with state on disk. Python 3.11+.
 
 It is the in-process alternative to Celery, **not** a replacement for it. There is no HTTP
 layer, no broker and no distributed scheduling.
@@ -108,7 +108,7 @@ if __name__ == "__main__":
     master.run()
 ```
 
-Install with `pip install zoo-framework` (Python 3.13+). To scaffold a project with a config
+Install with `pip install zoo-framework` (Python 3.11+). To scaffold a project with a config
 file and a demo Worker already registered, use the CLI: `zfc --create myapp`.
 
 **A Worker must be registered as a class.** `WorkerRegistry` validates with `issubclass`, so a

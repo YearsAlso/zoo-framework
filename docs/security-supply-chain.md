@@ -36,9 +36,9 @@
 
 | 事实 | 证据 |
 |---|---|
-| 依赖真源唯一 | `pyproject.toml` 的 `[project].dependencies`（60–68 行）：`click`、`pyyaml`、`python-dotenv`、`typing-extensions` |
+| 依赖真源唯一 | `pyproject.toml` 的 `[project].dependencies`（68–78 行）：`click`、`pyyaml`、`python-dotenv`。`typing-extensions` 曾在此列，但全仓 0 处 import，已随 python-floor 移除 |
 | 第二份清单已删除 | 仓库内不存在 `requirements*.txt`（PR #100 删除）。**`main` 上它们仍在**：`git ls-tree --name-only origin/main \| grep requirement` → `requirements.txt`、`requirements-dev.txt` |
-| 锁文件与声明同源 | `uv.lock`（79 个包），`uv lock --check` 输出 `Resolved 79 packages`（通过） |
+| 锁文件与声明同源 | `uv.lock`（83 个包），`uv lock --check` 输出 `Resolved 83 packages`（通过）。包数随依赖变化（python-floor 使锁覆盖 3.11／3.12，多出条件性依赖与 wheel 变体） |
 | 锁定集合漏洞扫描 | **0 命中**（命令见第 4 节） |
 | Rust 探针锁文件 | `bench/pyo3_probe/Cargo.lock`（17 个包）经 OSV 扫描 **0 命中** |
 | 46 条的来源 | `main` 上 `requirements.txt` + `requirements-dev.txt` 共 58 条 pin，其中约 34 条命中 OSV 通告：`urllib3 2.0.2` 13 条、`jinja2 3.0.2` 5 条、`virtualenv 20.23.1` 5 条、`requests 2.31.0` 3 条、`filelock 3.12.2` 2 条、`idna 3.4` 2 条，另 `pytest 7.4.3`、`pygments 2.15.1`、`python-dotenv 1.0.0`、`zipp 3.15.0` 各 1 条 |
