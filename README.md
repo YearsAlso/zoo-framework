@@ -1,6 +1,10 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/YearsAlso/zoo-framework/dev/docs/assets/logo.png" alt="Zoo Framework Logo" width="400"/>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/YearsAlso/zoo-framework/dev/docs/assets/logo-dark.svg"/>
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/YearsAlso/zoo-framework/dev/docs/assets/logo.svg"/>
+  <img src="https://raw.githubusercontent.com/YearsAlso/zoo-framework/dev/docs/assets/logo.png" alt="Zoo Framework" width="300"/>
+</picture>
 
 Python declarative multi-task orchestration framework powering next-gen Agents and workflows
 

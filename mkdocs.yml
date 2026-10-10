@@ -28,7 +28,8 @@ site_dir: site
 theme:
   name: material
   language: zh
-  logo: assets/logo.png
+  logo: assets/mark.svg
+  favicon: assets/favicon.svg
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -60,6 +61,7 @@ nav:
   - 设计与实现:
       - 架构设计: ARCHITECTURE.md
       - 目录结构: structure.md
+      - 品牌与视觉规范: BRAND.md
       - API 参考: API_REFERENCE.md
   - 性能与决策:
       - 性能基准说明: benchmark.md

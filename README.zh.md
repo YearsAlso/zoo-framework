@@ -1,6 +1,10 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/YearsAlso/zoo-framework/dev/docs/assets/logo.png" alt="Zoo Framework Logo" width="400"/>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/YearsAlso/zoo-framework/dev/docs/assets/logo-dark.svg"/>
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/YearsAlso/zoo-framework/dev/docs/assets/logo.svg"/>
+  <img src="https://raw.githubusercontent.com/YearsAlso/zoo-framework/dev/docs/assets/logo.png" alt="Zoo Framework" width="300"/>
+</picture>
 
 Python 声明式多任务编排框架，一站式支撑下一代 Agent 与工作流
 
