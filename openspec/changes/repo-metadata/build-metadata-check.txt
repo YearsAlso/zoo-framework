@@ -1,0 +1,17 @@
+Project-URL: Homepage, https://github.com/YearsAlso/zoo-framework
+Project-URL: Documentation, https://yearsalso.github.io/zoo-framework/
+Project-URL: Repository, https://github.com/YearsAlso/zoo-framework
+Project-URL: Issues, https://github.com/YearsAlso/zoo-framework/issues
+Project-URL: Changelog, https://github.com/YearsAlso/zoo-framework/blob/main/CHANGELOG.md
+Project-URL: Benchmark, https://yearsalso.github.io/zoo-bench/
+Keywords: agent,agent-framework,ai-agents,async,background-jobs,concurrency,event-driven,framework,in-process,job-scheduling,llm,multi-threaded,orchestration,state-machine,task-orchestration,task-scheduler,thread-pool,threading,workflow-automation
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Topic :: System :: Distributed Computing

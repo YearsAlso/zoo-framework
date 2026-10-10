@@ -12,7 +12,31 @@ requires-python = ">=3.13"
 authors = [
     {name = "XiangMeng", email = "mengxiang931015@live.com"},
 ]
-keywords = ["framework", "multi-threaded", "async", "state-machine", "event-driven"]
+keywords = [
+    # 任务调度 / 后台任务
+    "task-scheduler",
+    "background-jobs",
+    "task-orchestration",
+    "orchestration",
+    "job-scheduling",
+    # 并发 / 线程
+    "multi-threaded",
+    "threading",
+    "concurrency",
+    "thread-pool",
+    "in-process",
+    # AI Agent 基础设施
+    "agent",
+    "agent-framework",
+    "llm",
+    "ai-agents",
+    "workflow-automation",
+    # 领域能力（保留原有）
+    "framework",
+    "async",
+    "state-machine",
+    "event-driven",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -20,8 +44,10 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Distributed Computing",
 ]
 
 dependencies = [
@@ -67,6 +93,8 @@ Homepage = "https://github.com/YearsAlso/zoo-framework"
 Documentation = "https://yearsalso.github.io/zoo-framework-doc/"
 Repository = "https://github.com/YearsAlso/zoo-framework"
 Issues = "https://github.com/YearsAlso/zoo-framework/issues"
+Changelog = "https://github.com/YearsAlso/zoo-framework/blob/main/CHANGELOG.md"
+Benchmark = "https://yearsalso.github.io/zoo-bench/"
 
 [tool.hatch.build.targets.wheel]
 packages = ["zoo_framework"]
