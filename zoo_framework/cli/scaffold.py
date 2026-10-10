@@ -1,8 +1,10 @@
-"""脚手架逻辑：生成项目、新增 Worker。
+"""Scaffold logic: create a project, add a Worker.
 
-与命令行解析分离：本模块只做文件产出，不依赖 click 的命令/选项装饰器
-（`click.ClickException` / `click.BadParameter` 除外——它们是本模块对外报告
-失败的方式，命令行层负责把它们渲染成用户可见的错误）。
+Separated from the CLI layer: this module only produces files and does not
+depend on click's command/option decorators (except
+``click.ClickException`` / ``click.BadParameter`` - those are how this module
+reports failure outward, and the CLI layer renders them as user-visible
+errors).
 """
 
 import json
@@ -27,31 +29,35 @@ DEFAULT_CONF = {
     "_exports": [],
     "log": {"path": "./logs", "level": "debug"},
     "worker": {"runPolicy": "simple", "pool": {"size": 5, "enabled": False}},
-    # 供 params 示例模块读取，路径为 demo:greeting
+    # Read by the params example module; the path is demo:greeting
     "demo": {"greeting": "hello from config.json"},
 }
 
-# 脚手架产出的源码目录名
+# Source directory name produced by the scaffold
 SRC_DIR_NAME = "src"
-# 承载 Worker 的子目录名
+# Subdirectory that hosts Workers
 WORKER_DIR_NAME = "workers"
 
 
 def resolve_worker_dir(cwd: str | None = None) -> str:
-    """定位新增 Worker 的产出目录.
+    """Locate the output directory for a new Worker.
 
-    依据当前工作目录的**实际结构**判定，而不是从进程启动路径（`sys.argv[0]`）猜测：
-    console script 在 Windows 上是 `.exe` 路径、在 POSIX 上是 `bin` 下的无扩展名文件，
-    两者都与源码目录结构无关，据此判断会在所有平台上失效。
+    Decided from the **actual structure** of the current working directory,
+    not guessed from the process start path (``sys.argv[0]``): a console
+    script is an ``.exe`` path on Windows and an extension-less file under
+    ``bin`` on POSIX - neither relates to the source tree layout, so deciding
+    from the executable path fails on every platform.
 
-    `create_func` 产出的布局是 `<project>/src/workers/`，因此在项目根执行时应落在
-    `./src/workers`，在 `src/` 内执行时 `./src` 不存在，自然落到 `./workers`。
+    ``create_func`` produces the layout ``<project>/src/workers/``; therefore
+    running at the project root lands in ``./src/workers``, while running
+    inside ``src/`` - where ``./src`` does not exist - naturally falls back to
+    ``./workers``.
 
     Args:
-        cwd: 工作目录；None 表示使用当前工作目录
+        cwd: The working directory; None means the current working directory.
 
     Returns:
-        产出目录的路径
+        The output directory path.
     """
     base = cwd or os.getcwd()
     if os.path.isdir(os.path.join(base, SRC_DIR_NAME)):
@@ -60,20 +66,24 @@ def resolve_worker_dir(cwd: str | None = None) -> str:
 
 
 def create_func(object_name):
-    """生成一个脚手架项目.
+    """Create a scaffold project.
 
-    目标已存在时 MUST 明确失败：静默返回让调用方无法区分"本次创建了"与"本来就存在"，
-    而把目标当作"已就绪"继续使用，会掩盖路径写错这类真实故障。
+    When the target already exists this MUST fail loudly: returning silently
+    leaves the caller unable to tell "created this time" from "already
+    existed", and proceeding as if the target were ready would mask real
+    failures such as a mistyped path.
 
     Args:
-        object_name: 目标目录路径，可含尚未存在的父目录
+        object_name: Target directory path; parent directories may not exist yet.
 
     Raises:
-        click.ClickException: 目标路径已存在。抛出前未做任何写入
+        click.ClickException: The target path already exists. Nothing is written
+            before this raises.
     """
     if os.path.exists(object_name):
         raise click.ClickException(
-            f"目标 {object_name!r} 已存在，未做任何改动。请换一个名称，或先删除该目录。"
+            f"Target {object_name!r} already exists; nothing was changed. "
+            "Pick another name or delete the directory first."
         )
 
     os.makedirs(object_name)
@@ -99,7 +109,8 @@ def create_func(object_name):
     with open(config_file, "w", encoding=FileUtils.DEFAULT_ENCODING) as fp:
         json.dump(DEFAULT_CONF, fp)
 
-    # src/ 也承担包角色，缺少包标识会让产出项目的包结构不自洽
+    # src/ also acts as the package; without the package marker the generated
+    # project's package structure would not be self-consistent.
     for init_file in (
         os.path.join(src_dir, "__init__.py"),
         threads_init_file,
@@ -109,8 +120,9 @@ def create_func(object_name):
     ):
         FileUtils.write_text(init_file, "")
 
-    # 三个扩展点各给一份可加载的示例模块。空目录会让产出物本身就不自洽——
-    # 存在"生成了但从头到尾不被加载"的模块，用户也看不出这些目录是干什么用的。
+    # One loadable example module per extension point. Empty directories would
+    # make the output self-inconsistent - there would be "generated but never
+    # loaded" modules, and the user could not tell what those directories are for.
     for module_file, module_template in (
         (os.path.join(conf_dir, "demo_conf.py"), conf_template),
         (os.path.join(params_dir, "demo_params.py"), params_template),
@@ -123,38 +135,42 @@ def create_func(object_name):
 
 
 def _worker_names(worker_name: str) -> tuple[str, str]:
-    """由用户输入的 Worker 名推导出 (模块名, 类名).
+    """Derive (module name, class name) from the user-supplied Worker name.
 
     Args:
-        worker_name: 用户输入的 Worker 名
+        worker_name: The user-supplied Worker name.
 
     Returns:
-        (模块名, 类名)
+        (module name, class name)
     """
     return f"{worker_name}_worker", f"{worker_name.title()}Worker"
 
 
 def _wire_worker_into_main(main_path: str, worker_name: str, class_name: str) -> None:
-    """把新 Worker 的导入与注册接入脚手架入口.
+    """Wire a new Worker's import and registration into the scaffold entry point.
 
-    入口必须**显式**导入并注册 Worker：包初始化文件里写一行导入语句是装饰性的——
-    没有任何代码导入那个包，即使写了也不会被执行。显式化之后，"生成的文件"与
-    "被加载的代码"之间才有可追踪的链路。
+    The entry point MUST import and register Workers **explicitly**: an import
+    line in a package ``__init__`` is decorative - nothing imports that package,
+    so it would never execute. Only with the explicit wiring is there a
+    traceable chain from "generated file" to "loaded code".
 
-    接线是**幂等**的：同一个 Worker 重复接入不会让入口累积重复的导入行或注册条目。
-    判重按整行精确比较而非子串包含——按行比较与"一个 Worker 一行"的产出形态一致，
-    也不会把更长的名字或注释里的片段误判为已存在。
+    Wiring is **idempotent**: re-adding the same Worker never accumulates
+    duplicated import lines or registration entries. Deduplication compares
+    whole lines exactly rather than by substring containment - per-line
+    comparison matches the "one Worker per line" output shape and never
+    misreads longer names or fragments inside comments as already present.
 
     Args:
-        main_path: 入口文件路径
-        worker_name: 用户输入的 Worker 名
-        class_name: Worker 类名
+        main_path: Entry point file path.
+        worker_name: The user-supplied Worker name.
+        class_name: The Worker class name.
     """
     module_name = f"{worker_name}_worker"
     content = FileUtils.read_text(main_path)
 
     import_line = f"from workers.{module_name} import {class_name}"
-    # 条目本身不带缩进：插入点保留了标记前的缩进
+    # The entry itself carries no indentation: the insertion point keeps the
+    # indentation that precedes the marker.
     registration_line = f'("{class_name}", {class_name}),'
 
     if import_line not in content.splitlines():
@@ -169,44 +185,51 @@ def _wire_worker_into_main(main_path: str, worker_name: str, class_name: str) ->
 
 
 def _validate_worker_name(worker_name: str) -> None:
-    """校验 Worker 名称可作 Python 标识符使用.
+    """Validate that a Worker name is usable as a Python identifier.
 
-    校验 MUST 发生在产出之前：先产出再检查等于把恢复成本转嫁给调用方，而且会留下
-    一份不可解析的文件——报错时磁盘上已经有坏产物了。
+    Validation MUST happen before any output: produce-then-check hands the
+    recovery cost to the caller and leaves an unparseable file on disk - at
+    failure time the bad artifact is already there.
 
-    合法标识符的判定直接取自 Python 自身：`isidentifier()` 覆盖"不以数字开头、
-    不含连字符/点号/空格、非空"，`iskeyword()` 补上 `class`/`def` 这类合法标识符
-    但不可作类名的情况。
+    The identifier decision comes from Python itself: ``isidentifier()``
+    covers "not starting with a digit, no hyphen/dot/space, non-empty", and
+    ``iskeyword()`` covers keywords like ``class``/``def`` which are valid
+    identifiers but unusable as class names.
 
     Args:
-        worker_name: 用户输入的 Worker 名
+        worker_name: The user-supplied Worker name.
 
     Raises:
-        click.BadParameter: 名称不是合法标识符，或为 Python 关键字
+        click.BadParameter: The name is not a valid identifier or is a Python keyword.
     """
     if worker_name.isidentifier() and not keyword.iskeyword(worker_name):
         return
 
     raise click.BadParameter(
-        f"{worker_name!r} 不是合法的 Worker 名称：它必须是合法的 Python 标识符"
-        "（不能以数字开头，不能含连字符、点号或空格，不能是 Python 关键字）。"
-        "请改用下划线命名，例如 'my_task'。"
+        f"{worker_name!r} is not a valid Worker name: it must be a valid Python "
+        "identifier (must not start with a digit, contain hyphens, dots or "
+        "spaces, or be a Python keyword). "
+        "Use underscores instead, e.g. 'my_task'."
     )
 
 
 def worker_func(worker_name, project_dir: str | None = None):
-    """在当前的脚手架项目中新增一个 Worker 文件.
+    """Add a Worker file to the current scaffold project.
 
-    产出目录的判定分两条路径：`project_dir` 给定就落在该项目的 `src/workers/`；
-    否则按工作目录结构判定（`resolve_worker_dir`）。同一次调用中先创建项目再新增
-    Worker 时**必须**走前者——按工作目录判定看不到刚创建的目录，会把文件写到项目外。
+    The output directory is decided along two paths: with ``project_dir``
+    given, it lands in that project's ``src/workers/``; otherwise it is
+    decided from the working directory layout (``resolve_worker_dir``). When a
+    single call both creates a project and adds a Worker it MUST take the
+    former - deciding from the working directory cannot see the just-created
+    directory and would write outside the project.
 
     Args:
-        worker_name: 用户输入的 Worker 名
-        project_dir: 显式指定的项目根目录；None 表示按工作目录结构判定
+        worker_name: The user-supplied Worker name.
+        project_dir: Explicit project root; None decides from the working
+            directory layout.
 
     Raises:
-        click.BadParameter: `worker_name` 不是合法标识符
+        click.BadParameter: ``worker_name`` is not a valid identifier.
     """
     _validate_worker_name(worker_name)
 
@@ -227,7 +250,8 @@ def worker_func(worker_name, project_dir: str | None = None):
         file_path, template.substitute(worker_name=worker_name, class_name=class_name)
     )
 
-    # 把新 Worker 接入入口——只有当入口存在时才接线（非脚手架目录没有入口）
+    # Wire the new Worker into the entry point - only when an entry point
+    # exists (a non-scaffold directory has none).
     main_path = os.path.join(os.path.dirname(src_dir), "main.py")
     if os.path.exists(main_path):
         _wire_worker_into_main(main_path, worker_name, class_name)

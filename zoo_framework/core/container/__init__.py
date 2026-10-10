@@ -1,13 +1,16 @@
-"""按作用域解析共享对象的容器.
+"""Container that resolves shared objects per scope.
 
-对外面：``ScopedContainer``（容器）、``Scope``/``ScopeKind``（作用域句柄）、
-``ThreadSafety``（线程安全归属声明）。
+The public surface: ``ScopedContainer`` (the container), ``Scope`` /
+``ScopeKind`` (scope handles), ``ThreadSafety`` (thread-safety ownership
+declaration).
 
-框架自身用 ``registry`` 里的 ``process_scoped`` / ``process_instance`` 把内部管理器登记
-为进程级共享，取代原先"用装饰器替换类"的 ``@cage``。
+The framework itself uses ``process_scoped`` / ``process_instance`` from
+``registry`` to declare its internal managers as process-level shared,
+replacing the former class-replacing ``@cage`` decorator.
 
-设计取舍见 ``openspec/changes/scoped-container/design.md``：本包只做注册 → 按作用域
-解析，**不替换类**，因此类型契约（``isinstance``/``issubclass``）保持有效。
+Design trade-offs in ``openspec/changes/scoped-container/design.md``: this
+package only does registration -> per-scope resolution and **never replaces
+classes**, so type contracts (``isinstance``/``issubclass``) stay valid.
 """
 
 from .container import ScopedContainer

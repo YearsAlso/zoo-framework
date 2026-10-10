@@ -4,10 +4,10 @@ from .base_fifo import BaseFIFO
 
 
 class SingleFIFO(BaseFIFO[Any]):
-    """单一值队列：同一个值只入队一次，并记录其位置.
+    """A single-value queue: the same value enqueues once, with its position recorded.
 
-    注意：`index_list` 目前仍是**类属性**（跨实例共享），本次未改动，
-    属已知问题。
+    Note: `index_list` is still a **class attribute** (shared across
+    instances); left unchanged here - a known issue.
     """
 
     index_list: dict = {}
@@ -17,11 +17,12 @@ class SingleFIFO(BaseFIFO[Any]):
         self.pop_pointer = 0
 
     def push_value(self, value):
-        """入队（同一个值只入队一次），返回该值在队列中的位置.
+        """Enqueue (the same value only once); return the value's position.
 
-        修正两处误用：
-        - `list.index()` 未命中时抛 `ValueError`，不能当作"包含性检查"；
-        - `list` 没有 `push` 方法，追加应为 `append`。
+        Two misuses corrected here:
+        - `list.index()` raises `ValueError` on a miss; it cannot serve as a
+          "membership check";
+        - `list` has no `push` method; appending uses `append`.
         """
         if value not in self._fifo:
             self._fifo.append(value)

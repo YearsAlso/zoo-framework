@@ -1,7 +1,7 @@
-"""状态节点索引工厂.
+"""State node index factory.
 
-P2 优化：将索引创建优化为工厂模式
-索引设置为对象，支持多种实现方式
+P2 optimization: turn index creation into the factory pattern; the index is
+an object, supporting several implementations.
 """
 
 from abc import ABC, abstractmethod
@@ -12,46 +12,46 @@ from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 
 
 class StateIndex(ABC):
-    """状态索引抽象基类.
+    """State index abstract base class.
 
-    P2 优化：定义状态索引的接口
+    P2 optimization: define the state index interface.
     """
 
     @abstractmethod
     def get(self, key: str) -> StateNode | None:
-        """根据 key 获取状态节点."""
+        """Get the state node by key."""
         pass
 
     @abstractmethod
     def set(self, key: str, node: StateNode) -> None:
-        """设置状态节点."""
+        """Set the state node."""
         pass
 
     @abstractmethod
     def remove(self, key: str) -> StateNode | None:
-        """移除状态节点."""
+        """Remove the state node."""
         pass
 
     @abstractmethod
     def has(self, key: str) -> bool:
-        """检查是否存在."""
+        """Check whether it exists."""
         pass
 
     @abstractmethod
     def get_all(self) -> dict[str, StateNode]:
-        """获取所有节点."""
+        """Get all nodes."""
         pass
 
     @abstractmethod
     def find_by_prefix(self, prefix: str) -> list[StateNode]:
-        """根据前缀查找节点."""
+        """Find nodes by prefix."""
         pass
 
 
 class ThreadSafeDictIndex(StateIndex):
-    """线程安全字典索引.
+    """Thread-safe dict index.
 
-    基于 ThreadSafeDict 的索引实现
+    An index implementation based on ThreadSafeDict.
     """
 
     def __init__(self):
@@ -77,7 +77,7 @@ class ThreadSafeDictIndex(StateIndex):
         return dict(self._index)
 
     def find_by_prefix(self, prefix: str) -> list[StateNode]:
-        """根据前缀查找节点."""
+        """Find nodes by prefix."""
         result: list[StateNode] = []
         for key, node in self._index.items():
             if key.startswith(prefix):
@@ -86,9 +86,9 @@ class ThreadSafeDictIndex(StateIndex):
 
 
 class HierarchicalIndex(StateIndex):
-    """分层索引.
+    """Hierarchical index.
 
-    按层级组织索引，支持更快的树形查找
+    Organizes the index by hierarchy, supporting faster tree lookups.
     """
 
     def __init__(self):
@@ -96,15 +96,15 @@ class HierarchicalIndex(StateIndex):
         self._cache: dict[str, StateNode] = {}
 
     def _split_key(self, key: str) -> list[str]:
-        """分割 key."""
+        """Split the key."""
         return key.split(".")
 
     def get(self, key: str) -> StateNode | None:
-        # 先查缓存
+        # Check the cache first
         if key in self._cache:
             return self._cache[key]
 
-        # 遍历层级
+        # Walk the hierarchy
         parts = self._split_key(key)
         current = self._root
 
@@ -122,7 +122,7 @@ class HierarchicalIndex(StateIndex):
         parts = self._split_key(key)
         current = self._root
 
-        # 创建层级结构
+        # Build the hierarchy
         for part in parts[:-1]:
             if part not in current:
                 current[part] = {}
@@ -136,11 +136,11 @@ class HierarchicalIndex(StateIndex):
         if node is None:
             return None
 
-        # 从缓存中移除
+        # Remove from the cache
         if key in self._cache:
             del self._cache[key]
 
-        # 从层级结构中移除
+        # Remove from the hierarchy
         parts = self._split_key(key)
         current = self._root
 
@@ -158,13 +158,13 @@ class HierarchicalIndex(StateIndex):
         return self.get(key) is not None
 
     def get_all(self) -> dict[str, StateNode]:
-        """获取所有节点."""
+        """Get all nodes."""
         result: dict[str, StateNode] = {}
         self._collect_all(self._root, "", result)
         return result
 
     def _collect_all(self, node: Any, prefix: str, result: dict[str, StateNode]) -> None:
-        """递归收集所有节点."""
+        """Collect all nodes recursively."""
         if isinstance(node, StateNode):
             result[prefix.rstrip(".")] = node
             return
@@ -175,7 +175,7 @@ class HierarchicalIndex(StateIndex):
                 self._collect_all(child, new_prefix, result)
 
     def find_by_prefix(self, prefix: str) -> list[StateNode]:
-        """根据前缀查找."""
+        """Find by prefix."""
         parts = self._split_key(prefix)
         current = self._root
 
@@ -186,14 +186,14 @@ class HierarchicalIndex(StateIndex):
 
         result: dict[str, StateNode] = {}
         self._collect_all(current, prefix + ".", result)
-        # 返回节点列表
+        # Return the node list
         return list(result.values())
 
 
 class StateIndexFactory:
-    """状态索引工厂.
+    """State index factory.
 
-    P2 优化：工厂模式创建索引
+    P2 optimization: create indexes via the factory pattern.
     """
 
     _index_types: dict[str, type[StateIndex]] = {
@@ -203,16 +203,16 @@ class StateIndexFactory:
 
     @classmethod
     def create_index(cls, index_type: str = "dict") -> StateIndex:
-        """创建索引.
+        """Create an index.
 
         Args:
-            index_type: 索引类型
+            index_type: the index type
 
         Returns:
-            索引实例
+            An index instance
 
         Raises:
-            ValueError: 如果索引类型不存在
+            ValueError: when the index type does not exist
         """
         if index_type not in cls._index_types:
             raise ValueError(f"Unknown index type: {index_type}")
@@ -221,17 +221,17 @@ class StateIndexFactory:
 
     @classmethod
     def register_index_type(cls, name: str, index_class: type) -> None:
-        """注册新的索引类型.
+        """Register a new index type.
 
         Args:
-            name: 类型名称
-            index_class: 索引类
+            name: the type name
+            index_class: the index class
         """
         cls._index_types[name] = index_class
 
     @classmethod
     def get_available_types(cls) -> list[str]:
-        """获取可用的索引类型."""
+        """Get the available index types."""
         return list(cls._index_types.keys())
 
 

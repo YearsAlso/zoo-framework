@@ -1,23 +1,33 @@
-"""调度内核：与调度模型无关的簿记与正确性逻辑.
+"""Dispatch core: model-agnostic bookkeeping and correctness logic.
 
-五类逻辑 MUST 由本内核承担，新增调度模型 MUST NOT 重新实现它们：
+Five kinds of logic MUST be owned by this core; new scheduling models MUST NOT
+re-implement them:
 
-1. **单一结算收口**（``settle``）——注销在飞状态并在成功时上报结果。不同并发原语
-   共用同一条收口路径，因此结果在任一原语下都会被投递。
-2. **超时观测与熔断**（``reap_timeout``）——只记录、标记不健康、停止派发。
-   CPython 无法安全中断正在执行的线程，故 MUST NOT 声称已终止。
-3. **停机资源回收**（``shutdown`` 路径）——停止派发、清空在飞表；容器（如线程池）
-   的回收由模型经 ``teardown`` 提供。
-4. **运行期注册**（``add_worker``）——调度列表由本内核持有；仅在注册表登记不足以
-   让 Worker 被派发。
-5. **周期排期判断**（``is_due`` / ``jitter`` / ``skipped_count``）——周期与相位是
-   **每个 Worker** 的声明，与并发原语无关；若由各模型自行实现，绝对序列、跳过语义
-   与抖动采集会被实现多遍且必然分歧。
+1. **Single settlement path** (``settle``) - clears the in-flight record and
+   reports the result on success. All concurrency primitives share this one
+   path, so results are delivered under any of them.
+2. **Timeout observation and circuit-breaking** (``reap_timeout``) - record
+   only, mark unhealthy, stop dispatching. CPython cannot safely interrupt a
+   running thread, so the system MUST NOT claim it terminated one.
+3. **Shutdown resource reclamation** (the ``shutdown`` path) - stop
+   dispatching, clear the in-flight table; reclaiming the concurrency container
+   (e.g. a thread pool) is provided by the model via ``teardown``.
+4. **Runtime registration** (``add_worker``) - the scheduling list is owned by
+   this core; being listed in a registry alone is not enough for a Worker to be
+   dispatched.
+5. **Period scheduling** (``is_due`` / ``jitter`` / ``skipped_count``) - period
+   and phase are **per-Worker** declarations, independent of the concurrency
+   primitive; if each model implemented its own, the absolute sequence, skip
+   semantics and jitter sampling would be implemented multiple times and
+   inevitably diverge.
 
-另持有模型无关的**并发契约**：在飞表与熔断集合由**单一** ``threading.RLock``
-保护（两者会被派发线程与完成回调并发访问），以及运行期指标计数。
+Holds a second model-agnostic **concurrency contract**: the in-flight table and
+the broken set are guarded by a **single** ``threading.RLock`` (both are
+accessed concurrently by the dispatch thread and completion callbacks), plus
+runtime metric counters.
 
-时间基准：本模块的一切区间量 MUST 用 ``time.monotonic()``，MUST NOT 混入墙钟。
+Time base: every interval quantity in this module MUST use ``time.monotonic()``
+and MUST NOT mix in wall-clock time.
 """
 
 import threading
@@ -29,25 +39,29 @@ from zoo_framework.workers import BaseWorker
 
 from ..run_identity import RunIdentity, current_identity
 
-#: 抖动的"不适用"标注。未声明周期的 Worker 无周期触发，MUST NOT 以 0 代替——
-#: 0 会被误读为"观测到零抖动"。
-JITTER_NOT_APPLICABLE = "不适用"
+#: The "not applicable" marker for jitter. Workers without a declared period
+#: have no periodic triggers and MUST NOT have 0 substituted - 0 would be read
+#: as "observed zero jitter".
+JITTER_NOT_APPLICABLE = "N/A"
 
-#: 策略缓存的未命中哨兵（#47 P1）。MUST NOT 用 None 兼任——None 本身是合法的
-#: 解析结果（"未声明周期"），falsy 值（0 / False / ""）同样是有效配置值，
-#: 缓存判据 MUST 是身份比较而非真值判断。
+#: The miss sentinel of the policy cache (#47 P1). MUST NOT reuse None for
+#: this - None is itself a legal resolution result ("no period declared"),
+#: and falsy values (0 / False / "") are valid config values too; the cache
+#: check MUST be identity comparison, not truthiness.
 _POLICY_MISS = object()
 
 
 class WorkerDispatchCore:
-    """调度内核.
+    """Dispatch core.
 
     Attributes:
-        workers: 参与调度的 Worker 列表
-        worker_props: 在飞表，worker 名 -> {worker, run_time, run_timeout, deadline, container}
-        broken: 已熔断（超时）的 worker 名集合
-        stopped: 停机标记
-        default_run_timeout: 全局默认超时；``<= 0`` 表示不启用超时判定
+        workers: the list of Workers participating in scheduling
+        worker_props: the in-flight table, worker name ->
+            {worker, run_time, run_timeout, deadline, container}
+        broken: the set of circuit-broken (timed-out) worker names
+        stopped: the shutdown flag
+        default_run_timeout: the global default timeout; ``<= 0`` disables
+            timeout evaluation
     """
 
     def __init__(self, default_run_timeout=None):
@@ -80,16 +94,17 @@ class WorkerDispatchCore:
     # ---------------------------------------------------------------- 调度列表
 
     def set_workers(self, worker_list) -> None:
-        """设置参与调度的 Worker 列表."""
+        """Set the list of Workers participating in scheduling."""
         with self._lock:
             self.workers = list(worker_list)
             # 调度列表整体替换：旧列表的策略条目全部作废
             self._policy_cache.clear()
 
     def add_worker(self, worker) -> None:
-        """把运行期新增的 Worker 纳入调度.
+        """Admit a Worker newly registered at runtime into scheduling.
 
-        调度列表由本内核持有，仅在注册表登记不足以让 Worker 被派发。
+        The scheduling list is owned by this core; being listed in a registry
+        alone is not enough for the Worker to be dispatched.
         """
         if worker is None:
             return
@@ -101,14 +116,17 @@ class WorkerDispatchCore:
                 self.workers.append(worker)
 
     def retain_looping(self, workers) -> list:
-        """筛选出本轮结束后仍留在调度列表中的 Worker.
+        """Filter the Workers that stay in the scheduling list after this round.
 
-        条件是三项同时成立：非空、**未熔断**、声明循环。熔断的 Worker 必须被移出
-        列表，否则它会在下一轮被反复判定（且会让"熔断即停止派发"的语义失效）。
-        单次 Worker 不参与下一轮——这里的"恰好执行一次"是**调度簿记语义**（同一
-        任务不会被并发派发两份），不是投递尝试语义：投递层面是至少一次，
-        事件回调失败会被 EventReactor 重试重放（#74 留档：需恰好一次的消费者
-        自带幂等，框架不内置幂等键）。
+        All three conditions must hold: non-empty, **not circuit-broken**, and
+        declared looping. Broken Workers MUST be removed from the list, or they
+        would be re-evaluated every round (and "broken means stop dispatching"
+        would lose its meaning). One-shot Workers do not take part in the next
+        round - "exactly once" here is a **scheduling-bookkeeping** semantic
+        (the same task is never dispatched twice concurrently), not a delivery
+        attempt semantic: delivery is at-least-once and a failed event callback
+        is retried by EventReactor (consumers needing exactly-once bring their
+        own idempotency; the framework does not build in idempotency keys).
         """
         with self._lock:
             return [
@@ -130,11 +148,13 @@ class WorkerDispatchCore:
     # ---------------------------------------------------------------- 周期排期
 
     def _policy(self, worker, key: str, compute):
-        """按 (worker 名, 属性) 缓存一段解析（#47 P1）.
+        """Cache one resolution keyed by (worker name, property) (#47 P1).
 
-        命中判据是哨兵身份比较：缓存里的 None / 0 / False / "" 都是**有效结果**，
-        MUST NOT 被当作未命中重新解析或穿透到默认值。调用方可能已持有
-        ``self._lock``（RLock 可重入），这里统一持锁读写。
+        The hit test is sentinel identity: None / 0 / False / "" in the cache
+        are all **valid results** and MUST NOT be re-resolved as misses or
+        fallen through to defaults. The caller may already hold
+        ``self._lock`` (the RLock is reentrant); this method reads/writes under
+        the lock uniformly.
         """
         cache_key = (worker.name, key)
         with self._lock:
@@ -146,20 +166,22 @@ class WorkerDispatchCore:
             return value
 
     def _invalidate_policy(self, worker_name: str) -> None:
-        """作废某个 Worker 名的全部策略条目（调用方已持锁）."""
+        """Invalidate all policy entries for one worker name (the caller holds the lock)."""
         stale = [k for k in self._policy_cache if k[0] == worker_name]
         for k in stale:
             del self._policy_cache[k]
 
     def resolve_period(self, worker):
-        """解析 Worker 的周期：自报 → 按 Worker 名覆盖 → 全局默认.
+        """Resolve the Worker's period: self-report -> per-name override -> global default.
 
-        结果按 Worker 名缓存（#47 P1），三段语义逐项保持：
-        falsy 的自报/覆盖值（0 / False / ""）仍按现有规则落到下一段，
-        缓存 MUST NOT 改变这一点。
+        The result is cached per worker name (#47 P1) while the three-stage
+        semantics are preserved item by item: falsy self-reported/override
+        values (0 / False / "") still fall through to the next stage per the
+        existing rules, and the cache MUST NOT change that.
 
         Returns:
-            周期秒数；未声明时返回 None（调用方据此按事件驱动处理）
+            The period in seconds; None when undeclared (callers then treat the
+            Worker as event-driven)
         """
         return self._policy(worker, "period", self._compute_period)
 
@@ -182,13 +204,14 @@ class WorkerDispatchCore:
         return WorkerParams.WORKER_PERIOD or None
 
     def resolve_phase(self, worker):
-        """解析 Worker 的相位偏移：自报 → 按 Worker 名覆盖 → 全局默认.
+        """Resolve the Worker's phase offset: self-report -> per-name override -> global default.
 
-        结果按 Worker 名缓存（#47 P1）。相位是典型 falsy 场景：配置里显式
-        ``phase: 0`` 是有效值，缓存判据 MUST 是哨兵比较而不是真值判断。
+        The result is cached per worker name (#47 P1). Phase is the classic
+        falsy case: an explicit ``phase: 0`` in config is a valid value, so the
+        cache check MUST be sentinel comparison rather than truthiness.
 
         Returns:
-            相位秒数；未声明时返回 0.0
+            The phase offset in seconds; 0.0 when undeclared
         """
         return self._policy(worker, "phase", self._compute_phase)
 
@@ -211,24 +234,31 @@ class WorkerDispatchCore:
         return WorkerParams.WORKER_PHASE or 0.0
 
     def is_due(self, worker, now: float | None = None) -> bool:
-        """该 Worker 此刻是否到点.
+        """Whether the Worker is due at this moment.
 
-        周期排期以**单调时钟的绝对序列**计算触发时刻（基准 + 相位 + n×周期），
-        MUST NOT 以"上一轮执行结束时刻 + 周期"排期——后者会逐轮累积漂移。
+        Periodic scheduling computes trigger times from a **monotonic-clock
+        absolute sequence** (base + phase + n x period); it MUST NOT schedule as
+        "last execution finish time + period", which drifts cumulatively each
+        round.
 
-        单轮执行跨越了多个理论触发时刻时**跳过**那些已错过的轮次，只在下一个未来
-        时刻再次触发，MUST NOT 补跑（补跑会在持续过载下自我放大）。
+        When one round of execution spans several theoretical trigger times,
+        the missed rounds are **skipped** and the next trigger is the next
+        future time on the sequence; catch-up runs MUST NOT happen (catch-up
+        self-amplifies under sustained overload).
 
-        **排期基准**是该 Worker **首次到点判定**所用的时刻（框架没有进程级调度纪元），
-        因此首次触发落在「首次判定时刻 + 相位」，后续理论时刻为
-        「基准 + 相位 + n×周期」。
+        The **scheduling base** is the moment of the Worker's **first due
+        check** (the framework has no process-level scheduling epoch), so the
+        first trigger lands at "first-check time + phase" and later theoretical
+        times are "base + phase + n x period".
 
         Args:
-            worker: 目标 Worker
-            now: 当前单调时刻；None 表示取 ``time.monotonic()``（便于测试注入）
+            worker: the target Worker
+            now: the current monotonic time; None takes ``time.monotonic()``
+                (handy for test injection)
 
         Returns:
-            是否到点；未声明周期的 Worker 恒为 True（事件驱动语义）
+            Whether due; always True for Workers without a declared period
+            (event-driven semantics)
         """
         period = self.resolve_period(worker)
         if not period or period <= 0:
@@ -261,7 +291,7 @@ class WorkerDispatchCore:
             return True
 
     def _record_jitter(self, key: str, expected: float, actual: float) -> None:
-        """记录一次触发的抖动摘要（最近 / 上界 / 样本数）."""
+        """Record a trigger's jitter summary (last / upper bound / sample count)."""
         jitter = actual - expected
         summary = self._jitter.get(key)
         if summary is None:
@@ -273,14 +303,15 @@ class WorkerDispatchCore:
         summary["samples"] += 1
 
     def skipped_count(self, worker) -> int:
-        """该 Worker 累计被跳过的轮次数."""
+        """The Worker's cumulative count of skipped rounds."""
         with self._lock:
             return self._skipped.get(worker.name, 0)
 
     def jitter(self, worker) -> dict:
-        """该 Worker 的触发抖动摘要.
+        """The Worker's trigger jitter summary.
 
-        未声明周期的 Worker 返回显式的"不适用"标注，MUST NOT 返回 0。
+        Workers without a declared period return the explicit "not applicable"
+        marker and MUST NOT return 0.
         """
         with self._lock:
             summary = self._jitter.get(worker.name)
@@ -289,25 +320,29 @@ class WorkerDispatchCore:
             return {
                 "applicable": False,
                 "jitter": JITTER_NOT_APPLICABLE,
-                "reason": "该 Worker 未声明周期，无周期触发，抖动不适用",
+                "reason": "no period declared; no periodic triggers, jitter not applicable",
             }
         return {"applicable": True, **summary}
 
     # ---------------------------------------------------------------- 派发登记
 
     def begin(self, worker, timeout, deadline: float | None = None) -> dict | None:
-        """登记一个即将派发的 Worker.
+        """Register a Worker that is about to be dispatched.
 
-        **登记 MUST 先于派发**：若先提交任务再登记，瞬时完成的任务会在登记之前
-        触发注销，在在飞表中留下一条永不清除的记录，使该 Worker 此后再不被派发。
+        **Registration MUST precede dispatch**: if the task were submitted
+        before the registration, an instantly finishing task would deregister
+        itself before the registration lands, leaving an in-flight record that
+        is never cleared, and the Worker would never be dispatched again.
 
         Args:
-            worker: 目标 Worker
-            timeout: 相对超时秒数
-            deadline: 绝对截止期（单调时钟基准）；给出时优先于 ``timeout``
+            worker: the target Worker
+            timeout: the relative timeout in seconds
+            deadline: an absolute deadline (monotonic-clock base); when given
+                it takes precedence over ``timeout``
 
         Returns:
-            该 Worker 的登记项；若已在飞表中则返回 None（调用方 MUST NOT 派发）
+            The registration entry; None if already in flight (the caller MUST
+            NOT dispatch)
         """
         handle = {
             "worker": worker,
@@ -326,31 +361,34 @@ class WorkerDispatchCore:
         return handle
 
     def attach_container(self, worker, container) -> None:
-        """把承载该 Worker 的容器（线程或 Future）挂到登记项上."""
+        """Attach the container (thread or Future) carrying this Worker to its registration."""
         with self._lock:
             handle = self.worker_props.get(worker.name)
             if handle is not None:
                 handle["container"] = container
 
     def abort(self, worker) -> None:
-        """回滚登记：派发失败时清掉登记项，以便下一轮重试."""
+        """Roll back the registration: clear the entry on dispatch failure so the next round can retry."""
         with self._lock:
             self.worker_props.pop(worker.name, None)
 
     # ---------------------------------------------------------------- 结算收口
 
     def settle(self, worker, result=None, error=None) -> None:
-        """唯一的完成收口：注销在飞状态，并在成功时上报结果.
+        """The single completion settlement: deregister in-flight state and report the result on success.
 
-        无论执行成功与否都必须注销；上报过程自身抛出的异常 MUST NOT 影响注销。
+        Deregistration MUST happen regardless of success; an exception raised by
+        the reporting step itself MUST NOT affect deregistration.
 
-        结果上的运行标识由本方法从**登记项**盖章（而非读取当前上下文）——结算可能
-        发生在工作线程，其上下文未必与派发时相同；登记项里的标识才是真相来源。
+        The run identity stamped on the result comes from the **registration
+        entry** (not the current context) - settlement may happen on a worker
+        thread whose context differs from dispatch time; the identity in the
+        registration entry is the source of truth.
 
         Args:
-            worker: 完成执行的 Worker
-            result: 执行结果；执行失败时为 None
-            error: 执行时抛出的异常；成功时为 None
+            worker: the Worker that finished executing
+            result: the execution result; None on failure
+            error: the exception raised during execution; None on success
         """
         with self._lock:
             handle = self.worker_props.pop(worker.name, None)
@@ -366,7 +404,9 @@ class WorkerDispatchCore:
             result.session_id = identity.session_id
 
         if error is not None:
-            LogUtils.error(f"Worker {worker.name} 执行失败: {error}", self.__class__.__name__)
+            LogUtils.error(
+                f"Worker {worker.name} execution failed: {error}", self.__class__.__name__
+            )
             return
 
         if result is None:
@@ -375,17 +415,20 @@ class WorkerDispatchCore:
         try:
             EventReactorManager().dispatch(result.topic, result)
         except Exception as e:
-            LogUtils.error(f"Worker {worker.name} 结果上报失败: {e}", self.__class__.__name__)
+            LogUtils.error(
+                f"Worker {worker.name} result reporting failed: {e}", self.__class__.__name__
+            )
 
     def run_and_settle(self, worker) -> None:
-        """在工作线程里执行一次并结算.
+        """Execute once on a worker thread and settle.
 
-        这是模型与并发原语无关的执行单元：派发侧 MUST 用
-        ``carry_context(core.run_and_settle)`` 包装后再提交，否则工作线程不会继承
-        调用方的上下文，运行标识会在派发时静默丢失。
+        This is the model- and primitive-independent execution unit: the
+        dispatching side MUST wrap it with ``carry_context(core.run_and_settle)``
+        before submitting, or the worker thread will not inherit the caller's
+        context and the run identity will be silently lost at dispatch time.
 
         Args:
-            worker: 待执行的 Worker
+            worker: the Worker to execute
         """
         try:
             result = self.run_worker(worker)
@@ -397,13 +440,15 @@ class WorkerDispatchCore:
     # ---------------------------------------------------------------- 超时熔断
 
     def resolve_run_timeout(self, worker):
-        """解析 Worker 的超时：自报 → 按 Worker 名覆盖 → 全局默认.
+        """Resolve the Worker's run timeout: self-report -> per-name override -> global default.
 
-        结果按 Worker 名缓存（#47 P1）；全局默认取自 ``default_run_timeout``，
-        它在构造后不再变更（变更需同步作废缓存，当前无这样的运行期入口）。
+        The result is cached per worker name (#47 P1); the global default comes
+        from ``default_run_timeout``, which does not change after construction
+        (changing it would require invalidating the cache in step; there is
+        currently no such runtime entry point).
 
         Returns:
-            超时秒数；未声明时返回 None
+            The timeout in seconds; None when undeclared
         """
         return self._policy(worker, "run_timeout", self._compute_run_timeout)
 
@@ -425,15 +470,18 @@ class WorkerDispatchCore:
         return self.default_run_timeout or None
 
     def reap_timeout(self, worker) -> bool:
-        """超时判定与熔断.
+        """Timeout evaluation and circuit-breaking.
 
-        只做观测与熔断：记录、标记为不健康、不再派发。MUST NOT 声称已终止仍在
-        执行的 Worker —— CPython 无法安全中断一个正在执行的线程。
+        Observation and circuit-breaking only: record, mark unhealthy, stop
+        dispatching. The system MUST NOT claim it terminated a still-running
+        Worker - CPython cannot safely interrupt a running thread.
 
-        两种期限来源二选一：登记时给出的**绝对截止期**优先；否则用相对超时。
+        One of the two deadline sources applies: the **absolute deadline** given
+        at registration takes precedence; otherwise the relative timeout is
+        used.
 
         Returns:
-            本次是否判定为超时
+            Whether this evaluation found the Worker timed out
         """
         with self._lock:
             handle = self.worker_props.get(worker.name)
@@ -446,7 +494,7 @@ class WorkerDispatchCore:
                 if now < deadline:
                     return False
                 elapsed = now - handle.get("run_time", now)
-                reason = f"已超过派发截止期（截止 {deadline:.3f}，当前 {now:.3f}）"
+                reason = f"dispatch deadline exceeded (deadline {deadline:.3f}, now {now:.3f})"
             else:
                 timeout = handle.get("run_timeout")
                 if not timeout or timeout <= 0:
@@ -454,15 +502,15 @@ class WorkerDispatchCore:
                 elapsed = now - handle.get("run_time", 0)
                 if elapsed < timeout:
                     return False
-                reason = f"执行已超过 {timeout}s（实际 {elapsed:.3f}s）"
+                reason = f"execution exceeded {timeout}s (actual {elapsed:.3f}s)"
 
             self.broken.add(worker.name)
             self.worker_props.pop(worker.name, None)
             self._timeouts += 1
 
         LogUtils.error(
-            f"Worker {worker.name} {reason}，标记为不健康并停止派发；"
-            "注意：系统不会强制终止仍在执行的 Worker",
+            f"Worker {worker.name} {reason}, marked unhealthy and dispatch stopped;"
+            "the system does not force-terminate still-running workers",
             self.__class__.__name__,
         )
         return True
@@ -471,10 +519,10 @@ class WorkerDispatchCore:
 
     @staticmethod
     def run_worker(worker):
-        """执行一个 Worker.
+        """Execute one Worker.
 
         Returns:
-            WorkerResult；worker 非法时返回 None
+            WorkerResult; None when the worker is not a valid BaseWorker
         """
         if not isinstance(worker, BaseWorker):
             return None
@@ -484,10 +532,11 @@ class WorkerDispatchCore:
     # ---------------------------------------------------------------- 停机
 
     def mark_stopped(self) -> bool:
-        """置停机标记.
+        """Set the stopped flag.
 
         Returns:
-            本次调用是否为首次停机（重复调用返回 False）
+            Whether this call is the first shutdown (repeated calls return
+            False)
         """
         with self._lock:
             already_stopped = self.stopped
@@ -495,9 +544,10 @@ class WorkerDispatchCore:
         return not already_stopped
 
     def clear(self) -> None:
-        """清空调度列表、在飞表与周期排期状态.
+        """Clear the scheduling list, the in-flight table and the period-scheduling state.
 
-        周期排期一并复位：停机后再启动应当重新建立基准，而不是沿用旧序列。
+        Period scheduling is reset as well: after a shutdown a fresh start
+        should establish a new base rather than reuse the old sequence.
         """
         with self._lock:
             self.workers = []
@@ -512,10 +562,11 @@ class WorkerDispatchCore:
     # ---------------------------------------------------------------- 指标
 
     def metrics(self) -> dict:
-        """运行期指标：在飞执行数、累计完成数、超期熔断数.
+        """Runtime metrics: in-flight count, cumulative completions, timeout circuit-breaks.
 
-        MUST 可在运行期查询，MUST NOT 只在停机时可得。抖动是**按 Worker** 的观测，
-        经 ``jitter(worker)`` 查询，故不在此聚合返回。
+        MUST be queryable at runtime, MUST NOT be available only at shutdown.
+        Jitter is **per-Worker** observation, queried via ``jitter(worker)``, so
+        it is not aggregated here.
         """
         with self._lock:
             return {

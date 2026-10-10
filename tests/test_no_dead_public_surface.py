@@ -70,7 +70,7 @@ class TestLegacyWorkerDecoratorDeprecation:
             def __init__(self):
                 BaseWorker.__init__(self, {"name": "DeprecationProbe"})
 
-        with pytest.warns(DeprecationWarning, match="不接通调度"):
+        with pytest.warns(DeprecationWarning, match="does not hook into dispatch"):
             decorated = worker_module.worker(count=1)(_Probe)
 
         # 弃用周期内行为不变：类原样返回（类型契约未破坏）

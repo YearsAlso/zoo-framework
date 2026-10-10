@@ -1,20 +1,28 @@
-"""运行标识：区分「一次运行」与「一个会话」，并使其贯穿事件、状态与日志.
+"""Run identity: telling "one run" from "one session", and threading both through events, state, and logs.
 
-两级标识：
+Two levels of identity:
 
-- **运行标识** ``run_id``——标识一次逻辑运行，每次运行唯一、运行期间不变
-- **会话标识** ``session_id``——标识会话或上下文归属，同一会话可包含多次运行
+- the **run identity** ``run_id`` - identifies one logical run, unique per
+  run and constant during the run
+- the **session identity** ``session_id`` - identifies the session or
+  context a run belongs to; one session may contain several runs
 
-传播契约（与 design 的 D3 一致，也是本模块存在的理由）：
+Propagation contract (matches design D3 and is the reason this module
+exists):
 
-- **显式字段是真相来源**：``WorkerResult``、``EventNode`` 等载体各自持有显式字段，
-  不依赖隐式上下文即可读取与按标识筛选
-- 上下文变量只是**便利读法**，且 MUST NOT 假定它会跨线程自动生效——
-  ``ThreadPoolExecutor`` 提交的任务与新建线程**都不会继承**调用方的 ``ContextVar``。
-  因此跨线程派发 MUST 经 :func:`carry_context`，由它显式复制上下文后执行。
+- **Explicit fields are the source of truth**: carriers such as
+  ``WorkerResult`` and ``EventNode`` each hold explicit fields, readable and
+  filterable by identity without relying on implicit context
+- Context variables are only a **convenience read**, and MUST NOT be assumed
+  to work across threads automatically - tasks submitted by
+  ``ThreadPoolExecutor`` and newly created threads both **fail to inherit**
+  the caller's ``ContextVar``. Cross-thread dispatch MUST therefore go
+  through :func:`carry_context`, which copies the context explicitly before
+  executing.
 
-若只依赖上下文变量而不复制，标识会在派发到工作线程时**静默丢失**：拿到的是
-``None`` 或（更糟）别处绑定的值，而两者都不会报错。
+Relying on context variables without copying would **silently lose** the
+identity when dispatching to a worker thread: what arrives is ``None`` or
+(worse) a value bound elsewhere, and neither raises.
 """
 
 import contextvars
@@ -25,7 +33,7 @@ from typing import Any
 
 
 class RunIdentity:
-    """一次运行的标识：运行标识 + 会话标识."""
+    """The identity of one run: run identity + session identity."""
 
     __slots__ = ("run_id", "session_id")
 
@@ -48,19 +56,20 @@ class RunIdentity:
 
     @classmethod
     def start(cls, session_id: str | None = None) -> "RunIdentity":
-        """生成一次新的运行标识.
+        """Generate a fresh run identity.
 
         Args:
-            session_id: 所属会话；None 表示同时开启一个新会话
+            session_id: the owning session; None also opens a new session
 
         Returns:
-            新的运行标识。同一会话的多次运行共享 ``session_id``，而 ``run_id`` 各不相同
+            The new run identity. Several runs of the same session share
+            ``session_id`` while their ``run_id`` differ
         """
         return cls(run_id=uuid.uuid4().hex, session_id=session_id or uuid.uuid4().hex)
 
     @contextmanager
     def bind(self):
-        """把本标识绑定为当前上下文，退出时恢复原状."""
+        """Bind this identity as the current context, restoring on exit."""
         token = _CURRENT_IDENTITY.set(self)
         try:
             yield self
@@ -74,30 +83,33 @@ _CURRENT_IDENTITY: contextvars.ContextVar[RunIdentity | None] = contextvars.Cont
 
 
 def current_identity() -> RunIdentity | None:
-    """读取当前上下文绑定的运行标识；未绑定返回 None."""
+    """Read the run identity bound to the current context; None when unbound."""
     return _CURRENT_IDENTITY.get()
 
 
 def current_run_id() -> str | None:
-    """当前运行标识的 ``run_id``；未绑定返回 None."""
+    """The ``run_id`` of the current run identity; None when unbound."""
     identity = current_identity()
     return identity.run_id if identity else None
 
 
 def current_session_id() -> str | None:
-    """当前运行标识的 ``session_id``；未绑定返回 None."""
+    """The ``session_id`` of the current run identity; None when unbound."""
     identity = current_identity()
     return identity.session_id if identity else None
 
 
 def carry_context(func: Callable[..., Any]) -> Callable[..., Any]:
-    """把 ``func`` 包成「连同调用方上下文一起执行」的可调用对象.
+    """Wrap ``func`` into a callable that executes together with the caller's context.
 
-    新建线程与线程池任务都不会继承调用方的 ``ContextVar``，因此工作线程里的执行体
-    与完成收口都 MUST 经由此包装执行，否则运行标识会在派发时静默丢失。
+    Neither newly created threads nor thread-pool tasks inherit the caller's
+    ``ContextVar``, so both the executing body and the completion settlement
+    in a worker thread MUST run through this wrapper, or the run identity is
+    silently lost at dispatch.
 
     Returns:
-        包装后的可调用对象；每次调用都在**创建包装时**捕获的那份上下文副本里执行
+        The wrapped callable; every call executes in the context copy
+        captured **when the wrapper was created**
     """
     ctx = contextvars.copy_context()
 

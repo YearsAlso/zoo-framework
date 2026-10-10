@@ -1,55 +1,64 @@
-"""FIFO 基类：每个实例持有独立的队列存储.
+"""FIFO base class: each instance holds its own queue storage.
 
-历史说明：`_fifo` 曾是**类属性**、且所有方法都是类方法，导致全部实例共享同一个
-列表——两个不同的 `EventFIFO` 实例会互相看到对方入队的事件，事件通道隔离因此
-形同虚设。此处改为实例级存储。
+Historical note: `_fifo` used to be a **class attribute** with all methods
+being classmethods, so every instance shared one list - two different
+`EventFIFO` instances saw each other's enqueued events, making channel
+isolation effectively void. Now instance-level storage.
 
-泛型参数 `_T` 是**纯注解**：裸写 `BaseFIFO` 仍等价于 `BaseFIFO[Any]`，既有用法不受影响；
-而各子类绑定自己的元素类型（`EventFIFO[EventNode]` / `DelayFIFO[DelayFIFONode]` /
-`SingleFIFO[Any]`）——否则基类里队首读取与 `popleft()` 只能推成 `Any`，凡从声明了
-具体返回类型的函数里返回它就报 `no-any-return`（原先把 `_fifo` 收窄成 `list[EventNode]`
-是错的：`DelayFIFO` 存的是 `DelayFIFONode`，并非 `EventNode` 的子类）。
+The generic parameter `_T` is a **pure annotation**: a bare `BaseFIFO` still
+equals `BaseFIFO[Any]`, existing usage unaffected; while the subclasses bind
+their own element types (`EventFIFO[EventNode]` / `DelayFIFO[DelayFIFONode]`
+/ `SingleFIFO[Any]`) - otherwise the head read and `popleft()` in the base
+class could only be inferred as `Any`, and returning it from a function that
+declares a concrete return type trips `no-any-return` (narrowing `_fifo` to
+`list[EventNode]` used to be wrong: `DelayFIFO` stores `DelayFIFONode`,
+which is not a subclass of `EventNode`).
 
-存储选型（align-execution-primitives）：历史上用 `list` + `pop(0)`，出队为 O(n)，
-队列 10k 时实测比 `collections.deque` 慢 12.4x；改用 `deque` 后 API 与语义不变，
-包括**空队 `pop_value()` 返回 None**（事件消费路径在 `size()` 与取出之间的并发空档
-依赖这个返 None 语义兜底，MUST NOT 改成抛 `IndexError`）。
+Storage choice (align-execution-primitives): historically `list` +
+`pop(0)`, an O(n) dequeue, measured 12.4x slower than
+`collections.deque` at 10k queued items; after switching to `deque` the API
+and the semantics are unchanged, including **an empty queue's
+`pop_value()` returning None** (the event consume path relies on this
+returns-None semantics to bridge the concurrent gap between `size()` and
+the pop, MUST NOT be changed to raise `IndexError`).
 """
 
 from collections import deque
 from typing import Generic, TypeVar
 
-# ruff 的 UP046 要求改用 PEP 695 的 `class BaseFIFO[_T]:`，而 mypy 1.7.1 不支持 PEP 695
-# （详见 utils/thread_safe_dict.py 的同类说明）。两工具要求相反，故保留 Generic 写法 + 定向 noqa。
+# ruff's UP046 demands the PEP 695 form `class BaseFIFO[_T]:`, but mypy 1.7.1
+# does not support PEP 695 (see the same note in utils/thread_safe_dict.py).
+# The two tools demand opposite things, hence keep the Generic form + a
+# targeted noqa.
 _T = TypeVar("_T")
 
 
 class BaseFIFO(Generic[_T]):  # noqa: UP046
-    """FIFO 基类."""
+    """FIFO base class."""
 
     def __init__(self):
         self._fifo: deque[_T] = deque()
 
     def push_value(self, value: _T) -> None:
-        """入队."""
+        """Enqueue."""
         self._fifo.append(value)
 
     def pop_value(self) -> _T | None:
-        """出队；队列为空时返回 None."""
+        """Dequeue; returns None when the queue is empty."""
         if len(self._fifo) <= 0:
             return None
 
         return self._fifo.popleft()
 
     def push_values(self, values: list[_T]) -> None:
-        """批量入队."""
+        """Enqueue in batch."""
         self._fifo.extend(values)
 
     def size(self) -> int:
-        """当前队列长度."""
+        """The current queue length."""
         return len(self._fifo)
 
     def push_values_if_null(self, value: _T) -> None:
-        """仅当队列中不存在该值时才入队."""
+        """Enqueue only when the value is not already in the queue."""
         if value not in self._fifo:
             self._fifo.append(value)

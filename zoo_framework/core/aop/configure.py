@@ -3,61 +3,76 @@ from typing import Any
 from zoo_framework.utils import LogUtils
 from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 
-# 创建一个线程安全的字典，用于存储配置函数
+# A thread-safe dict for storing config functions.
 #
-# 【已知欠债】模块级注册表、进程级共享；须由测试单独复位（见
-# tests/test_scaffold_cli_contract.py 的清理辅助）。属容器外、未收编的载体；依据与判据见
-# specs/scoped-container 的「框架自身的进程级共享 MUST 被显式归类」。
+# [Known debt] a module-level registry, process-level shared; to be reset
+# separately by tests (see the cleanup helper in
+# tests/test_scaffold_cli_contract.py). A carrier outside the container, not
+# yet absorbed; rationale and criteria in specs/scoped-container's
+# "process-level sharing created by the framework itself MUST be explicitly
+# classified".
 config_funcs: ThreadSafeDict[str, Any] = ThreadSafeDict()
 
-# 注册封状态（变更 aop-determinism / issue #51）：@configure 的注册发生在**导入时**，
-# Master 构造时遍历并**无参调用**一次。封之后的注册不属于"当前这个 Master 的消费
-# 窗口"——历史上的形态是静默失效（若后续再无 Master，它默默蒸发）。现改为：
-# 照常登记 + 大声告警"只有下一个 Master() 会消费它"。
-# 为什么不硬报错：同一进程内重复运行入口（测试、reloader、notebook）会重新导入
-# 配置模块再注册，随后紧接新的 Master()——这是脚手架契约测试锁定的合法形态
-# （test_scaffold_cli_contract 的 assertions_survive_prior_runs），封死会破它。
-# 注意另一半——模块"从未被导入"导致注册表缺项——在运行时不可观测（不导入就没有
-# 任何代码可执行），框架不承诺发现它；唯一缓解是**入口显式 import**全部含
-# @configure 的模块（脚手架模板已如此产出，契约由"每条生成导入都真实可执行"
-# 守护）。该不对称已写进 specs/aop 的条款。
+# Registration sealing state (aop-determinism / issue #51): @configure
+# registration happens **at import time**, and Master construction iterates
+# and **calls each without arguments** once. A registration after the seal
+# falls outside "the consumption window of this Master" - historically it
+# silently failed (and if no further Master ran, it quietly evaporated).
+# Now it is registered as usual, but with a loud warning that "only the next
+# Master() will consume it".
+# Why not a hard error: re-running an entry point in the same process
+# (tests, reloaders, notebooks) re-imports the config modules and registers
+# again, immediately followed by a new Master() - a legitimate shape locked
+# in by the scaffold contract test (test_scaffold_cli_contract's
+# assertions_survive_prior_runs), which a hard error would break.
+# The other half - a module "never imported" leaving the registry missing an
+# entry - is unobservable at runtime (not imported means no code executes at
+# all); the framework does not promise to detect it. The only mitigation is
+# for **the entry point to explicitly import** every module containing
+# @configure (the scaffold templates already emit it that way, and the
+# contract is guarded by "every generated import actually executes"). That
+# asymmetry is written into the clauses of specs/aop.
 _sealed = False
 
 
 def seal_config_funcs() -> None:
-    """封住注册表：Master 消费完 config_funcs 后调用（#51）."""
+    """Seal the registry: called after a Master has consumed config_funcs (#51)."""
     global _sealed
     _sealed = True
 
 
 def unseal_config_funcs_for_tests() -> None:
-    """解封（测试接缝）：每个用例前由 conftest 复位，避免跨用例泄漏."""
+    """Unseal (a test seam): reset by conftest before each case to avoid cross-case leakage."""
     global _sealed
     _sealed = False
 
 
 def configure(topic: str):
-    """装饰器工厂函数，用于将函数注册到指定的主题下。
+    """A decorator factory registering a function under the given topic.
 
-    注册时机 MUST 在 Master 构造之前（导入时副作用即为此设计）；封后的注册
-    照常登记但 MUST 大声告警——"只有下一个 Master() 会消费它"，若无后续构造
-    则它默默失效，这正是历史上静默的形态（#51）。
+    The registration time MUST be before Master construction (the import-time
+    side effect is by design); a post-seal registration is still recorded
+    but MUST warn loudly - "only the next Master() will consume it"; if no
+    further construction happens it silently takes no effect, which is
+    exactly the historical silent shape (#51).
 
-    参数:
-        topic (str): 主题名称，用于标识配置函数的分类或用途。
+    Args:
+        topic (str): the topic name, identifying the config function's
+            category or purpose.
 
-    返回:
-        function: 返回一个装饰器函数，该装饰器将传入的函数注册到 config_funcs 字典中。
+    Returns:
+        function: a decorator function that registers the passed function
+            into the config_funcs dict.
     """
 
     def inner(func):
         if _sealed:
             LogUtils.warning(
-                f"@configure('{topic}') 的注册发生在已构造的 Master 之后："
-                "当前实例不会消费它，只有下一个 Master() 构造时才会被执行；"
-                "若进程内不再构造 Master，这条注册将不会产生任何效果。"
+                f"@configure('{topic}') was registered after a Master was already constructed:"
+                "the current instance will not consume it; it only takes effect when the next Master() is constructed;"
+                "if no further Master is constructed in this process, this registration has no effect."
             )
-        # 将传入的函数以主题为键存储到线程安全字典中
+        # Store the passed function into the thread-safe dict keyed by topic
         config_funcs[topic] = func
         return func
 

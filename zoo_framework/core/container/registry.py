@@ -1,15 +1,21 @@
-"""框架自身的进程级共享注册表.
+"""The framework's own process-level sharing registry.
 
-框架内部需要进程级共享的对象（各管理器）经此注册为**进程级作用域**，而不再依赖
-``@cage`` 那种"用装饰器替换类"的隐式全局单例。
+Objects the framework needs to share at process level (the various managers)
+register here as a **process scope**, instead of relying on the implicit
+global singleton style of ``@cage``, which replaced the class with a
+decorator.
 
-``@cage`` 的两条罪状是：**替换类**（于是 ``issubclass`` / ``isinstance`` 双双失效）与
-**按裸类名做键**（于是两个同名类互相覆盖）。``process_scoped`` 两条都不犯：类仍是真类，
-键是模块 + 限定名，且"进程级"是**声明**出来的——可 ``reset()``、可 ``replace()``、
-可从容器查到。
+``@cage``'s two sins were: **replacing the class** (so ``issubclass`` /
+``isinstance`` both broke) and **keying on the bare class name** (so two
+same-named classes overwrote each other). ``process_scoped`` commits neither:
+the class remains a real class, the key is module + qualified name, and
+"process-level" is a **declared** fact - able to be ``reset()``-ed,
+``replace()``-d, and looked up from the container.
 
-与"外部用户自己注册"的差别只是便利：这里封装掉作用域句柄与构造细节，让调用方写一行
-装饰器即可，且 ``X()`` 仍返回进程级实例（调用点零改动）。
+The difference from "external users registering themselves" is merely
+convenience: this wraps the scope handle and construction details so the
+caller writes a one-line decorator, and ``X()`` still returns the
+process-level instance (call sites unchanged).
 """
 
 from collections.abc import Callable
@@ -18,12 +24,13 @@ from typing import Any
 from .container import ScopedContainer
 from .scope import Scope, ScopeKind
 
-# 框架自身的进程级容器。外部用户可以各建各的容器；这个只服务框架内部。
+# The framework's own process-level container. External users may build their
+# own containers; this one serves the framework internals only.
 _process_container = ScopedContainer()
 
 
 def framework_container() -> ScopedContainer:
-    """框架自身的进程级容器（供诊断与测试隔离使用）."""
+    """The framework's own process-level container (for diagnostics and test isolation)."""
     return _process_container
 
 
@@ -34,16 +41,17 @@ def register_process_instance(
     factory: Callable[[], Any] | None = None,
     on_release: Callable[[Any], None] | None = None,
 ) -> str:
-    """把 ``cls`` 登记为进程级共享项.
+    """Register ``cls`` as a process-level shared item.
 
     Args:
-        cls: 待登记的类
-        thread_safety: 线程安全归属声明，取值见 ``ThreadSafety``；**必填**
-        factory: 自定义构造方式；缺省为调用 ``cls()`` 本身
-        on_release: 可选的销毁钩子
+        cls: the class to register
+        thread_safety: the thread-safety ownership declaration, see
+            ``ThreadSafety``; **required**
+        factory: a custom construction method; by default calls ``cls()``
+        on_release: an optional release hook
 
     Returns:
-        注册项标识（模块 + 限定名）
+        The registration key (module + qualified name)
     """
     return _process_container.register(
         cls,
@@ -55,42 +63,52 @@ def register_process_instance(
 
 
 def process_instance(cls: type) -> Any:
-    """取 ``cls`` 在进程级作用域内的实例."""
+    """Get the ``cls`` instance in the process scope."""
     return _process_container.resolve(cls, Scope.process())
 
 
 def process_scoped(
     *, thread_safety: str, on_release: Callable[[Any], None] | None = None
 ) -> Callable[[type], type]:
-    """类装饰器：类本身不变，但 ``cls()`` 返回进程级作用域内的唯一实例.
+    """Class decorator: the class itself is unchanged, but ``cls()`` returns the sole instance in the process scope.
 
-    **不替换类**——这是与 ``@cage`` 的分界，因此 ``issubclass(cls, X)`` 与
-    ``isinstance(obj, cls)`` 都照常可用。
+    **Does not replace the class** - this is the dividing line from ``@cage``,
+    so ``issubclass(cls, X)`` and ``isinstance(obj, cls)`` both keep working.
 
-    三处实现细节，都是被 CPython 的行为逼出来的：
+    Three implementation details, all forced by CPython's behavior:
 
-    1. ``__new__`` 返回的既然是 ``cls`` 的实例，``type.__call__`` **仍会对它再调一次
-       ``__init__``**。所以 ``__init__`` 被包成幂等的：只有首次才真正执行。否则
-       ``StateMachineManager`` 这类有实例状态的类第二次调用就会把状态重置掉。
-    2. 容器的构造方式**必须绕过** ``__new__``（用 ``original_new`` 建对象），否则
-       "工厂 → ``cls()`` → ``__new__`` → 解析"会递归回容器自身。
-    3. 子类**不**继承进程级身份：``subcls is not cls`` 时走正常构造。否则给基类加一次
-       装饰器就会把它的所有子类一起变成同一个共享实例。
+    1. Since ``__new__`` returns an instance of ``cls``, ``type.__call__``
+       **still calls ``__init__`` once on it**. So ``__init__`` is wrapped to
+       be idempotent: only the first call actually executes. Otherwise a
+       class with instance state like ``StateMachineManager`` would have its
+       state reset by the second call.
+    2. The container's construction **must bypass** ``__new__`` (build the
+       object with ``original_new``), otherwise "factory -> ``cls()`` ->
+       ``__new__`` -> resolve" would recurse back into the container itself.
+    3. Subclasses do **not** inherit the process-level identity: when
+       ``subcls is not cls``, normal construction applies. Otherwise
+       decorating a base class once would turn all of its subclasses into the
+       same shared instance.
 
     Args:
-        thread_safety: 线程安全归属声明，取值见 ``ThreadSafety``；**必填**
-        on_release: 可选的销毁钩子
+        thread_safety: the thread-safety ownership declaration, see
+            ``ThreadSafety``; **required**
+        on_release: an optional release hook
 
     Returns:
-        一个不改变类身份的类装饰器
+        A class decorator that preserves the class identity
     """
 
     def decorate(cls: type) -> type:
-        # 下面这组操作就是"动态改写类"本身（本模块的立身之本）：先捕获原始的
-        # `__new__` / `__init__`，再换成转发版本。静态检查无法为它建模——读 `cls.__init__`
-        # 会被判"不健全"，`original_new(cls)` 也落在 typeshed 的重载之外。故用**定向
-        # ignore**（各带错误码）并写明原因，而不是退化成 cast 把它盖住：ignore 至少把
-        # "这里绕过了检查"摆在明面上。
+        # The group of operations below is "dynamically rewriting the class"
+        # itself (the very point of this module): first capture the original
+        # `__new__` / `__init__`, then swap in forwarding versions. Static
+        # checking cannot model it - reading `cls.__init__` is judged
+        # unsound, and `original_new(cls)` falls outside typeshed's
+        # overloads. So use **targeted ignores** (each with its error code)
+        # and state the reason, instead of degrading to a cast that papers
+        # over them: an ignore at least puts "checking is bypassed here" in
+        # the open.
         original_new = cls.__new__
         original_init = cls.__init__  # type: ignore[misc]
 
@@ -111,11 +129,15 @@ def process_scoped(
             return obj
 
         cls.__init__ = _guarded_init  # type: ignore[misc]
-        # 这一行同时受两个工具约束，而它们要求相反：mypy 判直赋值类型不符（typeshed 把
-        # `__new__` 标成重载函数），改成 setattr(cls, "__new__", ...) 又会被 ruff 的 B010
-        # （不要用 setattr 传常量属性名）拦下。两者无法同时满足，故保留直赋值并加**定向**
-        # ignore——这是"可解释的例外"，不是掩盖可修问题：它压制的是两个工具的对立，不是
-        # 一处本可修好的不匹配。
+        # This line is constrained by two tools that demand opposite things:
+        # mypy flags a direct assignment as a type mismatch (typeshed marks
+        # `__new__` as an overloaded function), while changing to
+        # setattr(cls, "__new__", ...) gets blocked by ruff's B010 (do not use
+        # setattr with constant attribute names). The two cannot both be
+        # satisfied, so keep the direct assignment with a **targeted** ignore -
+        # this is an "explainable exception", not papering over a fixable
+        # problem: it suppresses the opposition between the two tools, not a
+        # mismatch that could be fixed.
         cls.__new__ = staticmethod(_delegating_new)  # type: ignore[assignment]
         register_process_instance(
             cls, thread_safety=thread_safety, factory=_build, on_release=on_release

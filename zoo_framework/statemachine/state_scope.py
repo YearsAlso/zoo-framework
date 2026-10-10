@@ -9,46 +9,51 @@ from zoo_framework.utils import LogUtils
 
 
 class StateScope:
-    """状态域 - P2 优化版本.
+    """State scope - P2 optimized version.
 
-    P2 优化：
-    1. 使用工厂模式创建索引
-    2. 支持多种索引实现
-    3. 支持动态切换索引类型
+    P2 optimizations:
+    1. creates the index via a factory
+    2. supports multiple index implementations
+    3. supports switching the index type dynamically
 
     Attributes:
-        _state_index: 状态节点索引
+        _state_index: the state-node index
     """
 
     def __init__(self, index_type: str = "dict"):
-        """初始化状态域.
+        """Initialize the state scope.
 
-        P2 优化：使用工厂模式创建索引
+        P2 optimization: creates the index via a factory.
 
         Args:
-            index_type: 索引类型（"dict" 或 "hierarchical"）
+            index_type: the index type ("dict" or "hierarchical")
         """
-        # P2 优化：使用工厂模式创建索引
+        # P2 optimization: create the index via the factory
         self._state_index: StateIndex = StateIndexFactory.create_index(index_type)
-        # 归属标识：**首个**写入者即所有者，之后不再改写（见 set_state_node）。
-        # 记整个 RunIdentity 而非只记会话，使"运行标识"也能在状态这一侧被查询。
+        # Owner identity: the **first** writer becomes the owner and it is never
+        # rewritten afterwards (see set_state_node). The full RunIdentity is
+        # recorded, not just the session, so the "run identity" is queryable on
+        # the state side too.
         self.owner_identity: RunIdentity | None = None
 
     @property
     def owner_session_id(self) -> str | None:
-        """归属会话标识；无归属时为 None."""
+        """The owner session id; None when unowned."""
         return self.owner_identity.session_id if self.owner_identity is not None else None
 
     def observe_state_node(self, key: str, effect: Any) -> None:
-        """观察状态节点.
+        """Observe a state node.
 
-        键尚不存在时先创建占位节点再登记观察者：静默丢弃注册会让"先声明观察者、
-        等数据到达"这一主要用法失效。此处与 `unobserve_state_node` 的不对称是
-        刻意的——注销一个从未存在的观察者通常意味着调用方出错，应当暴露。
+        When the key does not exist yet, a placeholder node is created before
+        the observer is registered: silently dropping the registration would
+        break the primary usage of "declare the observer first, wait for the
+        data". The asymmetry with `unobserve_state_node` is deliberate -
+        unregistering an observer that never existed usually means the caller
+        is wrong and it should surface.
 
         Args:
-            key: 状态键名
-            effect: 观察者回调
+            key: the state key name
+            effect: the observer callback
         """
         node = self.get_state_node(key)
         if node is None:
@@ -59,14 +64,14 @@ class StateScope:
         node.add_effect(effect)
 
     def unobserve_state_node(self, key: str, effect: Any) -> None:
-        """移除状态节点观察者 - 修复内存泄漏.
+        """Remove a state node observer - fixes a memory leak.
 
         Args:
-            key: 状态键名
-            effect: 观察者回调函数
+            key: the state key name
+            effect: the observer callback function
 
         Raises:
-            KeyError: 如果状态节点不存在
+            KeyError: when the state node does not exist
         """
         node = self.get_state_node(key)
         if node is None:
@@ -74,24 +79,24 @@ class StateScope:
         node.remove_effect(effect)
 
     def register_top_node(self, key: str, value: Any, effect: list | None = None) -> None:
-        """注册根节点.
+        """Register a root node.
 
         Args:
-            key: 节点键名
-            value: 节点值
-            effect: 副作用列表
+            key: the node key name
+            value: the node value
+            effect: the side-effect list
         """
         node = StateNode(key, value, effect)
         self._state_index.set(node.get_key(), node)
         node.to_be_top()
 
     def register_node(self, key: str, value: Any, effect: list | None = None) -> None:
-        """注册状态节点.
+        """Register a state node.
 
         Args:
-            key: 节点键名
-            value: 节点值
-            effect: 副作用列表
+            key: the node key name
+            value: the node value
+            effect: the side-effect list
         """
         if len(key.split(".")) == 1:
             self.register_top_node(key, value, effect)
@@ -101,29 +106,32 @@ class StateScope:
         self._state_index.set(node.get_key(), node)
 
     def set_state_node(self, key: str, value: Any, effect: list | None = None) -> None:
-        """设置状态节点的值.
+        """Set the value of a state node.
 
         Args:
-            key: 节点键名
-            value: 节点值
-            effect: 副作用列表
+            key: the node key name
+            value: the node value
+            effect: the side-effect list
         """
-        # 归属标识在**首次写入**时确定：作用域的生命周期长于一次运行，若每次都改写
-        # 归属，"这是谁的会话状态"就失去意义。之后不再改写。
+        # The owner identity settles at the **first write**: a scope outlives a
+        # single run; rewriting the ownership every time would make "whose
+        # session state is this" meaningless. Never rewritten afterwards.
         if self.owner_identity is None:
             identity = current_identity()
             if identity is not None:
                 self.owner_identity = identity
 
-        # 1.节点拆分
+        # 1. split the key
         key_queue = key.split(".")
 
         if len(key_queue) > 1:
             self._check_and_build_tree(key_queue)
         else:
-            # 顶层键：与嵌套键分支保持同一语义——存在则更新，不存在则注册。
-            # 曾经这里在节点已存在时直接 return、跳过了 set_value，导致顶层键的
-            # 重复写入被静默丢弃（且不会触发观察者）。
+            # Top-level key: the same semantics as the nested-key branch - update
+            # when present, register when absent. This used to return directly
+            # when the node already existed, skipping set_value, silently
+            # dropping repeated writes of a top-level key (and never firing
+            # observers).
             node = self.get_state_node(key)
             if node is None:
                 self.register_node(key, value, effect)
@@ -142,25 +150,25 @@ class StateScope:
             node.set_value(value)
 
     def update_state_node(self, key: str, node: StateNode) -> None:
-        """更新状态节点.
+        """Update a state node.
 
         Args:
-            key: 节点键名
-            node: 状态节点
+            key: the node key name
+            node: the state node
         """
         self._state_index.set(key, node)
 
     def _check_children(self, key: str) -> None:
-        """检查子节点."""
+        """Check the children."""
         pass
 
     def _check_and_build_tree(self, key_queue: list[str]) -> None:
-        """检查并构建树型结构.
+        """Check and build the tree structure.
 
         Args:
-            key_queue: 键队列
+            key_queue: the key queue
         """
-        # 2. 依次创建节点
+        # 2. create the nodes in order
         current_key = key_queue[0]
         for i in range(len(key_queue)):
             if i != 0:
@@ -168,40 +176,45 @@ class StateScope:
             if self.get_state_node(current_key) is None:
                 self.register_node(current_key, None)
 
-        #  3. 设置树型结构
+        #  3. set up the tree structure
         current_key = key_queue[0]
         for i in range(1, len(key_queue)):
-            # 【已知缺陷】下面两处窄注解**不成立**：实测该路径确实可能取到 None（我一度改成
-            # 断言，测试立刻转红，证明"上面的循环已注册过节点"这条前提**不总成立**），而原代码
-            # 会把 None 传给 `add_child` —— 即**往树上挂一个 None 子节点**；本循环的
-            # `current_key` 也从不推进，两者同属这处待定的语义问题。**故不猜修**（改语义属他人
-            # 决定，见 openspec/changes/establish-type-gate/tasks.md 3.1 的记录），只用带锚点的
-            # ignore 收口：缺陷保持可见，而不是被静默改掉或删掉。
+            # [Known defect] The two narrowed annotations below do **not** hold:
+            # this path really can produce None (an assert was tried once and the
+            # test immediately went red, proving the premise "the loop above has
+            # already registered the node" is **not always true**), while the
+            # original code passes None to `add_child` - i.e. **hangs a None
+            # child node on the tree**; the `current_key` of this loop also never
+            # advances. Both belong to this same unresolved semantics question.
+            # We deliberately do not guess a fix (changing semantics is someone
+            # else's call; recorded in
+            # openspec/changes/establish-type-gate/tasks.md 3.1); an anchored
+            # ignore keeps the defect visible, not silently altered or deleted.
             node: StateNode = self.get_state_node(current_key)  # type: ignore[assignment]
             children_node: StateNode = self.get_state_node(f"{current_key}.{key_queue[i]}")  # type: ignore[assignment]
 
-            # 一种key不能重复添加
+            # One key must not be added twice
             node.add_child(children_node)
 
     def get_state_node(self, key: str) -> StateNode | None:
-        """获取状态节点.
+        """Get a state node.
 
         Args:
-            key: 节点键名
+            key: the node key name
 
         Returns:
-            状态节点或 None
+            The state node, or None
         """
         return self._state_index.get(key)
 
     def get_state_value(self, key: str) -> Any:
-        """获取状态节点的值.
+        """Get a state node's value.
 
         Args:
-            key: 节点键名
+            key: the node key name
 
         Returns:
-            节点值
+            The node value
         """
         node = self.get_state_node(key)
         if node is None:
@@ -209,13 +222,13 @@ class StateScope:
         return node.get_value()
 
     def get_state_children_value(self, key: str) -> Any:
-        """获取状态节点的子节点的值.
+        """Get a state node's children values.
 
         Args:
-            key: 节点键名
+            key: the node key name
 
         Returns:
-            子节点值字典
+            A dict of child values
         """
         node = self.get_state_node(key)
         if node is None:
@@ -223,50 +236,54 @@ class StateScope:
         return node.get_children_value()
 
     def move_state_node(self, key: str, target_key: str) -> None:
-        """移动状态节点.
+        """Move a state node.
 
         Args:
-            key: 原键名
-            target_key: 目标键名
+            key: the original key name
+            target_key: the target key name
         """
         node = self.get_state_node(key)
         if node is None:
-            # 参数原先写反了：LogUtils.error 的签名是 (message, cls_name=None)，而这里把
-            # **类**当 message、把消息当 cls_name 传——日志里打出的是类对象而不是这条消息。
+            # The arguments used to be swapped: LogUtils.error's signature is
+            # (message, cls_name=None), and this passed the **class** as the
+            # message and the message as cls_name - the log printed the class
+            # object instead of this message.
             LogUtils.error(f"State is not exist, key: {key}", self.__class__.__name__)
             return
 
         node.set_key(target_key)
         self.set_state_node(target_key, node)
-        # 删除子节点
+        # Delete the children
         self.remove_state_node(key)
 
     def remove_state_node(self, key: str) -> None:
-        """删除状态节点.
+        """Remove a state node.
 
         Args:
-            key: 节点键名
+            key: the node key name
         """
         node = self.get_state_node(key)
         if node is None:
-            # 参数原先写反了：LogUtils.error 的签名是 (message, cls_name=None)，而这里把
-            # **类**当 message、把消息当 cls_name 传——日志里打出的是类对象而不是这条消息。
+            # The arguments used to be swapped: LogUtils.error's signature is
+            # (message, cls_name=None), and this passed the **class** as the
+            # message and the message as cls_name - the log printed the class
+            # object instead of this message.
             LogUtils.error(f"State is not exist, key: {key}", self.__class__.__name__)
             return
 
         if node.get_type() == StateNodeType.branch:
-            # 如果是分支节点，删除所有子节点
+            # A branch node: delete all its children
             for child in node.get_children():
                 self.remove_state_node(child.get_key())
 
         self.set_state_node(key, None)
 
     def copy_state_node(self, key: str, target_key: Any) -> None:
-        """复制状态节点的值.
+        """Copy a state node's value.
 
         Args:
-            key: 原键名
-            target_key: 目标键名
+            key: the original key name
+            target_key: the target key name
         """
         node = self.get_state_node(key)
         if node is None:
@@ -276,33 +293,33 @@ class StateScope:
         self.set_state_node(target_key, new_node)
 
     def get_all_nodes(self) -> dict:
-        """获取所有状态节点.
+        """Get all state nodes.
 
-        P2 优化：支持获取所有节点
+        P2 optimization: supports fetching all nodes.
 
         Returns:
-            节点字典
+            A dict of nodes
         """
         return self._state_index.get_all()
 
     def find_nodes_by_prefix(self, prefix: str) -> list:
-        """根据前缀查找节点.
+        """Find nodes by key prefix.
 
-        P2 优化：支持前缀查找
+        P2 optimization: supports prefix lookup.
 
         Args:
-            prefix: 键前缀
+            prefix: the key prefix
 
         Returns:
-            节点列表
+            A list of nodes
         """
         return self._state_index.find_by_prefix(prefix)
 
 
-# 导出公共 API
+# Public API exports
 __all__ = ["StateScope"]
 
 
 def get_state_scope(index_type: str = "dict") -> StateScope:
-    """获取全局状态域."""
+    """Get the global state scope."""
     return StateScope(index_type)

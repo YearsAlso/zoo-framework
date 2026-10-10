@@ -95,7 +95,7 @@ class TestTextReadEncoding:
         with caplog.at_level(logging.WARNING):
             assert FileUtils.read_text(path) == NON_ASCII
 
-        assert "不是 UTF-8" not in caplog.text
+        assert "not UTF-8" not in caplog.text
 
     def test_non_utf8_file_falls_back_without_corruption(self, tmp_path, caplog, monkeypatch):
         """Scenario: 回退后内容仍与源文件一致.
@@ -122,7 +122,7 @@ class TestTextReadEncoding:
             FileUtils.read_text(str(path))
 
         assert "legacy_warn.txt" in caplog.text, "回退告警未指明涉及的文件"
-        assert "不是 UTF-8" in caplog.text
+        assert "not UTF-8" in caplog.text
 
     def test_same_config_parses_to_same_value(self, tmp_path):
         """Scenario: 同一份配置在不同平台上解析为相同值.
@@ -152,7 +152,9 @@ class TestTextReadEncoding:
 
         self._pretend_platform_encoding(monkeypatch, "gbk")
         path = tmp_path / "legacy_config.json"
-        path.write_bytes(json.dumps({"log": {"level": NON_ASCII}}, ensure_ascii=False).encode("gbk"))
+        path.write_bytes(
+            json.dumps({"log": {"level": NON_ASCII}}, ensure_ascii=False).encode("gbk")
+        )
 
         ParamsFactory(str(path))
         assert ParamsFactory.get_params("log:level") == NON_ASCII

@@ -5,22 +5,23 @@ from typing import Any
 
 
 class ChannelType(Enum):
-    """通道类型
+    """Channel type.
 
-    P1 任务：事件通道隔离
+    P1 task: event channel isolation.
     """
 
-    DEFAULT = "default"  # 默认通道
-    SYSTEM = "system"  # 系统通道
-    BUSINESS = "business"  # 业务通道
-    LOG = "log"  # 日志通道
-    ERROR = "error"  # 错误通道
+    DEFAULT = "default"  # default channel
+    SYSTEM = "system"  # system channel
+    BUSINESS = "business"  # business channel
+    LOG = "log"  # log channel
+    ERROR = "error"  # error channel
 
 
 class EventReactorReq:
-    """事件响应器请求
+    """Event reactor request.
 
-    P1 任务实现：事件监听指定通道，防止不同通道的事件被误处理
+    P1 task implementation: events listen on a designated channel, so events
+    of different channels are not handled by mistake.
     """
 
     topic: str
@@ -40,14 +41,14 @@ class EventReactorReq:
         channel: str = ChannelType.DEFAULT.value,
         priority: int = 0,
     ):
-        """初始化事件请求
+        """Initialize the event request.
 
         Args:
-            topic: 事件主题
-            content: 事件内容
-            reactor_name: 响应器名称
-            channel: 通道名称（P1 任务：支持通道隔离）
-            priority: 优先级
+            topic: the event topic
+            content: the event content
+            reactor_name: the reactor name
+            channel: the channel name (P1 task: supports channel isolation)
+            priority: the priority
         """
         self.topic = topic
         self.content = content
@@ -62,13 +63,13 @@ class EventReactorReq:
         self.priority = priority
 
     def _get_channel_type(self, channel: str) -> ChannelType:
-        """根据通道名称获取通道类型
+        """Get the channel type by the channel name.
 
         Args:
-            channel: 通道名称
+            channel: the channel name
 
         Returns:
-            通道类型
+            The channel type
         """
         try:
             return ChannelType(channel)
@@ -76,15 +77,15 @@ class EventReactorReq:
             return ChannelType.DEFAULT
 
     def match_channel(self, allowed_channels: list[str]) -> bool:
-        """检查事件是否匹配允许的通道
+        """Check whether the event matches the allowed channels.
 
-        P1 任务：通道隔离验证
+        P1 task: channel isolation validation.
 
         Args:
-            allowed_channels: 允许的通道列表
+            allowed_channels: the list of allowed channels
 
         Returns:
-            是否匹配
+            Whether it matches
         """
         return self.channel in allowed_channels
 
@@ -98,21 +99,21 @@ class EventReactorReq:
 
 
 class ChannelManager:
-    """通道管理器
+    """Channel manager.
 
-    P1 任务：管理事件通道，实现通道隔离
+    P1 task: manage event channels and implement channel isolation.
     """
 
     def __init__(self):
-        self._channels: dict[str, set[str]] = {}  # 通道 -> 主题集合
-        self._reactor_channels: dict[str, list[str]] = {}  # 响应器 -> 通道列表
+        self._channels: dict[str, set[str]] = {}  # channel -> topic set
+        self._reactor_channels: dict[str, list[str]] = {}  # reactor -> channel list
 
     def register_channel(self, channel: str, topics: list[str] | None = None) -> None:
-        """注册通道
+        """Register a channel.
 
         Args:
-            channel: 通道名称
-            topics: 该通道支持的主题列表
+            channel: the channel name
+            topics: the list of topics this channel supports
         """
         if channel not in self._channels:
             self._channels[channel] = set()
@@ -121,14 +122,16 @@ class ChannelManager:
             self._channels[channel].update(topics)
 
     def register_reactor_channels(self, reactor_name: str, channels: list[str]) -> None:
-        """注册响应器监听的通道
+        """Register the channels a reactor listens to.
 
-        累加而非覆盖：同一个响应器可能被注册到多个通道（例如先经 `@event` 声明
-        业务通道，再显式补充系统通道），覆盖会让先注册的通道静默失效。
+        Accumulates instead of overwriting: the same reactor may be registered
+        to several channels (e.g. first declared on a business channel via
+        `@event`, then explicitly extended with the system channel);
+        overwriting would silently invalidate the earlier registration.
 
         Args:
-            reactor_name: 响应器名称
-            channels: 监听的通道列表
+            reactor_name: the reactor name
+            channels: the list of listened channels
         """
         allowed = self._reactor_channels.setdefault(reactor_name, [])
         for channel in channels:
@@ -136,58 +139,59 @@ class ChannelManager:
                 allowed.append(channel)
 
     def is_channel_valid(self, channel: str) -> bool:
-        """检查通道是否有效
+        """Check whether the channel is valid.
 
         Args:
-            channel: 通道名称
+            channel: the channel name
 
         Returns:
-            是否有效
+            Whether it is valid
         """
         return channel in self._channels
 
     def can_handle_channel(self, reactor_name: str, channel: str) -> bool:
-        """检查响应器是否监听指定通道
+        """Check whether the reactor listens on the channel.
 
-        这是通道判定的轻量入口：不构造事件请求对象，因而不会产生 UUID。
-        分发热路径 MUST 使用本方法，而非构造完整请求后再判断。
+        This is the lightweight entry for the channel decision: it builds no
+        event request object, hence produces no UUID. The dispatch hot path
+        MUST use this method instead of building a full request to decide.
 
         Args:
-            reactor_name: 响应器名称
-            channel: 通道名称
+            reactor_name: the reactor name
+            channel: the channel name
 
         Returns:
-            是否监听该通道
+            Whether it listens on the channel
         """
         allowed_channels = self._reactor_channels.get(reactor_name, [ChannelType.DEFAULT.value])
         return channel in allowed_channels
 
     def can_handle_event(self, reactor_name: str, event: EventReactorReq) -> bool:
-        """检查响应器是否可以处理事件
+        """Check whether the reactor can handle the event.
 
-        P1 任务：通道隔离验证
+        P1 task: channel isolation validation.
 
         Args:
-            reactor_name: 响应器名称
-            event: 事件请求
+            reactor_name: the reactor name
+            event: the event request
 
         Returns:
-            是否可以处理
+            Whether it can handle the event
         """
-        # 获取响应器监听的通道
+        # Get the channels the reactor listens on
         allowed_channels = self._reactor_channels.get(reactor_name, [ChannelType.DEFAULT.value])
 
-        # 检查事件通道是否在允许列表中
+        # Check that the event channel is in the allowed list
         return event.match_channel(allowed_channels)
 
     def get_channel_topics(self, channel: str) -> set[str]:
-        """获取通道支持的主题
+        """Get the topics a channel supports.
 
         Args:
-            channel: 通道名称
+            channel: the channel name
 
         Returns:
-            主题集合
+            The topic set
         """
         return self._channels.get(channel, set())
 
@@ -202,5 +206,5 @@ _channel_manager = ChannelManager()
 
 
 def get_channel_manager() -> ChannelManager:
-    """获取全局通道管理器"""
+    """Get the global channel manager."""
     return _channel_manager

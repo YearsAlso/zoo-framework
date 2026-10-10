@@ -9,27 +9,31 @@ from .base_worker import BaseWorker
 
 
 class StateMachineWorker(BaseWorker):
-    """状态机 Worker - 管理状态机持久化.
+    """State machine Worker - manages state machine persistence.
 
-    特性：
-    - 自动加载和保存状态机
-    - 线程安全的状态机访问
-    - 支持文件校验和备份
+    Features:
+    - automatically loads and saves the state machine
+    - thread-safe state machine access
+    - file checksums and backups
     """
 
-    # 类级锁，保护文件访问
+    # Class-level lock, protecting file access
     _file_lock = threading.RLock()
 
-    # 实例锁，保护状态机操作
+    # Instance-level lock, protecting state machine operations
     _instance_lock = threading.Lock()
 
     def __init__(self):
-        # 节拍参数化（变更 configurable-run-delay / #73）：与 EventWorker 同族，
-        # 惰性导入需先于 props 组装；本类由 WorkerRegistry 在运行期构造，顺序成立。
+        # Tempo parameterization (change configurable-run-delay / #73): the
+        # same family as EventWorker; the lazy import must precede the props
+        # assembly, and this class is constructed by WorkerRegistry at
+        # runtime, so the order holds.
         from zoo_framework.params import StateMachineParams
 
-        # is_loop 由 BaseWorker 以属性形式暴露、以 _props 为唯一真源；
-        # 此处 MUST NOT 再用实例属性遮蔽它（属性无 setter，赋值会直接抛 AttributeError）。
+        # is_loop is exposed by BaseWorker as a property with _props as the
+        # sole source of truth; here it MUST NOT be shadowed by an instance
+        # attribute (the property has no setter, assignment raises
+        # AttributeError directly).
         BaseWorker.__init__(
             self,
             {
@@ -38,36 +42,36 @@ class StateMachineWorker(BaseWorker):
                 "name": "StateMachineWorker",
             },
         )
-        # 标记是否已加载
+        # Whether already loaded
         self._loaded = False
 
     def _destroy(self, result):
-        """销毁时保存状态."""
+        """Save the state on destroy."""
         self._save_state_machines()
 
     def _execute(self):
-        """执行状态机持久化任务."""
-        # 使用线程锁保护状态机操作
+        """Run the state machine persistence task."""
+        # Use the thread lock to protect state machine operations
         with self._instance_lock:
             state_machine_manager = StateMachineManager()
 
-            # 检查状态机是否已加载
+            # Check whether the state machine is loaded
             if not self._loaded:
                 self._load_state_machines(state_machine_manager)
                 self._loaded = True
             else:
-                # 定期保存状态
+                # Save the state periodically
                 self._save_state_machines(state_machine_manager)
 
     def _load_state_machines(self, state_machine_manager):
-        """加载状态机（线程安全）.
+        """Load the state machine (thread-safe).
 
         Args:
-            state_machine_manager: 状态机管理器实例
+            state_machine_manager: the state machine manager instance
         """
         from zoo_framework.params import StateMachineParams
 
-        # 使用文件锁保护文件读取
+        # Use the file lock to protect file reading
         with self._file_lock:
             if state_machine_manager.have_loaded():
                 return
@@ -75,14 +79,14 @@ class StateMachineWorker(BaseWorker):
             if FileUtils.file_exists(StateMachineParams.PICKLE_PATH):
                 try:
                     with open(StateMachineParams.PICKLE_PATH, "rb") as f:
-                        # 校验文件完整性
+                        # Validate the file integrity
                         file_content = f.read()
                         if not file_content:
                             LogUtils.warning("State machine file is empty, creating new")
                             state_machine_manager.load_state_machines()
                             return
 
-                        # 重新定位到文件开头
+                        # Seek back to the file start
                         f.seek(0)
                         unpickler = pickle.Unpickler(f)  # nosec B301 — 见文件头 import pickle 处的说明
                         state_machines = unpickler.load()
@@ -92,7 +96,7 @@ class StateMachineWorker(BaseWorker):
 
                 except (pickle.UnpicklingError, EOFError) as e:
                     LogUtils.error(f"❌ Failed to load state machines, file may be corrupted: {e}")
-                    # 尝试从备份恢复
+                    # Try restoring from a backup
                     self._load_from_backup(state_machine_manager)
                 except Exception as e:
                     LogUtils.error(f"❌ Unexpected error loading state machines: {e}")
@@ -102,33 +106,34 @@ class StateMachineWorker(BaseWorker):
                 state_machine_manager.load_state_machines()
 
     def _save_state_machines(self, state_machine_manager=None):
-        """保存状态机（线程安全）.
+        """Save the state machine (thread-safe).
 
         Args:
-            state_machine_manager: 状态机管理器实例，为 None 时自动获取
+            state_machine_manager: the state machine manager instance;
+                auto-acquired when None
         """
         from zoo_framework.params import StateMachineParams
 
         if state_machine_manager is None:
             state_machine_manager = StateMachineManager()
 
-        # 使用文件锁保护文件写入
+        # Use the file lock to protect file writing
         with self._file_lock:
             try:
-                # 先创建备份
+                # Create a backup first
                 self._create_backup(StateMachineParams.PICKLE_PATH)
 
-                # 写入临时文件
+                # Write the temp file
                 temp_path = StateMachineParams.PICKLE_PATH + ".tmp"
                 state_machines = state_machine_manager.get_state_machines()
 
-                # 深拷贝避免并发修改
+                # Deep-copy to avoid concurrent modification
                 copy_value = copy.deepcopy(state_machines)
 
                 with open(temp_path, "wb") as f:
                     pickle.dump(copy_value, f, protocol=pickle.HIGHEST_PROTOCOL)
 
-                # 原子性替换文件
+                # Replace the file atomically
                 import os
 
                 if os.path.exists(StateMachineParams.PICKLE_PATH):
@@ -140,14 +145,14 @@ class StateMachineWorker(BaseWorker):
 
             except Exception as e:
                 LogUtils.error(f"❌ Failed to save state machines: {e}")
-                # 尝试恢复备份
+                # Try restoring the backup
                 self._restore_backup(StateMachineParams.PICKLE_PATH)
 
     def _create_backup(self, file_path: str):
-        """创建文件备份.
+        """Create a file backup.
 
         Args:
-            file_path: 原文件路径
+            file_path: the original file path
         """
         import os
         import shutil
@@ -159,8 +164,10 @@ class StateMachineWorker(BaseWorker):
         backup_dir = os.path.join(os.path.dirname(file_path), "backups")
         os.makedirs(backup_dir, exist_ok=True)
 
-        # 时间戳精确到微秒：秒级精度下同一秒内的多次备份会相互覆盖。
-        # 固定宽度的微秒后缀同时保证"字典序等于时间序"——取最新备份依赖该性质。
+        # Timestamps to microsecond precision: with second-level precision,
+        # several backups within one second would overwrite each other. The
+        # fixed-width microsecond suffix also makes lexicographic order
+        # equal time order - taking the latest backup relies on that.
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         backup_path = os.path.join(backup_dir, f"state_machine_{timestamp}.pkl")
 
@@ -168,16 +175,16 @@ class StateMachineWorker(BaseWorker):
             shutil.copy2(file_path, backup_path)
             LogUtils.debug(f"📦 Backup created: {backup_path}")
 
-            # 清理旧备份（保留最近 5 个）
+            # Clean up old backups (keep the last 5)
             self._cleanup_old_backups(backup_dir, keep=5)
         except Exception as e:
             LogUtils.warning(f"⚠️ Failed to create backup: {e}")
 
     def _load_from_backup(self, state_machine_manager):
-        """从备份恢复状态机.
+        """Restore the state machine from a backup.
 
         Args:
-            state_machine_manager: 状态机管理器实例
+            state_machine_manager: the state machine manager instance
         """
         import glob
         import os
@@ -191,14 +198,14 @@ class StateMachineWorker(BaseWorker):
             state_machine_manager.load_state_machines()
             return
 
-        # 查找最新的备份
+        # Find the latest backup
         backup_files = glob.glob(os.path.join(backup_dir, "state_machine_*.pkl"))
         if not backup_files:
             LogUtils.warning("⚠️ No backup files found, creating new state machines")
             state_machine_manager.load_state_machines()
             return
 
-        # 按时间排序
+        # Sort by time
         backup_files.sort(reverse=True)
         latest_backup = backup_files[0]
 
@@ -212,10 +219,10 @@ class StateMachineWorker(BaseWorker):
             state_machine_manager.load_state_machines()
 
     def _restore_backup(self, file_path: str):
-        """恢复备份文件.
+        """Restore a backup file.
 
         Args:
-            file_path: 原文件路径
+            file_path: the original file path
         """
         import glob
         import os
@@ -239,11 +246,11 @@ class StateMachineWorker(BaseWorker):
             LogUtils.error(f"❌ Failed to restore backup: {e}")
 
     def _cleanup_old_backups(self, backup_dir: str, keep: int = 5):
-        """清理旧备份文件.
+        """Clean up old backup files.
 
         Args:
-            backup_dir: 备份目录
-            keep: 保留的备份数量
+            backup_dir: the backup directory
+            keep: how many backups to keep
         """
         import glob
         import os
@@ -253,7 +260,7 @@ class StateMachineWorker(BaseWorker):
         if len(backup_files) <= keep:
             return
 
-        # 按时间排序，删除旧的
+        # Sort by time and delete the old ones
         backup_files.sort(reverse=True)
         for old_file in backup_files[keep:]:
             try:

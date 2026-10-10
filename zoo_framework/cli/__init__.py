@@ -1,10 +1,13 @@
-"""zfc 命令行工具：生成项目脚手架与新增 Worker.
+"""zfc command line tool: scaffold a project and add Workers.
 
-本子包只在**开发期**使用：框架运行时不导入它，因此它依赖的 `click` 不该出现在
-"框架运行需要什么"的清单里——`[project.scripts]` 的三个入口都指向这里。
+This subpackage is used at **development time** only: the framework runtime does
+not import it, which is why its ``click`` dependency is absent from the "what
+the framework needs" list - the three ``[project.scripts]`` entry points all
+target this package.
 
-命令行的解析与脚手架的文件产出分居两个模块：本模块负责选项与错误呈现，
-`zoo_framework.cli.scaffold` 负责实际产出。
+Option parsing and file generation live in two modules: this module handles the
+options and error presentation; ``zoo_framework.cli.scaffold`` does the actual
+generation.
 """
 
 import click
@@ -34,13 +37,16 @@ __all__ = [
 @click.option("--create", help="Input target object name and create it")
 @click.option("--worker", help="Input new worker name and create it")
 def zfc(create, worker):
-    """生成脚手架项目，或在项目中新增 Worker.
+    """Scaffold a project, or add a Worker to an existing project.
 
-    每个选项都会产生可观察的产出；不接受任何无效果的选项——被静默忽略的选项会让
-    调用方以为自己的意图已被实现。
+    Every option produces an observable output; no-impact invocations are not
+    accepted - a silently ignored option would make the caller believe their
+    intent was implemented.
 
-    校验先于一切产出：同时传入 `--create` 与 `--worker` 时，Worker 名非法就不会
-    先建出半个项目——"非法输入不产出任何文件"必须是字面成立的，而不是仅对单独调用成立。
+    Validation happens before any output: when both ``--create`` and
+    ``--worker`` are given, an invalid Worker name fails the whole command
+    instead of leaving half a project behind - "invalid input produces no
+    files" must hold literally, not only for single-option calls.
     """
     if worker is not None:
         _validate_worker_name(worker.lower())

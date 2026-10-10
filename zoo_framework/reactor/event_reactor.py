@@ -9,23 +9,27 @@ class EventReactor:
     def __init__(self, reactor_name):
         self.error_callback = None
 
-        # 设置事件处理方法,不应该叫callback,应该叫event_handler
+        # The event handler method set here - naming history: not 'callback',
+        # should be 'event_handler'
         self.handle_callback = None
-        # 设置响应器名称
+        # Set the reactor name
         self.reactor_name = reactor_name
 
         self.event_timout = 1
-        # 设置内核优先级（存 EventPriorities 成员本身，而非其 .value）
+        # Set the kernel priority (store the EventPriorities member itself,
+        # not its .value)
         self.sys_priority: EventPriorities = EventPriorities.NORMAL
-        # 设置用户优先级
+        # Set the user priority
         self.user_priority: EventPriorities = EventPriorities.NORMAL
-        # 事件处理策略, 默认为失败后重试一次, 失败重试，直到成功；失败后，不再重试；失败后，重试一定次数；
+        # The event handling strategy; default is retry once after failure.
+        # Retry until success; give up after failure; retry a fixed number
+        # of times after failure
         self.retry_strategy: EventRetryStrategy = EventRetryStrategy.RetryOnce
-        # 事件处理成功后的回调
+        # The callback after the event is handled successfully
         self.success_callback = None
-        # 事件处理失败后的回调
+        # The callback after the event handling fails
         self.retry_times = 0
-        # 完成后的回调
+        # The callback after completion
         self.done_callback = None
 
     def set_done_callback(self, callback: Callable):
@@ -35,7 +39,7 @@ class EventReactor:
         self.success_callback = callback
 
     def set_retry_strategy(self, retry_strategy: EventRetryStrategy, retry_times=0):
-        """设置重试策略."""
+        """Set the retry strategy."""
         self.retry_times = retry_times
         self.retry_strategy = retry_strategy
 
@@ -47,21 +51,25 @@ class EventReactor:
 
     @staticmethod
     def _priority_value(priority) -> int:
-        """把优先级规整为整数.
+        """Normalize a priority into an integer.
 
-        同时接受 `EventPriorities` 成员与其整数值：历史实现里 `sys_priority`
-        被赋成了 int，此处对这种用法保持兼容，避免同类崩溃复现。
+        Accepts both an `EventPriorities` member and its integer value: the
+        historical implementation assigned an int to `sys_priority`, so this
+        stays compatible with that usage to keep the same crash from
+        recurring.
         """
         if isinstance(priority, EventPriorities):
             return priority.value
         return int(priority)
 
     def get_priority(self) -> int:
-        """综合优先级.
+        """The combined priority.
 
-        分段编码：系统优先级占高位（左移 8 位），用户优先级占低位，二者共同
-        决定排序。此处必须是按位或而非按位与——用 `&` 会让低位段被高位段清零，
-        使所有响应器的综合优先级退化为同一个值。
+        Segmented encoding: the system priority takes the high bits (shifted
+        left by 8), the user priority the low bits; together they decide
+        ordering. This MUST be bitwise OR, not bitwise AND - `&` would zero
+        the low segment under the high segment, degrading every reactor's
+        combined priority to the same value.
         """
         return (self._priority_value(self.sys_priority) << 8) | self._priority_value(
             self.user_priority
@@ -89,10 +97,11 @@ class EventReactor:
     def _serialize_content(content):
         return content
 
-    # 重试策略语义表（design D5）：
-    #   RetryOnce / RetryNever      回调最多调用 1 次，失败即停止
-    #   RetryTimes                  回调最多调用 retry_times 次
-    #   RetryForever / RetryAlways  仅在回调成功时返回（RetryAlways 是 RetryForever 的别名）
+    # Retry strategy semantics table (design D5):
+    #   RetryOnce / RetryNever      the callback runs at most once; stop on failure
+    #   RetryTimes                  the callback runs at most retry_times times
+    #   RetryForever / RetryAlways  return only when the callback succeeds
+    #                               (RetryAlways is an alias of RetryForever)
     _SINGLE_ATTEMPT_STRATEGIES = (
         EventRetryStrategy.RetryOnce,
         EventRetryStrategy.RetryNever,
@@ -102,7 +111,7 @@ class EventReactor:
         EventRetryStrategy.RetryAlways,
     )
 
-    # 根据重试策略，执行事件
+    # Execute the event according to the retry strategy
     def _execute(self, topic, content):
         req = EventReactorReq(topic, content, self.reactor_name)
 
@@ -111,26 +120,28 @@ class EventReactor:
         elif self.retry_strategy == EventRetryStrategy.RetryTimes:
             attempts = self.retry_times
         elif self.retry_strategy in self._UNLIMITED_ATTEMPT_STRATEGIES:
-            attempts = None  # 无上限，仅在成功时返回
+            attempts = None  # unlimited; return only on success
         else:
-            raise Exception(f"未知的事件重试策略: {self.retry_strategy}")
+            raise Exception(f"unknown event retry strategy: {self.retry_strategy}")
 
         while attempts is None or attempts > 0:
             if attempts is not None:
                 attempts -= 1
             try:
                 if self.handle_callback is None:
-                    # 未设置回调时给出可读原因；它同样落进下面的 except，走既有的
-                    # "报错 + 重试"路径（原先这里会抛 "NoneType is not callable"，
-                    # 语义相同但读不出原因）。
-                    raise ValueError(f"响应器 {self.reactor_name} 未设置事件回调")
+                    # Give a readable reason when no callback is set; it
+                    # falls into the except below all the same, going
+                    # through the existing "log error + retry" path (the old
+                    # code raised "NoneType is not callable" - same
+                    # semantics, but the reason was unreadable).
+                    raise ValueError(f"reactor {self.reactor_name} has no event callback set")
                 self.handle_callback(req)
                 return
             except Exception as e:
                 self._on_error(topic, content, e)
 
     def execute(self, topic, content):
-        """执行事件."""
+        """Execute the event."""
         # 获得执行方法
         event_handler = self.handle_callback
 
