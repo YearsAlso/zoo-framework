@@ -73,12 +73,20 @@ class TestGeneratedEntrypoint:
         compile(source, str(source_dir / "main.py"), "exec")
 
     def test_entry_imports(self, scaffold):
-        """Scenario: 生成的入口可被导入."""
+        """Scenario: 生成的入口可被导入.
+
+        行为意图变更（#110）：默认产物从空注册表变为预置 demo Worker——
+        `WORKERS == []` 翻转为非空断言，并非放宽。
+
+        Scenario: 示例 Worker 已被入口预注册（scaffold-demo-worker）.
+        """
         _, source_dir = scaffold
 
         module = _import_generated_main(source_dir)
         assert hasattr(module, "main")
-        assert module.WORKERS == []
+        assert module.WORKERS, "默认产物应预置示例 Worker，而非空注册表"
+        names = [name for name, _ in module.WORKERS]
+        assert names == ["SampleWorker"], f"预置注册应为且仅为示例 Worker：{names}"
 
     def test_entry_uses_current_construction_api(self, scaffold):
         """Scenario: 生成的入口使用当前公开的构造方式.
@@ -250,6 +258,58 @@ class TestGeneratedConfig:
         # 脚手架声明的每个 worker 配置键，框架都能沿对应路径取到
         assert "worker" in declared
         assert set(declared["worker"]) <= {"runPolicy", "pool"}
+
+
+# =============================================================================
+# 2.5 开箱即跑的示例 Worker（scaffold-demo-worker #110）
+# =============================================================================
+
+
+class TestDemoWorkerPreset:
+    """project-scaffolding: 产出项目 MUST 开箱即含已注册示例 Worker 且产生可见输出."""
+
+    def test_sample_worker_file_is_generated_by_create(self, scaffold):
+        """Scenario: 示例 Worker 文件由 --create 直接产出（无需 --worker）."""
+        _, source_dir = scaffold
+        assert (source_dir / "workers" / "sample_worker.py").exists()
+
+    def test_sample_worker_imports_and_instantiable(self, scaffold):
+        """Scenario: 预置的示例 Worker 与 --worker 产物走同一模板."""
+        _, source_dir = scaffold
+
+        sys.path.insert(0, str(source_dir / "workers"))
+        module = importlib.import_module("sample_worker")
+        assert isinstance(module.SampleWorker(), BaseWorker)
+
+    def test_sample_worker_registered_without_extra_commands(self, scaffold):
+        """Scenario: 不执行任何额外命令，示例 Worker 已在入口注册表内."""
+        _, source_dir = scaffold
+        module = _import_generated_main(source_dir)
+
+        from zoo_framework.core import Master
+
+        master = Master()
+        for name, worker_class in module.WORKERS:
+            master.register_worker(name, worker_class)
+
+        assert "SampleWorker" in master.worker_registry.get_all_workers()
+        master.shutdown()
+
+    def test_sample_worker_output_has_name_and_counter(self, scaffold, capsys):
+        """Scenario: 示例输出含 Worker 名；计数单调递增."""
+        _, source_dir = scaffold
+
+        sys.path.insert(0, str(source_dir / "workers"))
+        worker_module = importlib.import_module("sample_worker")
+        instance = worker_module.SampleWorker()
+        instance._execute()
+        instance._execute()
+
+        captured = capsys.readouterr().out
+        # 计数单调递增：先断言两行都存在，再依序比对计数（空列表上的否定断言恒真）
+        lines = [line for line in captured.splitlines() if "[sample_worker] tick #" in line]
+        assert len(lines) == 2, f"应恰好捕获两次输出：{captured!r}"
+        assert lines[0].endswith("#1") and lines[1].endswith("#2")
 
 
 # =============================================================================

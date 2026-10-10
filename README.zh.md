@@ -167,13 +167,21 @@ pip install zoo-framework
 
 ### 快速开始
 
-上面首屏的 30 秒示例就是快速开始。想要带配置和目录结构的脚手架，用 CLI：
+上面首屏的 30 秒示例就是快速开始。想要带配置、目录结构**且已预置一个示例 Worker**
+的脚手架，用 CLI：
 
 ```bash
-zfc --create myapp      # -> myapp/src/{main.py,workers,conf,params,events}
+zfc --create myapp
 cd myapp
-zfc --worker my_task    # 写入 src/workers/my_task_worker.py 并自动注册
 python src/main.py
+```
+
+脚手架产出的项目开箱即有一个 demo Worker —— 每 10 秒一行 `[sample_worker] tick #N`。
+那是你的代码在跑；框架自己的系统日志长得不一样（走的是日志通道）。新增自己的
+Worker 是可选的：
+
+```bash
+zfc --worker my_task
 ```
 
 不需要单独写配置文件 —— `Master()` 默认读工作目录下的 `./config.json`，上面首屏的
@@ -285,10 +293,11 @@ sm.unobserve_state("order", "status", observer)
 #### CLI 工具
 
 ```bash
-# 生成一个脚手架项目（产出 <name>/src/{main.py,workers,conf,params,events}）
+# 生成一个脚手架项目（产出 <name>/src/{main.py,workers,conf,params,events}，
+# 内含一个开箱即跑的示例 Worker）
 zfc --create myapp
 
-# 在项目里新增一个 Worker（写入 src/workers/，并接入 src/main.py 的注册表）
+# 再新增一个自己的 Worker（写入 src/workers/，并接入 src/main.py 的注册表）
 cd myapp
 zfc --worker my_task
 

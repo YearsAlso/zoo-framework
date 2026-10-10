@@ -204,6 +204,35 @@ class TestCreateFailure:
 
 
 # =============================================================================
+# 2.5 --create 成功摘要与失败摘要抑制（scaffold-demo-worker #110）
+# =============================================================================
+
+
+class TestCreateSummary:
+    """project-scaffolding: --create 成功时 MUST 报告结果与下一步命令."""
+
+    def test_success_summary_contains_location_count_and_next_command(self, in_dir):
+        """Scenario: 成功摘要含下一步命令."""
+        result = CliRunner().invoke(zfc, ["--create", "proj"])
+
+        assert result.exit_code == 0
+        out = result.output
+        # 三要素：创建位置 / 生成文件量 / 完整可复制的下一步命令
+        assert "proj" in out, f"摘要应含创建位置：{out!r}"
+        assert re.search(r"\d+", out), f"摘要应含生成文件量：{out!r}"
+        assert "cd proj" in out and "python src/main.py" in out, f"摘要应含完整下一步命令：{out!r}"
+
+    def test_failure_suppresses_summary(self, in_dir):
+        """Scenario: 失败路径契约不变——成功摘要 MUST NOT 被打印."""
+        (in_dir / "proj").mkdir()
+
+        result = CliRunner().invoke(zfc, ["--create", "proj"])
+
+        assert result.exit_code != 0
+        assert "cd proj" not in result.output, "失败路径不应打印下一步命令摘要"
+
+
+# =============================================================================
 # 3 · 一次调用中的创建项目与新增 Worker MUST 协同
 # =============================================================================
 

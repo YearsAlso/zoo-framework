@@ -38,6 +38,9 @@ SRC_DIR_NAME = "src"
 # Subdirectory that hosts Workers
 WORKER_DIR_NAME = "workers"
 
+# 开箱即跑的示例 Worker：经 _worker_names 推导为模块 sample_worker / 类 SampleWorker
+DEMO_WORKER_NAME = "sample"
+
 
 def resolve_worker_dir(cwd: str | None = None) -> str:
     """Locate the output directory for a new Worker.
@@ -130,8 +133,31 @@ def create_func(object_name):
     ):
         FileUtils.write_text(module_file, module_template)
 
+    # 开箱即跑的示例 Worker：与 --worker 走同一模板，入口已静态预置其注册条目
+    demo_module_name, demo_class_name = _worker_names(DEMO_WORKER_NAME)
+    demo_worker_file = os.path.join(workers_dir, f"{demo_module_name}.py")
+    FileUtils.write_text(
+        demo_worker_file,
+        Template(worker_template).substitute(
+            worker_name=DEMO_WORKER_NAME, class_name=demo_class_name
+        ),
+    )
+
     with open(main_file, "w", encoding=FileUtils.DEFAULT_ENCODING) as fp:
         fp.write(main_template)
+
+    # 成功摘要：让下一步动作成为 stdout 的一部分，而不是要用户自己拼出来
+    written = [
+        config_file,
+        main_file,
+        demo_worker_file,
+        os.path.join(conf_dir, "demo_conf.py"),
+        os.path.join(params_dir, "demo_params.py"),
+        os.path.join(events_dir, "demo_event.py"),
+    ]
+    print(f"已创建脚手架项目：{os.path.abspath(object_name)}")
+    print(f"生成文件 {len(written)} 个（另含 5 个 __init__.py）")
+    print(f"下一步：cd {object_name} && python src/main.py")
 
 
 def _worker_names(worker_name: str) -> tuple[str, str]:

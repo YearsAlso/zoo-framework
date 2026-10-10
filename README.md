@@ -180,14 +180,21 @@ Requires Python 3.13+.
 
 ### Quick Start
 
-The minimal example above is the quick start. To scaffold a project with a config and a
-directory layout, use the CLI instead:
+The minimal example above is the quick start. To scaffold a project with a config, a
+directory layout **and a demo Worker already registered**, use the CLI instead:
 
 ```bash
-zfc --create myapp      # -> myapp/src/{main.py,workers,conf,params,events}
+zfc --create myapp
 cd myapp
-zfc --worker my_task    # adds src/workers/my_task_worker.py and registers it
 python src/main.py
+```
+
+The scaffolded project has a demo Worker wired in — a `[sample_worker] tick #N` line
+every 10 seconds. That is your code running; the framework's own system logs look
+different (they go through the logger). Adding your own worker is optional:
+
+```bash
+zfc --worker my_task
 ```
 
 There is no separate config file to write — `Master()` defaults to `./config.json`
@@ -305,10 +312,11 @@ sibling `backups/` directory.
 #### CLI
 
 ```bash
-# Scaffold a project (produces <name>/src/{main.py,workers,conf,params,events})
+# Scaffold a project (produces <name>/src/{main.py,workers,conf,params,events},
+# including a demo Worker that runs out of the box)
 zfc --create myapp
 
-# Add a Worker to a project (writes src/workers/, and wires it into src/main.py)
+# Add another Worker of your own (writes src/workers/, and wires it into src/main.py)
 cd myapp
 zfc --worker my_task
 
