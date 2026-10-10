@@ -64,7 +64,7 @@ zoo = "zoo_framework.cli:zfc"
 
 [project.urls]
 Homepage = "https://github.com/YearsAlso/zoo-framework"
-Documentation = "https://yearsalso.github.io/zoo-framework/"
+Documentation = "https://yearsalso.github.io/zoo-framework-doc/"
 Repository = "https://github.com/YearsAlso/zoo-framework"
 Issues = "https://github.com/YearsAlso/zoo-framework/issues"
 

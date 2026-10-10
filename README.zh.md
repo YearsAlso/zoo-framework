@@ -324,8 +324,13 @@ Worker 只依赖传给 `__init__` 的 props 字典，不感知框架内部结构
 
 ### 文档
 
+**用户文档 → <https://yearsalso.github.io/zoo-framework-doc/>**（中英双语）—— 安装、教程、核心概念、API 参考。
+
+本仓库的 `docs/` 目录保留**维护者与贡献者文档**（架构、目录结构、调试、
+贡献规范、品牌规范、性能基准），**不面向使用者**：
+
 - [架构设计](docs/ARCHITECTURE.md) — 模块划分与数据流
-- [API 参考](docs/api/README.md)
+- [API 参考](docs/api/README.md) — 由 docstring 自动生成
 - [开发指南](docs/contributing/development.md)
 - [调试指南](docs/contributing/debugging.md)
 - [路线图](docs/contributing/roadmap.md)
