@@ -438,6 +438,77 @@ they resolve the same dependency set.
 `ruff check`, `ruff format`, `pytest`, `mypy` and `bandit` are all hard CI
 gates.
 
+### FAQ
+
+The questions this framework is asked most often. Each short answer links to the long-form
+answer in [`docs/FAQ.md`](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### Can I run scheduled background tasks without Redis or RabbitMQ?
+
+Yes — that is this framework's core scenario. `pip install zoo-framework`, subclass
+`BaseWorker`, register it, and scheduling happens inside your own process: no broker, no cron
+daemon. Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### How is it different from Celery, and which should I pick?
+
+Celery runs separate worker processes coordinated by a broker, so tasks can cross machines —
+that is exactly what Zoo Framework declines. Pick Celery the moment work must leave the
+process; pick this when the work is long-lived, in-process and not worth a broker.
+Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### How is it different from APScheduler?
+
+Both embed in your process with no broker. APScheduler wins on cron expressions and job
+stores; Zoo Framework adds an event pipeline (priority, retries, dead-letter), in-flight
+de-duplication, timeout circuit-breaking and atomic state persistence. Use APScheduler if you
+need cron. Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### Does it support multiple processes or work across machines?
+
+No. Multi-process execution is **not implemented** — the mode constants are placeholders and
+requesting one is rejected — and there is no cross-machine scheduling. If a task must leave
+the process, use Celery. Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### Can I use cron expressions?
+
+No. Only a fixed `delay_time` polling interval exists. If you need cron expressions, use
+APScheduler. Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### What happens if a task hangs — is it killed?
+
+It is not killed. A `run_timeout` observes and circuit-breaks: the timeout is recorded, the
+Worker is marked unhealthy and stops being dispatched, while the already-running execution
+keeps going — CPython cannot safely interrupt a running thread.
+Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### Is state restored after a restart?
+
+Yes, if you use the state machine (`StateMachineManager`). State is saved periodically and on
+shutdown — written to a temporary file and `os.replace`d atomically, with up to 5 rolling
+backups — and loaded again on the next start.
+Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### Why is it called Zoo, and what do the names mean?
+
+The framework is named after a zoo: Worker (task execution unit), Master (lifecycle entry
+point), Waiter (the scheduler), Cage (the scoped registry of shared instances). The metaphor
+only affects naming, not semantics — the [core concepts](#core-concepts) table maps every name
+to what it does. Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### What does it have to do with AI agents?
+
+The extension surface is deliberately narrow — subclass, implement `_execute()`, register the
+class — failures are loud instead of silent, and the suite lets a change be judged by running
+`pytest`. Generated code therefore stays short and can self-correct.
+Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### Is anyone using it in production?
+
+No verifiable third-party adopter yet. The maintainer's own projects use it, but that cannot
+be checked from the outside, and [`ADOPTERS.md`](ADOPTERS.md) labels every row accordingly
+rather than implying adoption it cannot show.
+Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
 ### License
 
 Apache License 2.0 © [XiangMeng](https://github.com/YearsAlso)

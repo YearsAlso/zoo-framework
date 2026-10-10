@@ -406,6 +406,70 @@ pip 读 `pyproject.toml` 与 `uv sync` 读已入库的 `uv.lock`，两者解析�
 CI 中 `ruff check`、`ruff format`、`pytest`、`mypy` 与
 `bandit` 都是硬性门禁。
 
+### 常见问题
+
+以下是本项目最常被问到的问题；每条短答都给出详版回答的入口
+（[`docs/FAQ.md`](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)）。
+
+#### 不装 Redis / RabbitMQ，能跑后台定时任务吗？
+
+能 —— 这正是本框架的核心场景。`pip install zoo-framework`，写一个 `BaseWorker` 子类并注册，
+调度就发生在你自己的进程里：不需要 broker，也不需要 cron 守护进程。
+完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
+#### 它和 Celery 有什么区别？该选哪个？
+
+Celery 用 broker 协调独立的 worker 进程，任务因此可以跨机器 —— 而这正是本框架主动放弃的
+部分。任务一旦需要离开当前进程，就用 Celery；任务长期存活、在进程内、且不值得为它引入
+broker，就用本框架。完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
+#### 它和 APScheduler 有什么区别？
+
+两者都嵌进你的进程、都不需要 broker。APScheduler 赢在 cron 表达式与 job store；
+本框架提供事件管道（优先级、重试、死信）、在飞去重、超时熔断与原子状态持久化。
+需要 cron 表达式就用 APScheduler。完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
+#### 支持多进程吗？能跨机器吗？
+
+不支持。多进程执行**未实现** —— 模式常量是占位，请求它会被显式拒绝；也没有跨机器调度。
+任务必须离开当前进程时，请用 Celery。完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
+#### 能用 cron 表达式吗？
+
+不能。只有固定 `delay_time` 的轮询间隔。需要 cron 表达式请用 APScheduler。
+完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
+#### 任务卡住了会怎样？会被强杀吗？
+
+不会被强杀。`run_timeout` 的行为是**观测 + 熔断**：记录超时、把该 Worker 标记为不健康并
+不再派发，而已经在执行的那次仍会继续 —— CPython 无法安全地中断一个正在运行的线程。
+完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
+#### 重启之后状态会恢复吗？
+
+会，前提是你用了状态机（`StateMachineManager`）。状态按周期与停机时落盘 —— 先写临时文件
+再 `os.replace` 原子替换，最多保留 5 份滚动备份 —— 下次启动时重新载入。
+完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
+#### 为什么叫 Zoo？这些名字都是什么意思？
+
+框架以动物园命名：Worker（任务执行单元）、Master（生命周期入口）、Waiter（调度器）、
+Cage（按作用域注册的共享实例容器）。**隐喻只影响命名，不影响语义** ——
+「核心概念」那张表把每个名字对应到它实际做的事。
+完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
+#### 它和 AI Agent 有什么关系？
+
+扩展面被刻意收窄 —— 继承、实现 `_execute()`、注册这个类 —— 错误是显式抛出而非静默吞掉，
+改动可以靠跑一遍 `pytest` 判断对错。因此生成的代码短，而且出错时能自我修正。
+完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
+#### 生产环境有人用吗？
+
+目前没有可核实的第三方使用者。维护者自己的项目在用，但那无法被外部核实，
+[`ADOPTERS.md`](ADOPTERS.md) 对每一条都如实标注，而不是暗示并不存在的采用量。
+完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
 ### 许可证
 
 Apache License 2.0 © [XiangMeng](https://github.com/YearsAlso)
