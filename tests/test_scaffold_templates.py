@@ -62,7 +62,11 @@ def _import_generated_main(source_dir):
 
 
 class TestGeneratedEntrypoint:
-    """project-scaffolding: 脚手架产出的项目 MUST 可被启动."""
+    """project-scaffolding: 脚手架产出的项目 MUST 可被启动.
+
+    行为意图变更（#112）：类名从 title() 产物 `My_TaskWorker` 翻转为
+    PascalCase 规则产物 `MyTaskWorker`。
+    """
 
     def test_entry_compiles(self, scaffold):
         """Scenario: 生成的入口可被导入."""
@@ -129,7 +133,7 @@ class TestGeneratedEntrypoint:
             Master.run = original_run  # type: ignore[method-assign]
 
         master = captured["master"]
-        assert "My_TaskWorker" in master.worker_registry.get_all_workers()
+        assert "MyTaskWorker" in master.worker_registry.get_all_workers()
 
 
 # =============================================================================
@@ -138,7 +142,11 @@ class TestGeneratedEntrypoint:
 
 
 class TestGeneratedWorker:
-    """project-scaffolding: 产出的 Worker MUST 可被导入并被调度."""
+    """project-scaffolding: 产出的 Worker MUST 可被导入并被调度.
+
+    行为意图变更（#112）：类名从 title() 产物 `My_TaskWorker` 翻转为
+    PascalCase 规则产物 `MyTaskWorker`。
+    """
 
     def test_worker_module_imports(self, scaffold):
         """Scenario: 生成的 Worker 模块可被导入."""
@@ -147,7 +155,7 @@ class TestGeneratedWorker:
 
         sys.path.insert(0, str(source_dir / "workers"))
         module = importlib.import_module("my_task_worker")
-        assert hasattr(module, "My_TaskWorker")
+        assert hasattr(module, "MyTaskWorker")
 
     def test_every_referenced_public_name_exists(self, scaffold):
         """Scenario: 生成的 Worker 不依赖不存在的公开名称.
@@ -171,7 +179,7 @@ class TestGeneratedWorker:
 
         sys.path.insert(0, str(source_dir / "workers"))
         module = importlib.import_module("my_task_worker")
-        assert isinstance(module.My_TaskWorker(), BaseWorker)
+        assert isinstance(module.MyTaskWorker(), BaseWorker)
 
     def test_registered_worker_is_scheduled_and_executed(self, scaffold):
         """Scenario: 注册后 Worker 被调度执行."""
@@ -185,7 +193,7 @@ class TestGeneratedWorker:
         for name, worker_class in module.WORKERS:
             master.register_worker(name, worker_class)
 
-        instance = master.worker_registry.get_worker("My_TaskWorker")
+        instance = master.worker_registry.get_worker("MyTaskWorker")
         assert instance in master.waiter.workers, "生成的 Worker 未进入调度列表"
 
         executed = []
@@ -207,7 +215,7 @@ class TestGeneratedWorker:
         _add_worker("my_task")
 
         source = (source_dir / "main.py").read_text(encoding="utf-8")
-        assert "from workers.my_task_worker import My_TaskWorker" in source, (
+        assert "from workers.my_task_worker import MyTaskWorker" in source, (
             "入口没有指向该 Worker 模块的显式导入"
         )
 
