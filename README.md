@@ -182,7 +182,9 @@ Requires Python 3.13+.
 
 ### Quick Start
 
-The minimal example above is the quick start. To scaffold a project with a config, a
+The minimal example above is the quick start — the same code checked in as
+[`example/minimal.py`](example/minimal.py) (copy → `python example/minimal.py`).
+To scaffold a project with a config, a
 directory layout **and a demo Worker already registered**, use the CLI instead:
 
 ```bash
@@ -407,7 +409,8 @@ Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the ful
 and [docs/BRANCHING.md](docs/BRANCHING.md) for the branch model.
 
 ```bash
-git clone https://github.com/YearsAlso/zoo-framework.git
+git clone --recursive https://github.com/YearsAlso/zoo-framework.git
+# (omit --recursive only if you don't need example/agent — see example/README.md)
 cd zoo-framework
 pip install -e ".[dev]"       # or: uv sync --extra dev (uv.lock is kept in sync)
 pre-commit install

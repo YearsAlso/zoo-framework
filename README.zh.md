@@ -169,7 +169,9 @@ pip install zoo-framework
 
 ### 快速开始
 
-上面首屏的 30 秒示例就是快速开始。想要带配置、目录结构**且已预置一个示例 Worker**
+上面首屏的 30 秒示例就是快速开始 —— 同一段代码也已入库为
+[`example/minimal.py`](example/minimal.py)（复制 → `python example/minimal.py`）。
+想要带配置、目录结构**且已预置一个示例 Worker**
 的脚手架，用 CLI：
 
 ```bash
@@ -377,7 +379,8 @@ Windows / Python 3.13 实测，负载为代表性任务（JSON 编解码 + 字�
 [docs/BRANCHING.md](docs/BRANCHING.md)。
 
 ```bash
-git clone https://github.com/YearsAlso/zoo-framework.git
+git clone --recursive https://github.com/YearsAlso/zoo-framework.git
+# （不需要 example/agent 就可以省略 --recursive —— 见 example/README.md）
 cd zoo-framework
 pip install -e ".[dev]"       # 或：uv sync --extra dev（uv.lock 保持同步）
 pre-commit install

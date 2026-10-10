@@ -186,8 +186,8 @@ bandit -r zoo_framework -f json -o bandit-report.json
 ### 基础示例
 
 ```bash
-# 运行基础示例
-python example/basic_usage.py
+# 运行最小示例
+python example/minimal.py
 
 # 运行线程示例
 python example/threads/demo_thread.py
