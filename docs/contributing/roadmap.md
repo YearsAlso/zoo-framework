@@ -98,3 +98,27 @@
 - **能做什么了**：同样的调度与持久化语义在 Windows／macOS／Linux 表现一致、结果可复现。
 - **影响谁**：在非 Linux 环境部署或需要多平台一致行为的使用者。
 - **怎么知道做完了**：三平台 CI 稳定全绿，且文档写明各平台已知差异基线（而非靠使用者踩坑）。
+
+---
+
+## 明确不做的
+
+写在这里以节省你的评估时间：
+
+| 不做 | 原因 |
+|---|---|
+| 跨机器分布式调度 | 这是 Celery 的领域。选它，不要选我们 |
+| 图形化编排面板 | Dagster / Prefect / Airflow 已经做得很好 |
+| 自带 Web 控制台 | 同上 |
+
+---
+
+## 怎样判断进度是真的
+
+本页刻意不写日期，但每一项都有**可验证的完成标准**。除此之外：
+
+- **版本与变更**：以 [`CHANGELOG.md`](https://github.com/YearsAlso/zoo-framework/blob/dev/CHANGELOG.md) 为准
+- **性能主张**：以 [`zoo-bench`](https://yearsalso.github.io/zoo-bench/) 的原始数据为准（含我们输在哪一档）
+- **已发布的版本**：以 [PyPI](https://pypi.org/project/zoo-framework/) 为准
+
+**若本页与上述任一来源冲突，以那些来源为准。**
