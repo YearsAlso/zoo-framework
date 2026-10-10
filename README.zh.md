@@ -347,7 +347,8 @@ Worker 只依赖传给 `__init__` 的 props 字典，不感知框架内部结构
 
 ### 贡献代码
 
-欢迎贡献，完整流程见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+欢迎贡献，完整流程见 [CONTRIBUTING.md](CONTRIBUTING.md)；分支模型见
+[docs/BRANCHING.md](docs/BRANCHING.md)。
 
 ```bash
 git clone https://github.com/YearsAlso/zoo-framework.git

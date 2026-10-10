@@ -375,7 +375,8 @@ faster than one without.
 
 ### Contributing
 
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide
+and [docs/BRANCHING.md](docs/BRANCHING.md) for the branch model.
 
 ```bash
 git clone https://github.com/YearsAlso/zoo-framework.git

@@ -76,6 +76,9 @@ git checkout -b fix/zfc-worker-name-validation
 > minor stable for `main`. Do not push to them directly; go through a PR, and expect a
 > merge into `dev` to ship a beta.
 
+Visitor visibility of fixes on the default branch is a contract, not a habit — see
+[docs/BRANCHING.md](docs/BRANCHING.md) for which files must sync to `main` and when.
+
 ### Commit messages
 
 Conventional Commits. The format is:
@@ -346,6 +349,9 @@ git checkout -b fix/zfc-worker-name-validation
 > **合并进 `dev` 或 `main` 会发布到 PyPI。** 发版工作流会在每次推送到这两个分支时
 > 自增版本并发布 —— `dev` 是补丁号 `-beta`，`main` 是次版本号稳定版。不要直接推这两个
 > 分支，请走 PR，并且要知道合并进 `dev` 就意味着发一个 beta。
+
+修复内容在默认分支上的可见性是一份明文契约，不是习惯——哪些文件必须在什么时机同步到
+`main`，见 [docs/BRANCHING.md](docs/BRANCHING.md)。
 
 ### 提交信息规范
 
