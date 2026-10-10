@@ -47,5 +47,10 @@
     与 `/f/Python/zoo/.orca/tmp-bak/rh/example-hygiene/md5-before.txt` 逐字节一致；
     其余差异文件（`config.json`、`redis.json`(删)、`demo_event.py`、`demo_thread.py`）
     全部落在本清单已勾条目名下
-- [ ] 5.3b PR 正文贴实跑输出（分支尚无 PR：`gh pr list --head perfect/docs --state all`
-      返回空；待本包统一 PR 时把提交正文中的实跑输出贴入 PR 正文）
+- [x] 5.3b PR 正文贴实跑输出（验证：PR #171 正文「实跑输出（example-hygiene 的验收证据）」一节）
+  - 实测：PR **#171**（`--base dev`）正文含三例的命令与输出——`minimal.py`
+    （`Hello from MyWorker! Count: 1..3`）、`demo_thread.py`（`Test get i` 逐秒递增）、
+    `demo_event.py`（`pushed` ×3 → `on_change_test_number` ×3）
+  - 取证口径（如实记录）：本次贴入的是**重新实跑**的输出，不是回抄提交正文；并附带一条
+    复现须知——`minimal.py` 的 `print` 走块缓冲，管道下需 `PYTHONUNBUFFERED=1`
+    才能看到输出（同一命令默认缓冲时可见 `Hello` 行数为 0，与 README 的缓冲警示一致）

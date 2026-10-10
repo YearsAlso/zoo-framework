@@ -26,5 +26,7 @@
     返回 **20 个 topic**（≥15 达标）、`homepage` = `https://yearsalso.github.io/zoo-framework/`、
     `description` = "In-process task orchestration for Python: scheduled, observable,
     stateful — no broker, no cron daemon."（与「无 broker」定位一致）
-  - 未完成子项：「PR 描述含操作清单」——本分支尚无 PR（`gh pr list --head perfect/docs
-    --state all` 返回空），待本包统一 PR 时把该操作清单（已由维护者执行完毕）附入 PR 描述
+  - **子项已补**（PR #171，`--base dev`）：「PR 描述含操作清单」落于正文
+    「仓库元数据运营动作」一节——逐项列出 GitHub 侧 `description` / `homepage` / 20 个 topics
+    的当前实测读数（`gh repo view` 复跑一致）与包侧 6 个 `Project-URL`、19 个 Keywords、
+    完整 Classifiers 的留痕文件指针
