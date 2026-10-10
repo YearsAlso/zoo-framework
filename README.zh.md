@@ -87,7 +87,6 @@ pip install zoo-framework
 from zoo_framework.core import Master
 from zoo_framework.workers import BaseWorker
 
-
 class MyWorker(BaseWorker):
     """一个循环执行的任务单元。"""
 
@@ -105,7 +104,6 @@ class MyWorker(BaseWorker):
     def _execute(self):
         self.counter += 1
         print(f"Hello from MyWorker! 计数: {self.counter}")
-
 
 if __name__ == "__main__":
     master = Master()
@@ -129,17 +127,6 @@ python src/main.py
 > 实例会被拒绝并抛 `TypeError: issubclass() arg 1 must be a class`。这条约束**与 `@cage`
 > 无关**：任何把类换成工厂函数的包装都一样失败，`@cage` **删除后它依然成立**。进程级共享
 > 现在改由容器声明。
-
-<!--
-演示图占位 —— 产出图片后，删掉下面这行图片引用前的注释标记即可。
-
-  1. 录制：Windows 用 ScreenToGif；macOS / Linux 用 asciinema + agg
-  2. 内容：`zfc --create myapp && cd myapp && python src/main.py`，录 10–15 秒，
-     展示 Worker 每轮被派发与日志持续输出
-  3. 存放：`docs/assets/demo.gif`
-  4. 若动图不便，也可只截一张架构图 —— 下一节的 Mermaid 图可直接在 GitHub 上截图复用
--->
-<!-- ![快速开始演示](docs/assets/demo.gif) -->
 
 ### 运行方式
 
@@ -206,7 +193,6 @@ flowchart TB
 
 ```python
 from zoo_framework.core.aop import event
-
 
 @event(topic="order.created", channel="business")
 def on_order_created(req):
@@ -308,7 +294,6 @@ class OrderSyncWorker(BaseWorker):  # 1. 继承
     def _execute(self):  # 2. 只写业务逻辑
         sync_orders()
 
-
 master.register_worker("OrderSync", OrderSyncWorker)  # 3. 注册
 ```
 
@@ -340,10 +325,10 @@ Worker 只依赖传给 `__init__` 的 props 字典，不感知框架内部结构
 ### 文档
 
 - [架构设计](docs/ARCHITECTURE.md) — 模块划分与数据流
-- [API 参考](docs/API_REFERENCE.md)
-- [开发指南](docs/DEVELOPMENT.md)
-- [调试指南](docs/DEBUGGING.md)
-- [路线图](docs/ROADMAP.md)
+- [API 参考](docs/api/README.md)
+- [开发指南](docs/contributing/development.md)
+- [调试指南](docs/contributing/debugging.md)
+- [路线图](docs/contributing/roadmap.md)
 
 ### 社区与反馈
 

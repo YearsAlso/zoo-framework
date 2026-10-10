@@ -1,3 +1,5 @@
+from typing import Any
+
 from zoo_framework.constant import WaiterConstant
 
 
@@ -25,7 +27,15 @@ class WorkerResult:
         session_id: the identity of the session the result belongs to
     """
 
-    def __init__(self, topic, content, cls_name, worker_name=None, run_id=None, session_id=None):
+    def __init__(
+        self,
+        topic: str,
+        content: Any,
+        cls_name: str,
+        worker_name: str | None = None,
+        run_id: str | None = None,
+        session_id: str | None = None,
+    ) -> None:
         self.topic = topic or WaiterConstant.WORKER_RESULT_TOPIC
         self.content = content
         self.cls_name = cls_name

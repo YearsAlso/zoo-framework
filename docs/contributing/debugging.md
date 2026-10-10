@@ -1,10 +1,10 @@
-# 🐛 调试指南
+# 调试指南
 
 本文档提供 Zoo Framework 的常见问题和调试技巧。
 
 ---
 
-## 🔧 常用调试方法
+## 常用调试方法
 
 ### 1. 开启 DEBUG 日志
 
@@ -89,7 +89,7 @@ class ProfiledWorker(BaseWorker):
 
 ---
 
-## 🐛 常见问题
+## 常见问题
 
 ### Q1: Worker 不执行
 
@@ -151,7 +151,7 @@ class SafeWorker(BaseWorker):
 > 提供线程安全。
 >
 > 若共享的可变对象不止放一个锁，而是"跨 Worker 复用同一个对象"，那属于容器的作用域问题，
-> 用 `ScopedContainer` + 显式的 `ThreadSafety` 声明表达（见 [架构设计](ARCHITECTURE.md)
+> 用 `ScopedContainer` + 显式的 `ThreadSafety` 声明表达（见 [架构设计](../ARCHITECTURE.md)
 > 的 Cage 一节）。
 
 ### Q3: 内存泄漏
@@ -319,7 +319,7 @@ if task.done():
 
 ---
 
-## 📊 性能调优
+## 性能调优
 
 ### 1. 监控 Worker 性能
 
@@ -393,7 +393,7 @@ results = await pool.map(worker, items)
 
 ---
 
-## 🔍 诊断工具
+## 诊断工具
 
 ### 1. 查看线程状态
 
@@ -455,7 +455,7 @@ stats.print_stats(20)  # 前20个
 
 ---
 
-## 🆘 紧急修复
+## 紧急修复
 
 ### 如何安全停止 Master
 
@@ -496,9 +496,9 @@ cleanup_workers()
 
 ---
 
-## 📚 相关文档
+## 相关文档
 
-- [快速开始](DEVELOPMENT.md)
-- [架构设计](ARCHITECTURE.md)
-- [贡献指南](CONTRIBUTING.md)
-- [API 参考](API_REFERENCE.md)
+- [快速开始](development.md)
+- [架构设计](../ARCHITECTURE.md)
+- [贡献指南](contributing.md)
+- [API 参考](../api/examples.md)

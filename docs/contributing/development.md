@@ -1,10 +1,10 @@
-# 🚀 开发环境搭建
+# 开发环境搭建
 
 本指南帮助开发者快速搭建 Zoo Framework 的开发环境。
 
 ---
 
-## 📋 环境要求
+## 环境要求
 
 | 项目 | 最低版本 | 推荐版本 |
 |------|----------|----------|
@@ -14,7 +14,7 @@
 
 ---
 
-## 🔧 步骤一：克隆代码
+## 步骤一：克隆代码
 
 ```bash
 # 克隆仓库
@@ -29,7 +29,7 @@ git checkout feat-xmeng
 
 ---
 
-## 🐍 步骤二：创建虚拟环境
+## 步骤二：创建虚拟环境
 
 ### 使用 venv（推荐）
 
@@ -56,7 +56,7 @@ conda activate zoo
 
 ---
 
-## 📦 步骤三：安装依赖
+## 步骤三：安装依赖
 
 ### 方式一：安装开发版本（推荐）
 
@@ -92,7 +92,7 @@ python -c "from zoo_framework import __version__; print(__version__)"
 
 ---
 
-## 🔗 步骤四：安装 Pre-commit Hooks
+## 步骤四：安装 Pre-commit Hooks
 
 Pre-commit 会在提交代码前自动运行代码检查。
 
@@ -112,7 +112,7 @@ pre-commit run --all-files
 
 ---
 
-## 🧪 步骤五：运行测试
+## 步骤五：运行测试
 
 ### 运行所有测试
 
@@ -148,7 +148,7 @@ start htmlcov/index.html
 
 ---
 
-## 📝 步骤六：代码检查
+## 步骤六：代码检查
 
 ### Ruff（代码风格和 lint）
 
@@ -188,7 +188,7 @@ bandit -r zoo_framework -f json -o bandit-report.json
 
 ---
 
-## 🏃 步骤七：运行示例
+## 步骤七：运行示例
 
 ### 基础示例
 
@@ -231,7 +231,7 @@ python my_worker.py
 
 ---
 
-## 🔍 调试技巧
+## 调试技巧
 
 ### 1. 开启 DEBUG 日志
 
@@ -280,7 +280,7 @@ def _execute(self):
 
 ---
 
-## 📦 构建和发布
+## 构建和发布
 
 ### 构建包
 
@@ -310,7 +310,7 @@ twine upload dist/*
 
 ---
 
-## 🛠️ 常见问题
+## 常见问题
 
 ### Q: 安装依赖时速度慢？
 
@@ -350,7 +350,7 @@ pytest --cov=zoo_framework --cov-report=term-missing
 
 ---
 
-## ✅ 开发环境检查清单
+## 开发环境检查清单
 
 - [ ] Python 3.8+ 已安装
 - [ ] 虚拟环境已创建并激活
@@ -362,9 +362,9 @@ pytest --cov=zoo_framework --cov-report=term-missing
 
 ---
 
-## 📚 下一步
+## 下一步
 
-- 📖 阅读 [架构设计](ARCHITECTURE.md)
-- 📝 查看 [贡献指南](CONTRIBUTING.md)
-- 🐛 学习 [调试技巧](DEBUGGING.md)
-- 📊 参考 [API 文档](API_REFERENCE.md)
+- 📖 阅读 [架构设计](../ARCHITECTURE.md)
+- 📝 查看 [贡献指南](contributing.md)
+- 🐛 学习 [调试技巧](debugging.md)
+- 📊 参考 [API 文档](../api/examples.md)

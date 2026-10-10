@@ -52,7 +52,8 @@ jobs:
       # 如果使用 MkDocs
       - name: Build with MkDocs
         run: |
-          pip install mkdocs mkdocs-material
+          # mkdocstrings 用于从 docstring 生成 API 参考（见 mkdocs.yml 的 plugins）
+          pip install mkdocs mkdocs-material 'mkdocstrings[python]>=0.25'
           mkdocs build
         if: hashFiles('mkdocs.yml') != ''
 

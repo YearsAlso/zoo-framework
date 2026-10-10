@@ -1,6 +1,6 @@
 # 性能基准说明 / Benchmark notes
 
-[English](#english) | [中文](#中文)
+[English](#en) | [中文](#zh)
 
 ## 两个仓库的分工（先读这段）
 
@@ -29,7 +29,7 @@
 ---
 
 <a name="english"></a>
-## 🇬🇧 English
+## 🇬🇧 English {#en}
 
 ### What was measured, and why
 
@@ -150,7 +150,7 @@ gitignored.
 ---
 
 <a name="中文"></a>
-## 🇨🇳 中文
+## 🇨🇳 中文 {#zh}
 
 ### 测了什么，为什么测
 
