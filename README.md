@@ -348,8 +348,15 @@ asking a human to read it.
 
 ### Documentation
 
+**User documentation → <https://yearsalso.github.io/zoo-framework-doc/>** (bilingual: 中文 / English) —
+installation, tutorials, core concepts, API reference.
+
+The `docs/` directory in this repository keeps **maintainer and contributor** documentation
+(architecture, repository layout, debugging, contribution rules, brand guidelines,
+performance benchmarks). It is not aimed at people using the framework:
+
 - [Architecture](docs/ARCHITECTURE.md) — module layout and data flow
-- [API Reference](docs/api/README.md)
+- [API Reference](docs/api/README.md) — generated from docstrings
 - [Development Guide](docs/contributing/development.md)
 - [Debugging Guide](docs/contributing/debugging.md)
 - [Roadmap](docs/contributing/roadmap.md)
