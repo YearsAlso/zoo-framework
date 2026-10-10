@@ -26,7 +26,7 @@ Example:
 License: Apache-2.0
 """
 
-__version__ = "0.10.6-beta"
+__version__ = "0.11.0"
 __author__ = "XiangMeng"
 __email__ = "mengxiang931015@live.com"
 __license__ = "Apache-2.0"
