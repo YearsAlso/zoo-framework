@@ -3,9 +3,9 @@
   <g transform="translate(98,10)">
     <circle cx="52" cy="52" r="40" fill="none" stroke="#E7EDF1" stroke-width="7"/>
     <g stroke-linecap="round">
-      <rect x="31.5" y="40" width="9" height="34" rx="4.5" fill="#E7EDF1"/>
-      <rect x="47.5" y="30" width="9" height="44" rx="4.5" fill="#33aa99"/>
-      <rect x="63.5" y="50" width="9" height="24" rx="4.5" fill="#E7EDF1"/>
+      <rect x="30" y="33.5" width="36" height="8.5" rx="4.25" fill="#E7EDF1"/>
+      <rect x="30" y="48"   width="46" height="8.5" rx="4.25" fill="#33aa99"/>
+      <rect x="30" y="62.5" width="26" height="8.5" rx="4.25" fill="#E7EDF1"/>
     </g>
   </g>
   <text x="150" y="158" text-anchor="middle" font-size="30" font-weight="600" letter-spacing="-0.8"
