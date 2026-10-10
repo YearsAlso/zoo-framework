@@ -20,4 +20,11 @@
 
 ## 4. 移交维护者（代码仓库外的一次性操作）
 
-- [ ] 4.1 提醒维护者按 REPO_METADATA.md 在 GitHub 仓库设置粘贴 topics / About / homepage（验证：PR 描述含操作清单；GitHub 侧生效后 `gh api repos/YearsAlso/zoo-framework --jq '.topics'` 返回 ≥15 个 topic）
+- [x] 4.1 提醒维护者按 REPO_METADATA.md 在 GitHub 仓库设置粘贴 topics / About / homepage
+      （验证：PR 描述含操作清单；GitHub 侧生效后 `gh api repos/YearsAlso/zoo-framework --jq '.topics'` 返回 ≥15 个 topic）
+  - 实测（2026-10-10 联网核验，GitHub 侧已生效）：`gh api repos/YearsAlso/zoo-framework`
+    返回 **20 个 topic**（≥15 达标）、`homepage` = `https://yearsalso.github.io/zoo-framework/`、
+    `description` = "In-process task orchestration for Python: scheduled, observable,
+    stateful — no broker, no cron daemon."（与「无 broker」定位一致）
+  - 未完成子项：「PR 描述含操作清单」——本分支尚无 PR（`gh pr list --head perfect/docs
+    --state all` 返回空），待本包统一 PR 时把该操作清单（已由维护者执行完毕）附入 PR 描述

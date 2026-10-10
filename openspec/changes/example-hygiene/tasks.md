@@ -38,5 +38,14 @@
 
 - [x] 5.1 门禁：ruff check 全过；全量 pytest **1029 passed**（验证：输出留痕）
 - [x] 5.2 `openspec validate example-hygiene --strict` 通过（验证：0 警告）
-- [ ] 5.3 提交（`Closes #116`）+ md5 核对 + PR 正文贴实跑输出
-      （验证：与 /f/Python/zoo/.orca/tmp-bak/rh/example-hygiene/md5-before.txt 差异仅限预期文件）
+- [x] 5.3 提交（`Closes #116`）+ md5 核对（验证：差异仅限预期文件）
+  - 实测：提交 `f6d8858 docs(example): 示例可跑化 + redis 残留清理（#116）`，已推送
+    `origin/perfect/docs`；提交正文含 `Closes #116` 与四段实跑输出（minimal.py /
+    main.py / demo_thread.py / demo_event.py）；改动文件集 11 个，与本清单已勾条目
+    逐项对应，未越范围
+  - md5 核对：`example/main.py`、`example/event/__init__.py`、`example/threads/__init__.py`
+    与 `/f/Python/zoo/.orca/tmp-bak/rh/example-hygiene/md5-before.txt` 逐字节一致；
+    其余差异文件（`config.json`、`redis.json`(删)、`demo_event.py`、`demo_thread.py`）
+    全部落在本清单已勾条目名下
+- [ ] 5.3b PR 正文贴实跑输出（分支尚无 PR：`gh pr list --head perfect/docs --state all`
+      返回空；待本包统一 PR 时把提交正文中的实跑输出贴入 PR 正文）

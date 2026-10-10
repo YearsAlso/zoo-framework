@@ -57,10 +57,10 @@
 | `event:delay` | `5` | 事件管道的检查节拍（秒） |
 | `event:timeout` | `5` | 停机时等待事件管道排空的超时（秒） |
 | `event:executor:workers` | `8` | 事件投递所用线程执行器的工作线程数 |
-| `event:pushModelEnabled` | `false` | 启用推送模型（事件到达即投递，不等节拍） |
-| `event:pushFallbackTimeout` | `1.0` | 推送模型回退到轮询的等待上限（秒） |
-| `event:dispatchBatchingEnabled` | `false` | 启用批量派发 |
-| `event:batchMaxSize` | `64` | 单批最大事件数 |
+| `event:pushModelEnabled` | `false` | 推送模型：消费者挂在通道上等事件，入队即被叫醒（不再空转扫描） |
+| `event:pushFallbackTimeout` | `1.0` | 推送模型的兜底等待上限（秒）。通道**逐个**等待，故总等待可达「通道数 × 该值」 |
+| `event:dispatchBatchingEnabled` | `false` | 批量派发：同通道同响应器的一批事件合并为一次投递 |
+| `event:batchMaxSize` | `64` | 批量派发的取件上限：每轮从**每个通道**最多取出的事件数（溢出者留队下一轮）。必须 ≥ 1 |
 
 > **已移除**：`event:sleep`。它在 gevent 消费循环删除后成为零消费的死键，
 > 填写它没有任何效果。请改用 `event:delay`。

@@ -15,6 +15,10 @@
 
 - [x] 3.1 ~~从 `origin/main` 切 `sync/security-version-table` 建独立 PR~~ **维护者决策（方式 A）**：不建独立 PR。`main..dev` 已有 52 commits，SECURITY.md 修复包含其中，随下次 dev→main 发版自然下发且免去一次多余 stable 发版。BRANCHING.md 规则 1 的"同一发布周期"时限由该次发版满足（验证：下次发版合并后，`git show origin/main:SECURITY.md` 无 `0.5.3-beta` 残留）
 - [ ] 3.2 发版时按 design.md D2 标准复核其它访客可见面文件是否有"纯事实纠错"需要随发版处理（README 正文重写属随发版内容，勿手工搬运）（验证：发版 PR 内的复核结论记录）
+  - **外部阻塞（不可在代码仓内完成）**：触发条件是「下一次 dev→main 发版」，属发布流程内动作；
+    锚点证据在 `origin/main` 的访客可见面快照（复核动作 = 发版前对 `git show origin/main:<文件>`
+    逐个按 D2 标准判读），本分支无法预先执行。合入说明：本分支的交付物（`docs/BRANCHING.md`、
+    CONTRIBUTING/README 互链）已完成并验证，此项属发版期的复核职责，非未完成的功能项
 
 ## 4. 验证与归档
 

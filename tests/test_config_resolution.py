@@ -196,6 +196,56 @@ class TestFalsyVersusMissing:
 
 
 # =============================================================================
+# 新增参数键：事件批量投递（optimize-event-dispatch-batching 任务 1.2）
+# =============================================================================
+
+
+class TestEventBatchingKeys:
+    """新键走既有解析路径：嵌套键生效、缺省给保守默认、假值不误伤开关.
+
+    下面的声明与 `zoo_framework/params/event_params.py` 的键路径、默认值逐字对应；
+    末条用真类把这份一致性钉住（防声明漂移）。
+    """
+
+    @staticmethod
+    def _declare_batching():
+        @params_decorator
+        class EventBatchingParams:
+            DISPATCH_BATCHING_ENABLED = ParamsPath(
+                value="event:dispatchBatchingEnabled", default=False
+            )
+            BATCH_MAX_SIZE = ParamsPath(value="event:batchMaxSize", default=64)
+
+        return EventBatchingParams
+
+    def test_nested_config_is_resolved(self, config):
+        """嵌套键（`event:*`）配置后按配置值解析，而不是留在默认."""
+        config["event"] = {"dispatchBatchingEnabled": True, "batchMaxSize": 128}
+        cls = self._declare_batching()
+        assert cls.DISPATCH_BATCHING_ENABLED is True
+        assert cls.BATCH_MAX_SIZE == 128
+
+    def test_missing_keys_keep_conservative_defaults(self, config):
+        """缺省 → 开关关闭、批上限保守值：未配置时行为零变化."""
+        cls = self._declare_batching()
+        assert cls.DISPATCH_BATCHING_ENABLED is False
+        assert cls.BATCH_MAX_SIZE == 64
+
+    def test_configured_false_keeps_batching_off(self, config):
+        """显式配置 false → 仍是关闭（假值被尊重；此处假值即保守方向）."""
+        config["event"] = {"dispatchBatchingEnabled": False}
+        cls = self._declare_batching()
+        assert cls.DISPATCH_BATCHING_ENABLED is False
+
+    def test_defaults_match_event_params_declaration(self):
+        """真类 `EventParams` 的缺省值与上面声明一致（防两处声明漂移）."""
+        from zoo_framework.params import EventParams
+
+        assert EventParams.DISPATCH_BATCHING_ENABLED is False
+        assert EventParams.BATCH_MAX_SIZE == 64
+
+
+# =============================================================================
 # 收口：该组改动不得改变既有配置读取行为
 # =============================================================================
 

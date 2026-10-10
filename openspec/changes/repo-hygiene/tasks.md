@@ -40,4 +40,13 @@
 - [x] 5.1 门禁：ruff check 全过；mypy 107 文件 0 error；全量 pytest
       **1029 passed**（验证：输出留痕）
 - [x] 5.2 `openspec validate repo-hygiene --strict` 通过（验证：0 警告）
-- [ ] 5.3 提交（`Closes #115`）+ md5 核对（验证：差异仅限预期文件）
+- [x] 5.3 提交（`Closes #115`）+ md5 核对（验证：差异仅限预期文件）
+  - 实测：提交 `37ef978 chore(hygiene): 仓库卫生 —— 版本/依赖真源唯一 + uv.lock 实测解封（#115）`，
+    已推送 `origin/perfect/docs`；提交正文含 `Closes #115`；改动文件集 9 个
+    （CLAUDE.md / CONTRIBUTING.md / README 双语 / development.md / pyproject.toml /
+    requirements-dev.txt(删) / uv.lock / tasks.md），与本清单已勾条目对应
+  - md5 核对口径：`/f/Python/zoo/.orca/tmp-bak/rh/apply/md5-before.txt` 记录的是本变更
+    动工前状态，其中 `CLAUDE.md` 等文件在本包后续变更（如 python-floor 改 Python 下界）
+    中继续被改，故该基线只对本变更提交时点有效——「差异仅限预期文件」以该提交的
+    文件集为准核验：差异文件全部在本变更范围内的条目名下
+  - 注：#115 仍为 OPEN——`Closes` 在分支上不触发关闭，待合入默认分支后生效

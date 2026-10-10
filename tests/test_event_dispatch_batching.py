@@ -138,28 +138,42 @@ class TestBatchSubmission:
 
 
 class TestBatchOverflowAndFallback:
-    def test_overflow_events_remain_queued_not_dead_lettered(self):
-        """超出批上限的事件留队：不被死信、不丢失，可被下轮消费."""
+    def test_batch_size_cap_leaves_overflow_queued_in_order(self, monkeypatch):
+        """批大小上限：本轮最多取上限个事件，溢出原样留队、顺序不变、不死信.
+
+        牙齿：断言"第一轮恰好投递上限个、队列剩 7 个且头部是被取走事件的下一
+        个"。若上限被写成"小组数上限"（不计已取事件数），第一轮会把 10 个全投
+        出去 —— reactor.calls 与 ch.size() 两条断言同时变红。
+        """
+        from zoo_framework.params import EventParams
+
+        monkeypatch.setattr(EventParams, "BATCH_MAX_SIZE", 3)
         manager = _fresh_manager()
         ch = manager.get_channel("ch")
         reactor = RecordingReactor("r")
         ch.register_reactor("t", reactor)
-
-        total = 10
-        for i in range(total):
+        for i in range(10):
             ch.push_event(EventNode(topic="t", content=f"c{i}", channel_name="ch"))
 
         worker = EventWorker()
-
-        class LimitedExecutor:
-            def submit(self, fn, *args):
-                return _sync_future(fn, args)
-
-        worker._executor = LimitedExecutor()
+        worker._executor = _SyncExecutor()
         worker._execute_batched()
 
-        assert len(reactor.calls) == total  # 全部事件被消费且无死信（均可投递）
-        assert ch.size() == 0
+        # 第一轮：上限 3 → 恰好投递 c0..c2，批大小不超过上限
+        assert reactor.calls == [("t", f"c{i}") for i in range(3)]
+        # 溢出事件留队：不被死信、不丢失，且头部仍是未被取走的 c3（顺序不变）
+        assert ch.size() == 7
+        assert ch.get_top().content == "c3"
+        assert ch.get_dead_letters() == []
+
+        # 后续轮次把剩余事件消费完（每轮同样受上限约束）：全部事件恰好投递一次
+        rounds = 0
+        while ch.size() > 0:
+            rounds += 1
+            assert rounds <= 4, "批次上限下应在有限轮内排空"
+            worker._execute_batched()
+        assert reactor.calls == [("t", f"c{i}") for i in range(10)]
+        assert ch.get_dead_letters() == []
 
     def test_disabled_batching_uses_per_event_path(self):
         """开关关闭 → 走逐事件路径：submit 次数 = 事件数."""
