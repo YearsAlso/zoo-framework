@@ -1,15 +1,20 @@
-# 📊 API 参考
+# 示例集
 
-Zoo Framework 核心 API 速查手册。
+> ⚠️ **这不是 API 参考。** 本页是手工维护的**使用片段**，用于快速建立印象；
+> 签名、参数、返回值与异常的权威来源是[自动生成的 API 参考](README.md)。
+> 若本页与代码不符，以自动生成的页面为准。
+
+Zoo Framework 使用片段速查。
 
 ---
 
-## 👨‍🌾 Master API
+## 运行时 API（Master）
 
 ### Master
 
 ```python
-from zoo_framework.core import Master, MasterConfig
+from zoo_framework.core import Master
+from zoo_framework.core.master import MasterConfig
 
 # 创建 Master
 master = Master()
@@ -36,7 +41,7 @@ master.shutdown()
 
 ---
 
-## 👷 Worker API
+## Worker API
 
 ### BaseWorker
 
@@ -242,7 +247,7 @@ uv pip install --python .venv/Scripts/python.exe ./native
 
 ---
 
-## 🏠 Cage API
+## 容器 API（ScopedContainer）
 
 笼子对应 **`ScopedContainer`**：按作用域持有共享实例。**`@cage` 装饰器已删除**（它用
 "替换类"提供单例，导致 `issubclass` / `isinstance` 失效）。
@@ -296,7 +301,7 @@ value = data.get("key")
 
 ---
 
-## 🔄 StateMachine API
+## 状态 API（StateMachine）
 
 ### StateMachineManager
 
@@ -330,7 +335,7 @@ value = sm.get_state("key")
 ### StateScope
 
 ```python
-from zoo_framework.statemachine import StateScope
+from zoo_framework.statemachine.state_scope import StateScope
 
 scope = StateScope(index_type="dict")
 
@@ -349,7 +354,7 @@ scope.unobserve_state_node("key", callback)
 
 ---
 
-## 📢 Event API
+## 事件 API
 
 ### EventReactorManager
 
@@ -379,7 +384,8 @@ EventReactorManager.register_reactor_channels(
 ### EventNode
 
 ```python
-from zoo_framework.fifo.node import EventNode, PriorityLevel
+from zoo_framework.fifo.node import EventNode
+from zoo_framework.fifo.node.event_fifo_node import PriorityLevel
 
 # 创建事件节点
 node = EventNode(
@@ -399,7 +405,7 @@ urgency = node.get_urgency()
 
 ---
 
-## 💾 Persistence API
+## 持久化 API
 
 ### PersistenceScheduler
 
@@ -445,7 +451,7 @@ success = backup_mgr.restore_backup("data.pkl")
 
 ---
 
-## 🔌 Plugin API
+## Plugin API
 
 ### PluginManager
 
@@ -473,20 +479,25 @@ pm.disable_plugin("plugin_name")
 
 ```python
 from zoo_framework.plugin import WorkerDelayManager
-from zoo_framework.plugin import ExponentialDelayStrategy
 
 delay_mgr = WorkerDelayManager()
 
-# 设置延迟策略
-delay_mgr.set_delay_strategy(ExponentialDelayStrategy(base_delay=1.0))
-
-# 设置 Worker 延迟
+# 直接设置固定延迟（秒）
 delay_mgr.set_delay("worker_name", 5.0)
+delay_mgr.get_delay("worker_name")          # -> 5.0
+
+# 或让延迟按执行次数指数退避
+delay_mgr.record_execute("worker_name")
+delay_mgr.exponential_backoff("worker_name")
+delay_mgr.adaptive_delay("worker_name")
+
+# 复位
+delay_mgr.reset("worker_name")
 ```
 
 ---
 
-## 📝 Logging API
+## Logging API
 
 ### StructuredLogUtils
 
@@ -511,7 +522,7 @@ logger.unbind("worker_id")
 
 ---
 
-## 🛠️ Utils API
+## Utils API
 
 ### LogUtils
 
@@ -540,10 +551,10 @@ FileUtils.write_file("path/to/file", content)
 
 ---
 
-## 🔧 WorkerRegistry API
+## WorkerRegistry API
 
 ```python
-from zoo_framework.core.worker_registry import WorkerRegistry, register_worker
+from zoo_framework.core.worker_registry import WorkerRegistry, get_worker_registry
 
 registry = WorkerRegistry()
 
@@ -574,7 +585,7 @@ class MyWorker(BaseWorker):
 
 ---
 
-## 📚 类型定义
+## 类型定义
 
 ```python
 from typing import Dict, Any, Optional, Callable, Awaitable
@@ -594,7 +605,7 @@ StateObserver = Callable[[Any], None]
 
 ---
 
-## 🎯 快速示例
+## 快速示例
 
 ### 完整 Worker 示例
 

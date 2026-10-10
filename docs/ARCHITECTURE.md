@@ -1,10 +1,10 @@
-# 🏗️ 架构设计
+# 架构设计
 
 本文档介绍 Zoo Framework 的整体架构设计，帮助开发者理解框架的工作原理。
 
 ---
 
-## 🎯 设计哲学
+## 设计哲学
 
 Zoo Framework 采用**动物园隐喻**设计：
 
@@ -18,7 +18,7 @@ Zoo Framework 采用**动物园隐喻**设计：
 
 ---
 
-## 🏛️ 整体架构
+## 整体架构
 
 ```mermaid
 graph TB
@@ -50,9 +50,9 @@ graph TB
 
 ---
 
-## 📦 核心模块
+## 核心模块
 
-### 1. 👨‍🌾 Master - 园长
+### 1.  Master —— 运行时入口
 
 **职责**：管理整个框架的生命周期
 
@@ -86,7 +86,7 @@ classDiagram
 - SVM 健康监控
 - 优雅关闭
 
-### 2. 👷 Worker - 动物
+### 2.  Worker —— 任务单元
 
 **职责**：执行业务逻辑的基本单元
 
@@ -129,7 +129,7 @@ classDiagram
 | StateMachineWorker | 状态机 Worker | 状态管理 |
 | AsyncWorker | 异步 Worker | IO 密集型任务 |
 
-### 3. 🏠 Cage - 笼子
+### 3.  ScopedContainer —— 作用域容器
 
 **对应组件**：`ScopedContainer`（`zoo_framework/core/container/`）
 **职责**：按**作用域**持有共享实例——"跨 Worker 复用同一个对象"这件事的显式载体
@@ -189,7 +189,7 @@ classDiagram
 > / `isinstance` 双双失效（曾造成一次 P0），且两个同名类会按裸类名互相覆盖。框架内部的进程级
 > 共享现由容器承担（`process_scoped` 装饰器，**不**替换类）。
 
-### 4. 🔄 StateMachine - 状态机
+### 4.  StateMachine —— 状态读写与持久化
 
 **职责**：管理应用状态
 
@@ -240,7 +240,7 @@ classDiagram
 
 **P2 优化**：使用工厂模式创建索引，支持多种实现方式。
 
-### 5. 📢 Event & Reactor - 事件系统
+### 5.  Event & Reactor —— 事件管道
 
 **职责**：Worker 间通信
 
@@ -265,7 +265,7 @@ sequenceDiagram
 
 **P1 优化**：事件通道隔离，防止不同通道事件误处理。
 
-### 6. 💾 PersistenceScheduler - 持久化调度器
+### 6.  PersistenceScheduler —— 持久化节拍
 
 **职责**：解耦持久化逻辑
 
@@ -316,7 +316,7 @@ classDiagram
 - 文件校验和
 - 自动备份恢复
 
-### 7. 🔌 Plugin - 插件系统
+### 7.  Plugin —— 插件系统
 
 **职责**：支持第三方扩展
 
@@ -359,7 +359,7 @@ classDiagram
     DelayStrategy <|.. AdaptiveDelay
 ```
 
-### 8. 📊 SVM - 状态向量机
+### 8.  SVM —— 健康监控（指标链路尚未接通）
 
 **职责**：Worker 健康监控
 
@@ -389,7 +389,7 @@ classDiagram
 - 平均执行时间
 - 健康评分
 
-### 9. 🎯 自适应调度 - 双臂路由
+### 9.  自适应调度 —— 双臂路由
 
 **职责**：按 Worker 类在线学习「原生执行 / Python 执行」哪条更快，逐类选择
 
@@ -438,7 +438,7 @@ classDiagram
 - 显式拒绝：声明了原生臂但 `native:enabled=false` 或扩展缺失 → 构造期报错，不静默回退
 - fail-open：决策/统计/持久化任何错误不传导为任务失败
 
-### 10. 🦀 原生任务执行 - Rust 扩展接入
+### 10.  原生任务执行 —— Rust 扩展接入
 
 **职责**：Python 保留编排与生命周期，Rust 经显式适配层执行真实任务（首个任务：
 Modbus RTU 响应帧解析）
@@ -503,7 +503,7 @@ classDiagram
 
 ---
 
-## 🔄 数据流
+## 数据流
 
 ### Worker 执行流程
 
@@ -561,7 +561,7 @@ sequenceDiagram
 
 ---
 
-## 🛡️ 线程安全设计
+## 线程安全设计
 
 ### 线程安全组件
 
@@ -576,24 +576,24 @@ sequenceDiagram
 ### 最佳实践
 
 ```python
-# ✅ Worker 以类的形式注册——不要给它加任何"替换类"的装饰器
+# Worker 以类的形式注册——不要给它加任何"替换类"的装饰器
 class MyWorker(BaseWorker):
     pass
 
 
-# ✅ 跨 Worker 复用同一个对象：交给容器，并把作用域与线程安全归属写清
+# 跨 Worker 复用同一个对象：交给容器，并把作用域与线程安全归属写清
 from zoo_framework.core.container import ScopeKind, ThreadSafety
 
 container.register(
     MyClient, scope_kind=ScopeKind.SESSION, thread_safety=ThreadSafety.INSTANCE_GUARANTEED
 )
 
-# ✅ 使用 ThreadSafeDict 存储共享数据
+# 使用 ThreadSafeDict 存储共享数据
 from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 
 data = ThreadSafeDict()
 
-# ✅ 使用 RLock 保护关键代码
+# 使用 RLock 保护关键代码
 import threading
 
 _lock = threading.RLock()
@@ -605,7 +605,7 @@ with _lock:
 
 ---
 
-## 📈 性能优化
+## 性能优化
 
 ### P2 优化方案
 
@@ -623,7 +623,7 @@ with _lock:
 
 ---
 
-## 🔗 模块依赖
+## 模块依赖
 
 ```
 zoo_framework/
@@ -656,9 +656,9 @@ zoo_framework/
 
 ---
 
-## 📚 相关文档
+## 相关文档
 
-- [快速开始](DEVELOPMENT.md)
-- [贡献指南](CONTRIBUTING.md)
-- [调试技巧](DEBUGGING.md)
-- [API 参考](API_REFERENCE.md)
+- [快速开始](contributing/development.md)
+- [贡献指南](contributing/contributing.md)
+- [调试技巧](contributing/debugging.md)
+- [API 参考](api/examples.md)

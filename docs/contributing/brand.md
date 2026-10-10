@@ -74,7 +74,7 @@
 | `assets/mark.png` | 头像、PyPI 图标、幻灯片 | 512×512，透明底 |
 | `assets/favicon.png` | apple-touch-icon、社交嵌入 | 180×180 |
 
-### ⚠️ 小尺寸必须用 `favicon.svg`，不要用 `mark.svg`
+### 小尺寸必须用 `favicon.svg`，不要用 `mark.svg`
 
 实测对比（16 / 20 / 24 / 32px）：`mark.svg` 的细描边环在小尺寸下糊成一团；
 `favicon.svg` 改用「**实底 + 挖空条**」，边缘对比度显著更高，在 16px 与深色背景下都成立。

@@ -94,7 +94,6 @@ A minimal runnable Worker. Save as `main.py` and run it:
 from zoo_framework.core import Master
 from zoo_framework.workers import BaseWorker
 
-
 class MyWorker(BaseWorker):
     """A task unit that runs in a loop."""
 
@@ -112,7 +111,6 @@ class MyWorker(BaseWorker):
     def _execute(self):
         self.counter += 1
         print(f"Hello from MyWorker! Count: {self.counter}")
-
 
 if __name__ == "__main__":
     master = Master()
@@ -139,17 +137,6 @@ python src/main.py
 > *any* wrapper that replaces the class with a factory function fails the same way, and the
 > rule still stands now that `@cage` is **removed**. Process-level sharing is declared
 > through the container instead.
-
-<!--
-演示图占位（demo image placeholder）—— 产出图片后，删掉下面这行图片引用前的注释标记即可。
-
-  1. 录制：Windows 用 ScreenToGif；macOS / Linux 用 asciinema + agg
-  2. 内容：`zfc --create myapp && cd myapp && python src/main.py`，录 10–15 秒，
-     展示 Worker 每轮被派发与日志持续输出
-  3. 存放：`docs/assets/demo.gif`
-  4. 若动图不便，也可只截一张架构图 —— 下一节的 Mermaid 图可直接在 GitHub 上截图复用
--->
-<!-- ![Quick Start demo](docs/assets/demo.gif) -->
 
 ### How it runs
 
@@ -218,7 +205,6 @@ semantics** — if a name is unclear, read the right-hand column:
 
 ```python
 from zoo_framework.core.aop import event
-
 
 @event(topic="order.created", channel="business")
 def on_order_created(req):
@@ -329,7 +315,6 @@ class OrderSyncWorker(BaseWorker):  # 1. subclass
     def _execute(self):  # 2. write only the business logic
         sync_orders()
 
-
 master.register_worker("OrderSync", OrderSyncWorker)  # 3. register
 ```
 
@@ -364,10 +349,10 @@ asking a human to read it.
 ### Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) — module layout and data flow
-- [API Reference](docs/API_REFERENCE.md)
-- [Development Guide](docs/DEVELOPMENT.md)
-- [Debugging Guide](docs/DEBUGGING.md)
-- [Roadmap](docs/ROADMAP.md)
+- [API Reference](docs/api/README.md)
+- [Development Guide](docs/contributing/development.md)
+- [Debugging Guide](docs/contributing/debugging.md)
+- [Roadmap](docs/contributing/roadmap.md)
 
 ### Community & Feedback
 

@@ -106,7 +106,7 @@ class AsyncWorker(BaseWorker, metaclass=ABCMeta):
         LogUtils.info(f"🛑 AsyncWorker '{self.name}' destroyed")
 
     @abstractmethod
-    async def async_execute(self, *args, **kwargs) -> Any:
+    async def async_execute(self, *args: Any, **kwargs: Any) -> Any:
         """The async execution method (subclasses MUST implement).
 
         Args:
@@ -176,7 +176,7 @@ class AsyncWorker(BaseWorker, metaclass=ABCMeta):
             self._loop = loop
         return self._semaphore
 
-    async def _execute_async(self, *args, **kwargs) -> Any:
+    async def _execute_async(self, *args: Any, **kwargs: Any) -> Any:
         """Internal async execution."""
         # Duration is an interval quantity and MUST use the monotonic clock -
         # wall-clock jumps would produce negative or wildly wrong durations
@@ -197,7 +197,7 @@ class AsyncWorker(BaseWorker, metaclass=ABCMeta):
             LogUtils.error(f"❌ AsyncWorker '{self.name}' failed after {duration:.3f}s: {e}")
             raise
 
-    def run_in_background(self, *args, **kwargs) -> _BackgroundTask:
+    def run_in_background(self, *args: Any, **kwargs: Any) -> _BackgroundTask:
         """Run in the background.
 
         The worker thread is a daemon: unfinished background tasks MUST NOT
@@ -245,7 +245,7 @@ class AsyncEventWorker(AsyncWorker):
         self._handlers[event_type] = handler
         LogUtils.info(f"🎯 Handler registered for '{event_type}'")
 
-    async def async_execute(self, event_type: str, *args, **kwargs) -> Any:
+    async def async_execute(self, event_type: str, *args: Any, **kwargs: Any) -> Any:
         """Run the async event handling.
 
         Args:
@@ -283,7 +283,7 @@ class AsyncStateMachineWorker(AsyncWorker):
         """
         self._state_transitions[state] = handler
 
-    async def async_execute(self, target_state: str, *args, **kwargs) -> Any:
+    async def async_execute(self, target_state: str, *args: Any, **kwargs: Any) -> Any:
         """Run the async state transition.
 
         Args:
@@ -331,7 +331,7 @@ class AsyncWorkerPool:
             self._loop = loop
         return self._semaphore
 
-    async def submit(self, worker: AsyncWorker, *args, **kwargs) -> Any:
+    async def submit(self, worker: AsyncWorker, *args: Any, **kwargs: Any) -> Any:
         """Submit a task to the Worker pool.
 
         Args:
