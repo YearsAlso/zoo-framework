@@ -19,7 +19,7 @@ pytest-asyncio>=0.21.0
 pytest-benchmark>=5.3.0
 
 # 类型存根
-types-PyYAML>=6.0.0
+types-PyYAML>=6.0.12.20260906
 
 # P2: 可观测性
 structlog>=26.1.0
