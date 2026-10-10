@@ -265,6 +265,9 @@ silently ineffective call:
 - `--worker` names must be valid Python identifiers: no leading digit, no hyphens, dots
   or spaces, no keywords. `my-task` and `123task` are rejected; use underscores
   (`my_task`).
+- `--worker` searches the current directory and its parents for a scaffolded project
+  containing `src/main.py`. If none is found, it fails before writing and tells you to
+  run `zfc --create <name>` or switch to a scaffolded project.
 
 On failure the command exits non-zero with a reason, leaving no half-written output.
 

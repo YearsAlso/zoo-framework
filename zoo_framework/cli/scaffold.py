@@ -40,29 +40,39 @@ WORKER_DIR_NAME = "workers"
 
 
 def resolve_worker_dir(cwd: str | None = None) -> str:
-    """Locate the output directory for a new Worker.
+    """定位最近的脚手架项目，并返回其 Worker 目录（相对于工作目录）。
 
-    Decided from the **actual structure** of the current working directory,
-    not guessed from the process start path (``sys.argv[0]``): a console
-    script is an ``.exe`` path on Windows and an extension-less file under
-    ``bin`` on POSIX - neither relates to the source tree layout, so deciding
-    from the executable path fails on every platform.
-
-    ``create_func`` produces the layout ``<project>/src/workers/``; therefore
-    running at the project root lands in ``./src/workers``, while running
-    inside ``src/`` - where ``./src`` does not exist - naturally falls back to
-    ``./workers``.
+    项目入口 ``src/main.py`` 是项目根目录的判据：Worker 必须能从该入口
+    注册，单独存在的 ``src/`` 或 ``config.json`` 不足以确认它是脚手架项目。
+    从当前目录逐级向父目录查找，因此可在项目根目录、``src/`` 或其子目录中调用。
 
     Args:
-        cwd: The working directory; None means the current working directory.
+        cwd: 工作目录；None 表示当前工作目录。
 
     Returns:
-        The output directory path.
+        相对于工作目录的 Worker 输出目录。
+
+    Raises:
+        click.ClickException: 当前目录及其父目录均没有 ``src/main.py``。
     """
-    base = cwd or os.getcwd()
-    if os.path.isdir(os.path.join(base, SRC_DIR_NAME)):
-        return os.path.join(".", SRC_DIR_NAME, WORKER_DIR_NAME)
-    return os.path.join(".", WORKER_DIR_NAME)
+    base = os.path.abspath(cwd or os.getcwd())
+    current = base
+
+    while True:
+        main_path = os.path.join(current, SRC_DIR_NAME, "main.py")
+        if os.path.isfile(main_path):
+            worker_dir = os.path.join(current, SRC_DIR_NAME, WORKER_DIR_NAME)
+            return os.path.relpath(worker_dir, start=base)
+
+        parent = os.path.dirname(current)
+        if parent == current:
+            break
+        current = parent
+
+    raise click.ClickException(
+        "未找到脚手架项目入口 'src/main.py'（当前目录或其父目录中均不存在）。"
+        "请先运行 'zfc --create <name>'，或切换到已有脚手架项目目录后重试。"
+    )
 
 
 def create_func(object_name):
@@ -252,6 +262,6 @@ def worker_func(worker_name, project_dir: str | None = None):
 
     # Wire the new Worker into the entry point - only when an entry point
     # exists (a non-scaffold directory has none).
-    main_path = os.path.join(os.path.dirname(src_dir), "main.py")
+    main_path = os.path.join(os.path.dirname(os.path.abspath(src_dir)), "main.py")
     if os.path.exists(main_path):
         _wire_worker_into_main(main_path, worker_name, class_name)

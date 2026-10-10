@@ -158,6 +158,21 @@ class TestWorkerNameValidation:
         assert class_name.isidentifier(), f"{name!r} 推导出非法类名 {class_name!r}"
 
 
+class TestWorkerProjectRoot:
+    """cli-scaffolding: 项目外新增 Worker MUST 明确失败并保持现场不变."""
+
+    def test_worker_outside_scaffolded_project_fails_without_writing(self, in_dir):
+        """在没有脚手架入口的目录中，失败且不留下游离文件或目录."""
+        before = _snapshot(in_dir)
+        result = CliRunner().invoke(zfc, ["--worker", "orphan"])
+        after = _snapshot(in_dir)
+
+        assert result.exit_code != 0, "项目外调用被静默报告为成功"
+        assert before == after, f"失败调用留下了产出：{set(after) - set(before)}"
+        assert "src/main.py" in result.output
+        assert "zfc --create" in result.output
+
+
 # =============================================================================
 # 2 · 产出操作无法完成时 MUST 明确失败并保持现场不变
 # =============================================================================

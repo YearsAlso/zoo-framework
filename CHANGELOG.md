@@ -27,6 +27,8 @@
 
 ### Fixed
 
+- `zfc --worker` now requires a scaffolded project with `src/main.py` in the current
+  directory or an ancestor; outside a project it fails before creating stray files.
 - 状态机读盘恢复不再为空操作（变更 `fix-state-restore` / #72）：`ThreadSafeDict` 非
   `dict` 子类，旧守卫对框架自家落盘文件恒假——状态从未恢复、`have_loaded()` 却声称
   已加载并挡死重试（含备份恢复路径）。现按真实类型分派：ThreadSafeDict 原样恢复、
