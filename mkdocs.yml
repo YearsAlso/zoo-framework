@@ -58,6 +58,9 @@ nav:
       - 总览: tutorial/README.md
       - 01 五分钟上手: tutorial/01-quickstart.md
       - 02 状态持久化: tutorial/02-state-persistence.md
+      - 03 事件管道: tutorial/03-event-pipeline.md
+      - 04 作用域容器: tutorial/04-container.md
+      - 05 使用脚手架: tutorial/05-scaffold.md
   - 指南:
       - 总览: guides/README.md
       - 配置参考: guides/config-reference.md
