@@ -15,7 +15,7 @@
 ```
 zoo-framework/
 ├── zoo_framework/       the package (the only thing shipped in the wheel)
-├── tests/               the live test suite — 367 cases, 23 files
+├── tests/               the live test suite — see the Tests badge for scale
 ├── docs/                deep-dive documentation
 ├── example/             usage examples (see the caveat below)
 ├── bench/               Rust feasibility measurement & decision — NOT product code
@@ -165,7 +165,7 @@ Each has a test guarding it, so breaking one fails rather than silently sharing 
 ```
 zoo-framework/
 ├── zoo_framework/       包本体（wheel 里唯一发布的东西）
-├── tests/               生效的测试套件 —— 367 条用例，23 个文件
+├── tests/               生效的测试套件 —— 规模以 README 顶部的 Tests 徽章为准
 ├── docs/                深入文档
 ├── example/             使用示例（注意下面的例外）
 ├── bench/               Rust 可行性测量与决策 —— 不属于产品代码

@@ -39,11 +39,13 @@ class MyWorker(BaseWorker):
     """一个循环执行的任务单元。"""
 
     def __init__(self):
-        super().__init__({
-            "is_loop": True,      # 跨调度轮次持续运行
-            "delay_time": 1.0,    # 每轮执行后等待的秒数
-            "name": "MyWorker",
-        })
+        super().__init__(
+            {
+                "is_loop": True,  # 跨调度轮次持续运行
+                "delay_time": 1.0,  # 每轮执行后等待的秒数
+                "name": "MyWorker",
+            }
+        )
         self.counter = 0
 
     def _execute(self):
@@ -53,7 +55,7 @@ class MyWorker(BaseWorker):
 
 if __name__ == "__main__":
     master = Master()
-    master.register_worker("MyWorker", MyWorker)   # 注册的是**类**，见下
+    master.register_worker("MyWorker", MyWorker)  # 注册的是**类**，见下
     master.run()
 ```
 
@@ -167,6 +169,6 @@ python src/main.py
 从 [贡献者文档](contributing/README.md) 开始：开发环境搭建、目录结构、调试指南、
 贡献规范、品牌与视觉规范、路线图。
 
-> **关于命名**：框架用动物园隐喻命名（Worker / Master / Waiter / Cage / Event / FIFO），
-> 但**隐喻只影响命名，不影响语义**。若某个名字不清楚，以功能名为准 —— 见
-> [架构概览](ARCHITECTURE.md)。
+> **关于命名**：框架用动物园隐喻命名（Worker / Master / Waiter / Cage / Event /
+> FIFO / Reactor / StateMachine），但**隐喻只影响命名，不影响语义**。若某个名字
+> 不清楚，以功能名为准 —— 见 [架构概览](ARCHITECTURE.md) 与 README 的概念表。

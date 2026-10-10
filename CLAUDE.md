@@ -8,13 +8,20 @@ Zoo Framework (`zoo-framework` on PyPI) is a multi-threaded Python framework bui
 
 | Metaphor | Component | Role |
 |---|---|---|
-| 🦁 Animal | Worker | Task execution unit |
-| 🏠 Cage | `ScopedContainer` | Per-scope holder of shared instances (process / session / prototype) |
-| 👨🌾 Zookeeper | `Master` | Framework lifecycle manager |
-| 🍎 Food | Event | Inter-worker message |
-| 🥘 Feeder queue | FIFO / EventChannel | Ordered event queue |
+| 🦁 **Worker** | `BaseWorker` subclass | Task execution unit; implement `_execute()` |
+| 👨🌾 **Master** | `Master` | Lifecycle entry point: load config, register Workers, start scheduling, shut down |
+| 🍽️ **Waiter** | `core/waiter/` | The scheduler. `worker:mode` picks the model (`thread` / `thread_pool`); `worker:runPolicy` only sets the pool's backpressure |
+| 🏠 **Cage** | `ScopedContainer` | **Scoped registry**: holds shared instances per scope (process / session / prototype). Instances are declared, then resolved; `reset()` / `replace()` are the test seams |
+| 🍎 **Event** | `EventNode` / `EventChannel` | Inter-worker message, carrying channel, priority and retry count |
+| 🥘 **FIFO** | `EventFIFO` | One independent queue per channel |
+| 📢 **Reactor** | `EventReactor` | Event responder, registered via `@event(topic, channel=...)` |
+| 🔄 **StateMachine** | `StateMachineManager` | Read/write state by "scope + key path", with observers and persistence |
 
-Requires **Python 3.13+** (`requires-python = ">=3.13"` in `pyproject.toml`, hatchling backend, wheel packages `zoo_framework`). Docs and CI also say 3.8+ in places — that is stale, and the code uses `X | None` syntax that will not import below 3.10, let alone 3.9.
+(Kept identical to the `#### Core concepts` table in README.md — a mechanical
+consistency test parses both and fails on divergence. The legacy names
+Zookeeper / Food / Feeder queue map to nothing in the code and must not return.)
+
+Requires **Python 3.13+** (`requires-python = ">=3.13"` in `pyproject.toml`, hatchling backend, wheel packages `zoo_framework`). A mechanical test (`tests/test_doc_consistency.py`) keeps doc Python-floor claims aligned with pyproject.
 
 Comments, docstrings, docs and config comments in this repo are written in Chinese, and code docstrings use Google-style sections (`Args:` / `Returns:`). Match that when editing existing files. Roadmap/plan documents label work items `P0`/`P1`/`P2` by priority — that vocabulary appears in module docstrings too.
 

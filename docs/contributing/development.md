@@ -8,7 +8,7 @@
 
 | 项目 | 最低版本 | 推荐版本 |
 |------|----------|----------|
-| Python | 3.8 | 3.11 |
+| Python | 3.13 | 3.13 |
 | pip | 21.0 | 最新 |
 | Git | 2.30 | 最新 |
 
@@ -207,16 +207,14 @@ python example/threads/demo_thread.py
 from zoo_framework.workers import BaseWorker
 from zoo_framework.core import Master
 
+
 class MyWorker(BaseWorker):
     def __init__(self):
-        super().__init__({
-            "is_loop": True,
-            "delay_time": 2,
-            "name": "MyWorker"
-        })
-    
+        super().__init__({"is_loop": True, "delay_time": 2, "name": "MyWorker"})
+
     def _execute(self):
         print("🚀 Hello from MyWorker!")
+
 
 if __name__ == "__main__":
     master = Master()
@@ -237,6 +235,7 @@ python my_worker.py
 
 ```python
 import logging
+
 logging.basicConfig(level=logging.DEBUG)
 ```
 
@@ -274,7 +273,9 @@ logging.basicConfig(level=logging.DEBUG)
 
 ```python
 def _execute(self):
-    import pdb; pdb.set_trace()  # 断点
+    import pdb
+
+    pdb.set_trace()  # 断点
     # ... 你的代码
 ```
 
@@ -352,7 +353,7 @@ pytest --cov=zoo_framework --cov-report=term-missing
 
 ## 开发环境检查清单
 
-- [ ] Python 3.8+ 已安装
+- [ ] Python 3.13+ 已安装
 - [ ] 虚拟环境已创建并激活
 - [ ] `pip install -e ".[dev]"` 成功
 - [ ] `pre-commit install` 成功
