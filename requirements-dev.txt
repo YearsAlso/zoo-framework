@@ -4,7 +4,7 @@
 # 构建工具
 build>=1.0.0
 twine>=4.0.0
-hatchling>=1.18.0
+hatchling>=1.32.4
 
 # 代码质量工具 (P0)
 ruff>=0.1.0
