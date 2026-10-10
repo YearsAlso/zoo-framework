@@ -12,7 +12,7 @@ Python declarative multi-task orchestration framework powering next-gen Agents a
 [![PyPI](https://img.shields.io/pypi/v/zoo-framework)](https://pypi.org/project/zoo-framework/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 [![Tests](https://github.com/YearsAlso/zoo-framework/workflows/Tests/badge.svg)](https://github.com/YearsAlso/zoo-framework/actions/workflows/tests.yml)
-[![Quality Check](https://github.com/YearsAlso/zoo-framework/workflows/Quality%20Check/badge.svg)](https://github.com/YearsAlso/zoo-framework/actions/workflows/quality.yml)
+[![Quality Check](https://img.shields.io/github/actions/workflow/status/YearsAlso/zoo-framework/quality.yml?label=Quality%20Check)](https://github.com/YearsAlso/zoo-framework/actions/workflows/quality.yml)
 [![CodeQL](https://github.com/YearsAlso/zoo-framework/workflows/CodeQL/badge.svg)](https://github.com/YearsAlso/zoo-framework/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/YearsAlso/zoo-framework/badge)](https://scorecard.dev/viewer/?uri=github.com/YearsAlso/zoo-framework)
 [![Benchmark](https://img.shields.io/badge/benchmark-zoo--bench-blue)](https://yearsalso.github.io/zoo-bench/)
@@ -23,16 +23,14 @@ Python declarative multi-task orchestration framework powering next-gen Agents a
 
 ---
 
-### What it is
+**Zoo Framework runs long-lived background tasks in-process** — no broker (no Redis / RabbitMQ), no
+distributed setup, designed so that **AI-agent-generated code** can drive it: a narrow extension
+surface, loud failures, and a spec baseline an agent can verify by running tests.
 
-Zoo Framework runs **long-lived background tasks** in Python. You declare task units
-("Workers"), register them, and the framework keeps them running: it decides when each
-one is dispatched, keeps concurrent instances apart, observes how long they take, and
-shuts down cleanly with state on disk.
+It is for developers who need scheduled, observable, persistent background work
+**embedded in their own process** — the in-process alternative to Celery, not a replacement for it.
 
-It is **not** a web framework and **not** a task queue — there is no HTTP layer, no
-broker, and no distributed scheduling. It is the in-process equivalent: a scheduler, an
-event pipeline, and a state store that you embed in a service.
+<!-- TODO(demo): docs/assets/demo.gif -->
 
 ### The problem it solves
 
@@ -54,41 +52,9 @@ Zoo Framework takes those decisions out of your code:
 - **State** — periodic and on-shutdown persistence, atomic replace, rolling backups.
 - **Errors** — unsupported inputs raise rather than silently degrade.
 
-### How it compares
+### The whole thing in 30 seconds
 
-Zoo Framework is one point in a space that already has good tools. It is the right
-choice when the work is **long-lived, in-process, and not worth a broker**:
-
-| | Zoo Framework | Celery | APScheduler | asyncio | raw `threading` |
-|---|---|---|---|---|---|
-| Deployment shape | embedded in your process | separate workers + broker | embedded | embedded | embedded |
-| External dependency | none | Redis/RabbitMQ required | none | none | none |
-| Execution model | threads (+ coroutines) | processes | threads | single-thread coroutines | threads |
-| Across machines | ❌ | ✅ | ❌ | ❌ | ❌ |
-| Multi-process | ❌ not implemented | ✅ | ❌ | ❌ | ❌ |
-| Cron expressions | ❌ (fixed `delay_time` polling) | ✅ beat | ✅ | ❌ | ❌ |
-| Event pipeline, priority, retries, dead-letter | ✅ | partial (queue) | ❌ | ❌ | ❌ |
-| Built-in state persistence | ✅ atomic + rolling backup | via result backend | via job store | ❌ | ❌ |
-| Failure mode | raises loudly | mostly explicit | mostly explicit | n/a | usually silent |
-
-Read the table as a scope statement, not a scoreboard: Celery is the right answer the
-moment work must cross machines, and APScheduler is the right answer for cron. Zoo
-Framework deliberately declines both, and the row it wins on is "no external dependency,
-no broker, no cron daemon — but still scheduled, still observable, still persistent."
-The comparison reflects each project's general positioning; no cross-project benchmark
-was run.
-
-### Installation
-
-```bash
-pip install zoo-framework
-```
-
-Requires Python 3.13+.
-
-### Quick Start
-
-A minimal runnable Worker. Save as `main.py` and run it:
+Save as `main.py` and run with Python 3.13+:
 
 ```python
 from zoo_framework.core import Master
@@ -120,9 +86,102 @@ if __name__ == "__main__":
     master.run()
 ```
 
-There is no separate config file to write — `Master()` defaults to `./config.json`
-relative to the working directory, and the example above runs without one. To scaffold a
-project with a config and directory layout, use the CLI instead:
+Expected output: a `Hello from MyWorker! Count: N` line every second. (When piping
+stdout to a file, CPython's default block buffering delays the lines — run in a
+terminal, or use `python -u`, to see them as they happen.)
+
+You declare task units ("Workers"), register them, and the framework keeps them running:
+it decides when each one is dispatched, keeps concurrent instances apart, observes how
+long they take, and shuts down cleanly with state on disk.
+
+It is **not** a web framework and **not** a task queue — there is no HTTP layer, no
+broker, and no distributed scheduling. It is the in-process equivalent: a scheduler, an
+event pipeline, and a state store that you embed in a service.
+
+### How it compares
+
+Zoo Framework is one point in a space that already has good tools. It is the right
+choice when the work is **long-lived, in-process, and not worth a broker**:
+
+| | Zoo Framework | Celery | APScheduler | asyncio | raw `threading` |
+|---|---|---|---|---|---|
+| Deployment shape | embedded in your process | separate workers + broker | embedded | embedded | embedded |
+| External dependency | none | Redis/RabbitMQ required | none | none | none |
+| Execution model | threads (+ coroutines) | processes | threads | single-thread coroutines | threads |
+| Across machines | ❌ | ✅ | ❌ | ❌ | ❌ |
+| Multi-process | ❌ not implemented | ✅ | ❌ | ❌ | ❌ |
+| Cron expressions | ❌ (fixed `delay_time` polling) | ✅ beat | ✅ | ❌ | ❌ |
+| Event pipeline, priority, retries, dead-letter | ✅ | partial (queue) | ❌ | ❌ | ❌ |
+| Built-in state persistence | ✅ atomic + rolling backup | via result backend | via job store | ❌ | ❌ |
+| Failure mode | raises loudly | mostly explicit | mostly explicit | n/a | usually silent |
+
+Read the table as a scope statement, not a scoreboard: Celery is the right answer the
+moment work must cross machines, and APScheduler is the right answer for cron. Zoo
+Framework deliberately declines both, and the row it wins on is "no external dependency,
+no broker, no cron daemon — but still scheduled, still observable, still persistent."
+The comparison reflects each project's general positioning; no cross-project benchmark
+was run.
+
+### Built for AI-agent-generated code
+
+The extension surface is deliberately narrow, so generated code is short, verifiable,
+and — when it is wrong — wrong *loudly*.
+
+**Three steps, no glue code**
+
+```python
+class OrderSyncWorker(BaseWorker):  # 1. subclass
+    def __init__(self):
+        super().__init__({"is_loop": True, "delay_time": 5, "name": "OrderSync"})
+
+    def _execute(self):  # 2. write only the business logic
+        sync_orders()
+
+
+master.register_worker("OrderSync", OrderSyncWorker)  # 3. register
+```
+
+Thread management, concurrency limits, in-flight de-duplication, timeout
+circuit-breaking, graceful shutdown and state persistence are the framework's job.
+An agent does not have to generate that code — and therefore cannot get it wrong.
+
+**Configuration is separate from implementation**
+
+A Worker only depends on the `props` dict handed to `__init__`. It has no visibility
+into framework internals, so generating one does not require reading the source or
+understanding how `Waiter` / `WorkerRegistry` / `EventReactor` relate.
+
+**Failures are explicit, never silently swallowed**
+
+| Input | Behaviour |
+|---|---|
+| A scheduler mode that isn't implemented (`process`) | raises `NotImplementedError` |
+| An unrecognised run-policy name in config | raises `ValueError` |
+| Importing a public name that doesn't exist | `ImportError` |
+| A text file in an unexpected encoding | emits a warning naming the file |
+
+This matters more for generated code than for hand-written code: an agent **cannot
+detect a silent downgrade**, and a loud error is the signal it needs to self-correct.
+
+**Changes can be checked automatically**
+
+The framework carries a spec baseline and a continuously-passing regression suite
+covering the core contracts, so an agent's change can be judged by running `pytest`
+rather than by asking a human to read it. The Tests badge above reflects the current
+suite status.
+
+### Installation
+
+```bash
+pip install zoo-framework
+```
+
+Requires Python 3.13+.
+
+### Quick Start
+
+The minimal example above is the quick start. To scaffold a project with a config and a
+directory layout, use the CLI instead:
 
 ```bash
 zfc --create myapp      # -> myapp/src/{main.py,workers,conf,params,events}
@@ -130,6 +189,9 @@ cd myapp
 zfc --worker my_task    # adds src/workers/my_task_worker.py and registers it
 python src/main.py
 ```
+
+There is no separate config file to write — `Master()` defaults to `./config.json`
+relative to the working directory, and the minimal example above runs without one.
 
 > **A Worker must be registered as a *class*.** `WorkerRegistry` validates with
 > `issubclass`, so a function or an instance is rejected with
@@ -300,51 +362,6 @@ report lives at [zoo-bench](https://yearsalso.github.io/zoo-bench/).*
 > against hand-written baselines and the standard-library concurrency models, publishes its
 > raw data, and reports the tiers where the framework **loses**.
 
-### Built for AI-agent-generated code
-
-The extension surface is deliberately narrow, so generated code is short, verifiable,
-and — when it is wrong — wrong *loudly*.
-
-**Three steps, no glue code**
-
-```python
-class OrderSyncWorker(BaseWorker):  # 1. subclass
-    def __init__(self):
-        super().__init__({"is_loop": True, "delay_time": 5, "name": "OrderSync"})
-
-    def _execute(self):  # 2. write only the business logic
-        sync_orders()
-
-master.register_worker("OrderSync", OrderSyncWorker)  # 3. register
-```
-
-Thread management, concurrency limits, in-flight de-duplication, timeout
-circuit-breaking, graceful shutdown and state persistence are the framework's job.
-An agent does not have to generate that code — and therefore cannot get it wrong.
-
-**Configuration is separate from implementation**
-
-A Worker only depends on the `props` dict handed to `__init__`. It has no visibility
-into framework internals, so generating one does not require reading the source or
-understanding how `Waiter` / `WorkerRegistry` / `EventReactor` relate.
-
-**Failures are explicit, never silently swallowed**
-
-| Input | Behaviour |
-|---|---|
-| A scheduler mode that isn't implemented (`process`) | raises `NotImplementedError` |
-| An unrecognised run-policy name in config | raises `ValueError` |
-| Importing a public name that doesn't exist | `ImportError` |
-| A text file in an unexpected encoding | emits a warning naming the file |
-
-This matters more for generated code than for hand-written code: an agent **cannot
-detect a silent downgrade**, and a loud error is the signal it needs to self-correct.
-
-**Changes can be checked automatically**
-
-The framework carries a spec baseline and a 367-case regression suite covering the
-core contracts, so an agent's change can be judged by running `pytest` rather than by
-asking a human to read it.
 
 ### Documentation
 
@@ -383,7 +400,7 @@ git clone https://github.com/YearsAlso/zoo-framework.git
 cd zoo-framework
 pip install -e ".[dev]"       # NOT `uv sync` — uv.lock is stale, see CONTRIBUTING.md
 pre-commit install
-pytest                        # 662 cases
+pytest                        # see the Tests badge for current suite status
 ```
 
 Note: use an explicit Python 3.13 interpreter (`.venv/Scripts/python.exe` on Windows —

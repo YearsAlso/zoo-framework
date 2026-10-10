@@ -38,7 +38,7 @@ cd zoo-framework
 pip install -e ".[dev]"    # do NOT use `uv sync` — see the note below
 
 pre-commit install         # installs the git hooks
-pytest                     # 662 cases should pass
+pytest                     # see the Tests badge for current suite status
 ```
 
 > **Do not use `uv sync` / `uv run` yet.** `uv.lock` is committed, but it is stale: it
@@ -315,7 +315,7 @@ cd zoo-framework
 pip install -e ".[dev]"    # 请勿使用 `uv sync` —— 原因见下方说明
 
 pre-commit install         # 安装 git 钩子
-pytest                     # 662 条用例应全部通过
+pytest                     # 套件当前状态见 Tests 徽章
 ```
 
 > **暂时不要用 `uv sync` / `uv run`。** `uv.lock` 虽已入库，但它是陈旧的：仍停留在

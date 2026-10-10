@@ -12,7 +12,7 @@ Python 声明式多任务编排框架，一站式支撑下一代 Agent 与工作
 [![PyPI](https://img.shields.io/pypi/v/zoo-framework)](https://pypi.org/project/zoo-framework/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 [![Tests](https://github.com/YearsAlso/zoo-framework/workflows/Tests/badge.svg)](https://github.com/YearsAlso/zoo-framework/actions/workflows/tests.yml)
-[![Quality Check](https://github.com/YearsAlso/zoo-framework/workflows/Quality%20Check/badge.svg)](https://github.com/YearsAlso/zoo-framework/actions/workflows/quality.yml)
+[![Quality Check](https://img.shields.io/github/actions/workflow/status/YearsAlso/zoo-framework/quality.yml?label=Quality%20Check)](https://github.com/YearsAlso/zoo-framework/actions/workflows/quality.yml)
 [![CodeQL](https://github.com/YearsAlso/zoo-framework/workflows/CodeQL/badge.svg)](https://github.com/YearsAlso/zoo-framework/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/YearsAlso/zoo-framework/badge)](https://scorecard.dev/viewer/?uri=github.com/YearsAlso/zoo-framework)
 [![Benchmark](https://img.shields.io/badge/benchmark-zoo--bench-blue)](https://yearsalso.github.io/zoo-bench/)
@@ -23,14 +23,14 @@ Python 声明式多任务编排框架，一站式支撑下一代 Agent 与工作
 
 ---
 
-## 这是什么
+**Zoo Framework 在进程内运行长期存活的后台任务** —— 无 broker（不需要 Redis / RabbitMQ）、
+无分布式部署，并且**专为 AI 生成的代码而设计**：扩展面刻意收窄、错误大声失败、带一份
+Agent 跑一遍测试就能验证的规范基线。
 
-Zoo Framework 用来运行**长期存活的后台任务**。你声明任务单元（Worker）并注册它们，
-框架负责让它们持续跑下去：决定每一个何时被派发、避免并发实例互相干扰、观测它们跑了
-多久、并在停机时把状态干净地落盘。
+它面向需要在**自己的进程之内**做调度、可观测、可持久化的后台任务的开发者 ——
+这是 Celery 的进程内替代选项，而不是它的分布式替身。
 
-它**不是** Web 框架，也**不是**任务队列 —— 没有 HTTP 层、没有 broker、没有分布式调度。
-它是进程内的等价物：一个可以嵌进服务里的调度器 + 事件管道 + 状态存储。
+<!-- TODO(demo): docs/assets/demo.gif -->
 
 ### 解决什么问题
 
@@ -49,39 +49,9 @@ Zoo Framework 把这些决定从你的代码里拿走：
 - **状态** —— 周期落盘 + 停机落盘，原子替换，滚动备份。
 - **错误** —— 不受支持的输入抛异常，而不是静默降级。
 
-### 同类方案对比
+### 30 秒看完整个东西
 
-Zoo Framework 处在一个已经有优秀工具的空间里。它合适的场景是：任务**长期存活、在进程
-内、且不值得为它引入 broker**。
-
-| | Zoo Framework | Celery | APScheduler | asyncio | 裸 `threading` |
-|---|---|---|---|---|---|
-| 部署形态 | 嵌入你的进程 | 独立 worker + broker | 嵌入 | 嵌入 | 嵌入 |
-| 外部依赖 | 无 | 必须 Redis/RabbitMQ | 无 | 无 | 无 |
-| 执行模型 | 线程（+ 协程） | 进程 | 线程 | 单线程协程 | 线程 |
-| 跨机器 | ❌ | ✅ | ❌ | ❌ | ❌ |
-| 多进程 | ❌ 未实现 | ✅ | ❌ | ❌ | ❌ |
-| Cron 表达式 | ❌（固定 `delay_time` 轮询） | ✅ beat | ✅ | ❌ | ❌ |
-| 事件管道、优先级、重试、死信 | ✅ | 部分（队列） | ❌ | ❌ | ❌ |
-| 内建状态持久化 | ✅ 原子落盘 + 滚动备份 | 依赖结果后端 | 依赖 job store | ❌ | ❌ |
-| 出错方式 | 显式抛错 | 多数显式 | 多数显式 | 不适用 | 通常静默 |
-
-这张表是**范围声明，不是打分表**：任务一旦要跨机器，Celery 就是正确答案；需要 cron，
-APScheduler 就是正确答案。Zoo Framework 主动放弃了这两项，它赢的那一行是「无外部依赖、
-无 broker、无 cron 守护进程 —— 但依然有调度、有观测、有持久化」。表中对比基于各项目公开
-的通用定位，**未做过跨项目压测**。
-
-### 安装
-
-```bash
-pip install zoo-framework
-```
-
-需要 Python 3.13+。
-
-### 快速开始
-
-一个最小可运行的 Worker。存成 `main.py` 直接运行：
+存成 `main.py`，用 Python 3.13+ 运行：
 
 ```python
 from zoo_framework.core import Master
@@ -113,8 +83,91 @@ if __name__ == "__main__":
     master.run()
 ```
 
-不需要单独写配置文件 —— `Master()` 默认读工作目录下的 `./config.json`，上面这个例子没有
-配置文件也能跑。想要带配置和目录结构的脚手架，用 CLI：
+预期输出：每秒一行 `Hello from MyWorker! 计数: N`。（如果把标准输出重定向到文件，
+CPython 默认的块缓冲会推迟这些行 —— 在终端里运行、或用 `python -u`，就能即时看到。）
+
+你声明任务单元（Worker）并注册它们，框架负责让它们持续跑下去：决定每一个何时被派发、
+避免并发实例互相干扰、观测它们跑了多久、并在停机时把状态干净地落盘。
+
+它**不是** Web 框架，也**不是**任务队列 —— 没有 HTTP 层、没有 broker、没有分布式调度。
+它是进程内的等价物：一个可以嵌进服务里的调度器 + 事件管道 + 状态存储。
+
+### 同类方案对比
+
+Zoo Framework 处在一个已经有优秀工具的空间里。它合适的场景是：任务**长期存活、在进程
+内、且不值得为它引入 broker**。
+
+| | Zoo Framework | Celery | APScheduler | asyncio | 裸 `threading` |
+|---|---|---|---|---|---|
+| 部署形态 | 嵌入你的进程 | 独立 worker + broker | 嵌入 | 嵌入 | 嵌入 |
+| 外部依赖 | 无 | 必须 Redis/RabbitMQ | 无 | 无 | 无 |
+| 执行模型 | 线程（+ 协程） | 进程 | 线程 | 单线程协程 | 线程 |
+| 跨机器 | ❌ | ✅ | ❌ | ❌ | ❌ |
+| 多进程 | ❌ 未实现 | ✅ | ❌ | ❌ | ❌ |
+| Cron 表达式 | ❌（固定 `delay_time` 轮询） | ✅ beat | ✅ | ❌ | ❌ |
+| 事件管道、优先级、重试、死信 | ✅ | 部分（队列） | ❌ | ❌ | ❌ |
+| 内建状态持久化 | ✅ 原子落盘 + 滚动备份 | 依赖结果后端 | 依赖 job store | ❌ | ❌ |
+| 出错方式 | 显式抛错 | 多数显式 | 多数显式 | 不适用 | 通常静默 |
+
+这张表是**范围声明，不是打分表**：任务一旦要跨机器，Celery 就是正确答案；需要 cron，
+APScheduler 就是正确答案。Zoo Framework 主动放弃了这两项，它赢的那一行是「无外部依赖、
+无 broker、无 cron 守护进程 —— 但依然有调度、有观测、有持久化」。表中对比基于各项目公开
+的通用定位，**未做过跨项目压测**。
+
+### 面向 AI Agent 的代码生成
+
+框架的扩展面被刻意收窄，使生成的代码短、可校验，而且 —— 出错时**出错得很大声**。
+
+**三步接入，没有胶水代码**
+
+```python
+class OrderSyncWorker(BaseWorker):  # 1. 继承
+    def __init__(self):
+        super().__init__({"is_loop": True, "delay_time": 5, "name": "OrderSync"})
+
+    def _execute(self):  # 2. 只写业务逻辑
+        sync_orders()
+
+
+master.register_worker("OrderSync", OrderSyncWorker)  # 3. 注册
+```
+
+线程管理、并发上限、在飞去重、超时熔断、优雅停机、状态落盘全部由框架承担。
+Agent 不需要生成这些代码，也就不会把它们生成错。
+
+**配置与实现分离**
+
+Worker 只依赖传给 `__init__` 的 props 字典，不感知框架内部结构。生成一个 Worker
+不需要读框架源码，也不需要理解 `Waiter` / `WorkerRegistry` / `EventReactor` 之间的关系。
+
+**失败是显式的，不会被静默吞掉**
+
+| 输入 | 行为 |
+|---|---|
+| 请求未实现的调度模式（如 `process`） | 抛 `NotImplementedError` |
+| 配置里写了无法识别的运行策略名 | 抛 `ValueError` |
+| 导入不存在的公开名称 | `ImportError` |
+| 文本文件编码与预期不符 | 输出告警并指明文件 |
+
+这一点对生成式代码比对人工代码更重要：**Agent 无法从「静默降级」中察觉自己写错了**，
+而明确的报错正是它自我修正所需的信号。
+
+**改动可被自动校验**
+
+框架带 spec 基线与持续通过的回归套件，核心契约都有对应用例守护 —— Agent 生成的改动
+可以靠 `pytest` 判断对错，而不必靠人逐行读。当前套件状态见顶部的 Tests 徽章。
+
+### 安装
+
+```bash
+pip install zoo-framework
+```
+
+需要 Python 3.13+。
+
+### 快速开始
+
+上面首屏的 30 秒示例就是快速开始。想要带配置和目录结构的脚手架，用 CLI：
 
 ```bash
 zfc --create myapp      # -> myapp/src/{main.py,workers,conf,params,events}
@@ -122,6 +175,9 @@ cd myapp
 zfc --worker my_task    # 写入 src/workers/my_task_worker.py 并自动注册
 python src/main.py
 ```
+
+不需要单独写配置文件 —— `Master()` 默认读工作目录下的 `./config.json`，上面首屏的
+示例没有配置文件也能跑。
 
 > **Worker 必须以「类」的形式注册。** `WorkerRegistry` 用 `issubclass` 校验契约，传函数或
 > 实例会被拒绝并抛 `TypeError: issubclass() arg 1 must be a class`。这条约束**与 `@cage`
@@ -280,48 +336,6 @@ Windows / Python 3.13 实测，负载为代表性任务（JSON 编解码 + 字�
 > [线上报告](https://yearsalso.github.io/zoo-bench/)。它跑在原生 Linux CI 上，与手写基线及
 > 标准库并发模型横向对照，公开原始数据，并且**如实列出本框架输掉的档位**。
 
-### 面向 AI Agent 的代码生成
-
-框架的扩展面被刻意收窄，使生成的代码短、可校验，而且 —— 出错时**出错得很大声**。
-
-**三步接入，没有胶水代码**
-
-```python
-class OrderSyncWorker(BaseWorker):  # 1. 继承
-    def __init__(self):
-        super().__init__({"is_loop": True, "delay_time": 5, "name": "OrderSync"})
-
-    def _execute(self):  # 2. 只写业务逻辑
-        sync_orders()
-
-master.register_worker("OrderSync", OrderSyncWorker)  # 3. 注册
-```
-
-线程管理、并发上限、在飞去重、超时熔断、优雅停机、状态落盘全部由框架承担。
-Agent 不需要生成这些代码，也就不会把它们生成错。
-
-**配置与实现分离**
-
-Worker 只依赖传给 `__init__` 的 props 字典，不感知框架内部结构。生成一个 Worker
-不需要读框架源码，也不需要理解 `Waiter` / `WorkerRegistry` / `EventReactor` 之间的关系。
-
-**失败是显式的，不会被静默吞掉**
-
-| 输入 | 行为 |
-|---|---|
-| 请求未实现的调度模式（如 `process`） | 抛 `NotImplementedError` |
-| 配置里写了无法识别的运行策略名 | 抛 `ValueError` |
-| 导入不存在的公开名称 | `ImportError` |
-| 文本文件编码与预期不符 | 输出告警并指明文件 |
-
-这一点对生成式代码比对人工代码更重要：**Agent 无法从「静默降级」中察觉自己写错了**，
-而明确的报错正是它自我修正所需的信号。
-
-**改动可被自动校验**
-
-框架带 spec 基线与 367 条回归用例，核心契约都有对应用例守护 —— Agent 生成的改动
-可以靠 `pytest` 判断对错，而不必靠人逐行读。
-
 ### 文档
 
 **用户文档 → <https://yearsalso.github.io/zoo-framework-doc/>**（中英双语）—— 安装、教程、核心概念、API 参考。
@@ -355,7 +369,7 @@ git clone https://github.com/YearsAlso/zoo-framework.git
 cd zoo-framework
 pip install -e ".[dev]"       # 请勿使用 `uv sync` —— uv.lock 陈旧，见 CONTRIBUTING.md
 pre-commit install
-pytest                        # 662 条用例
+pytest                        # 套件当前状态见 Tests 徽章
 ```
 
 注意使用明确的 Python 3.13 解释器（Windows 上是 `.venv/Scripts/python.exe`；
