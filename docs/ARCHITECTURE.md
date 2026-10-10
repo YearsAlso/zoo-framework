@@ -438,6 +438,69 @@ classDiagram
 - 显式拒绝：声明了原生臂但 `native:enabled=false` 或扩展缺失 → 构造期报错，不静默回退
 - fail-open：决策/统计/持久化任何错误不传导为任务失败
 
+### 10. 🦀 原生任务执行 - Rust 扩展接入
+
+**职责**：Python 保留编排与生命周期，Rust 经显式适配层执行真实任务（首个任务：
+Modbus RTU 响应帧解析）
+
+```mermaid
+classDiagram
+    class NativeTaskWorker {
+        <<BaseWorker>>
+        +str task_name
+        +NativeAdapter adapter
+        +_execute()
+    }
+
+    class NativeAdapter {
+        +ensure_ready()
+        +contract(task_name) NativeTaskContract
+        +prepare_input(raw, contract) bytes
+        +execute(task_name, payload) bytes
+        +convert_output(raw, contract)
+    }
+
+    class NativeTaskContract {
+        +str name
+        +int contract_version
+        +str input_format
+        +str output_format
+        +int max_input_bytes
+        +tuple error_classes
+        +tuple capabilities
+    }
+
+    class NativeExtension {
+        +contract_version() int
+        +capabilities() tuple
+        +tasks() dict
+        +execute(task_name, payload) bytes
+    }
+
+    NativeTaskWorker --> NativeAdapter : 进程级单例注入
+    NativeAdapter --> NativeTaskContract : 逐次契约查询
+    NativeAdapter --> NativeExtension : import + execute
+```
+
+**边界职责**：
+- 适配器四职责：加载扩展 / 握手（`contract_version()` + `capabilities()` 与框架
+  支持值比对）/ 边界转换（输入在边界一次性转入原生侧，执行体内保持原生数据）/
+  错误映射（三族异常：`NativeInvalidInput` / `NativeTaskFailed` / `NativePanic`）
+- 单一结算：结果只经既有 `run_and_settle → settle` 投递，适配器不投递、不碰
+  run_id/session_id（运行标识由结算点按登记项盖章）
+- GIL 释放：执行体经 `py.allow_threads` detach，不回调 Python——长任务期间控制
+  线程照常推进（12 线程实测 ~7.5x 真实多核伸缩）
+- 显式拒绝：扩展缺失 / 版本不匹配 / 能力不满足 / 任务未注册 / 输入超限 →
+  执行前 `NativeInvalidInput`，无静默回退 Python 实现的路径
+- 超时与停机沿用既有语义：超时只熔断（停止派发、上报不健康）不声称终止；
+  停机后不接收新任务；停机幂等且等待有总预算上限
+- 扩展为可选依赖：不随主包分发（源码 maturin 构建，模块名 `zoo_framework_native`），
+  未安装时既有功能不受影响
+
+**测量结论**（`native/DECISION.md` 阶段 0/2）：工作包络 = 帧 ≥8 寄存器（≥21 字节）
+路由原生——125reg 大帧端到端 ~9.9x（12 线程吞吐 7.49x），1 寄存器小帧 1.07x
+不过门槛、留 Python 侧；转换/编排占端到端 ~66%，是后续契约 v2 的优化候选。
+
 ---
 
 ## 🔄 数据流

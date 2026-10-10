@@ -1,0 +1,85 @@
+{
+  "meta": {
+    "captured_at": "2026-10-10T01:33:24+00:00",
+    "platform": "Windows-11-10.0.26200-SP0",
+    "python": "3.13.14",
+    "cpus": 24,
+    "discipline": "同一次运行内完成；冻结帧组与事前固定迭代数（非循环到达标）",
+    "task": "modbus_rtu.parse_response",
+    "warmup_ops": 300
+  },
+  "shapes": {
+    "single": {
+      "frames_per_op": 1,
+      "frame": "125reg(255B)",
+      "adapter": {
+        "p50": 14.7,
+        "p95": 16.0,
+        "p99": 29.101,
+        "mean": 15.218,
+        "ops_per_sec": 65710
+      },
+      "reference": {
+        "p50": 145.1,
+        "p95": 187.205,
+        "p99": 243.208,
+        "mean": 152.059,
+        "ops_per_sec": 6576
+      },
+      "bare_ext": {
+        "p50": 5.0,
+        "p95": 5.1,
+        "p99": 8.7,
+        "mean": 5.125
+      },
+      "speedup_p50": 9.87,
+      "conversion_share": 0.66
+    },
+    "batch_small": {
+      "frames_per_op": 8,
+      "frame": "1reg(7B)",
+      "adapter": {
+        "p50": 24.3,
+        "p95": 30.72,
+        "p99": 46.419,
+        "mean": 25.378,
+        "ops_per_sec": 315232
+      },
+      "reference": {
+        "p50": 25.9,
+        "p95": 30.725,
+        "p99": 42.807,
+        "mean": 26.687,
+        "ops_per_sec": 299768
+      },
+      "speedup_p50": 1.07
+    },
+    "batch_large": {
+      "frames_per_op": 64,
+      "frame": "125reg(255B)",
+      "adapter": {
+        "p50": 938.75,
+        "p95": 1085.73,
+        "p99": 1468.423,
+        "mean": 966.73,
+        "ops_per_sec": 66203
+      },
+      "reference": {
+        "p50": 9597.1,
+        "p95": 10254.645,
+        "p99": 11328.891,
+        "mean": 9663.419,
+        "ops_per_sec": 6623
+      },
+      "speedup_p50": 10.22
+    },
+    "saturate": {
+      "threads": 12,
+      "ops_per_thread": 2000,
+      "frame": "125reg(255B)",
+      "adapter_frames_per_sec": 48543,
+      "reference_frames_per_sec": 6481,
+      "speedup_throughput": 7.49
+    }
+  }
+}

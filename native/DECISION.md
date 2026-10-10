@@ -1,4 +1,4 @@
-# DECISION — add-native-task-execution / 阶段 0 测量记录
+# DECISION — add-native-task-execution / 阶段 0 与阶段 2 测量记录
 
 ## 结论（第二组测量：首个真实任务四链路对照）
 
@@ -101,8 +101,57 @@ P99 全部改善（1reg −20.9% / 8reg −57.1% / 125reg −89.2%）——「P9
 2. **第二组的 P2 不是"现成原生库"的严格义**——stdlib 没有 Modbus CRC 的 C 实现，P2 代表 pymodbus 类既有实现的典型形状（C 原语 + Python CRC 循环），作为对照基线如实标注。
 3. **适配链有 ~2.9µs 固定地板**（P4 − supp_rust_raw @ 1reg ≈ 2.9µs：契约查询、上限检查、`bytes()` 复制、`json.loads`）。这决定了小帧永远不划算——粗粒度约束从 design 推演升级为实测结论。
 4. **输出转换占比可观**：125reg 上 JSON 构建（Rust 侧）+ 解码/`json.loads`（Python 侧）合计约 8µs（P3 13.3 − supp 5.1）。契约 v2 若改为扩展直出 Python dict 可再省一截——**仅记录为候选，未实施**（契约版本变更属新决策）。
-5. 本机为 **Windows 原生**数据，无 WSL2 失真问题；跨平台核对留待阶段 2（tasks 5.3）。
+5. 本机为 **Windows 原生**数据，无 WSL2 失真问题；跨平台状态见「阶段 2 验收」附录（Linux/macOS 待 CI 原生构建，tasks 5.3）。
 6. **release profile 经产物量级核实**：supp_rust_raw @ 255B = 5.1µs；debug 形态会慢 10–30x，不可能到这个数。
+
+## 阶段 2 验收（tasks 5.1–5.3，2026-10-10）
+
+测量脚本 `native/stage2_acceptance.py`，落盘 `native/results/stage2_acceptance.json`。
+纪律与阶段 0 相同：**同一次运行内完成全部测量；冻结帧组 + 事前固定迭代数**（非
+「循环到达标」）；等价性前置检查（链路与参考实现逐值一致）不通过即中止。对照基线
+为 P1 纯 Python 参考实现，被测对象为部署形态（P4：`NativeAdapter` 全链路）。
+
+### 5.1 部署形态四形状对照（125reg 大帧为主，1reg 小帧作边界形状）
+
+| 形状 | 帧 | 适配链路 P50 | 参考 P50 | 加速（P50） | 吞吐（帧/s） |
+|---|---|---|---|---|---|
+| single（K=1） | 125reg(255B) | 14.7µs | 145.1µs | **9.87x** | 65,710 |
+| batch_small（K=8） | 1reg(7B) | 24.3µs/op | 25.9µs/op | **1.07x** | 315,232 |
+| batch_large（K=64） | 125reg(255B) | 938.8µs/op | 9,597.1µs/op | **10.22x** | 66,203 |
+| saturate（12 线程，K=1） | 125reg(255B) | —（墙钟吞吐口径） | — | **7.49x** | 48,543 |
+
+- P99：single 29.1 vs 243.2（−88%）、batch_large 1,468.4 vs 11,328.9（−87%）
+  ——工作包络内（≥8 寄存器）P99 全改善；batch_small（1reg）P99 劣化 +8.4%
+  （46.4 vs 42.8），但该形状本就在工作包络外（no-go、留 Python 侧），与阶段 0
+  判定一致，不构成门槛违约。
+- **转换/编排占比 0.66**（single：适配链路 14.7µs − 裸 `ext.execute` 5.0µs ≈
+  9.7µs 为转换+编排成本，占端到端 66%）——与阶段 0 读数边界④一致（契约查询、
+  上限检查、`bytes()` 复制、`json.loads`）。契约 v2「扩展直出 dict」仍是候选，
+  未实施。
+- 与阶段 0 结论交叉核对：大帧端到端 9.87x–10.22x（阶段 0：9.71x）、小帧 1.07x
+  （阶段 0：1.03x）、12 线程实伸缩 7.49x（阶段 0 受控形态：5.87x）——形状一致，
+  结论无需修正。
+
+### 5.2 行为场景覆盖
+
+正常/失败/hooks（`TestNativeTaskWorker`）、四类显式拒绝（`TestAdapterHandshake`）、
+超时熔断不声称终止 / 停机后不再接收新任务 / 幂等有界停机（`TestNativeStopSemantics`）
+之外，本阶段补齐 **超时后晚到结果** 用例
+`test_late_result_after_timeout_settles_once_without_residue`：熔断后任务才完成时，
+结果恰好一次投递、`inflight` 清零无残留。断言有效性经注入验收（违规 1/3/4 变红
+还原；违规 2 单层被纵深防御兜住），记录见 tasks 4.3。
+
+### 5.3 平台对照
+
+| 平台 | 状态 | 数据 |
+|---|---|---|
+| Windows 11 Pro for Workstations（10.0.26200，Ryzen 9 5900X 12C/24T，CPython 3.13.14） | 已测 | 本附录 + `stage2_acceptance.json` |
+| Linux | 待 CI 原生构建补齐 | — |
+| macOS | 待 CI 原生构建补齐 | — |
+
+CI（GitHub Actions）当前无 maturin/cargo，真扩展用例在 CI 中显式 skip，故
+Linux/macOS 数字待原生构建流水线落地后补测；WSL2 hypervisor 失真问题不适用
+（本机为 Windows 原生测量）。
 
 ## 对 tasks 的指向
 
@@ -111,6 +160,6 @@ P99 全部改善（1reg −20.9% / 8reg −57.1% / 125reg −89.2%）——「P9
 - [x] 1.3 四链路对照（本文件第三节 + `native/results/stage0_phase2_four_paths.json`）
 - [x] 1.4 门槛确认（P50 ≥1.5x / P99 劣化 ≤5%）+ go 结论（附工作包络）
 - [x] 3.1–3.4 Rust 扩展与首个任务（`native/` crate：`cargo test` 11 绿；pytest 加载路径/握手/等价性 9 绿，扩展缺席时显式 skip）
-- [ ] 4.x 注册接入（`native:enabled=true` → NativeTaskWorker 经 WorkerRegistry 正常派发；超时熔断与停机回归）
-- [ ] 5.x 阶段 2 验收（冻结真实输入的对照测量、跨平台、晚到结果/停机/重复关闭回归）
+- [x] 4.x 注册接入（NativeTaskWorker 经 Master.register_worker / register_instance+add_worker 两路径派发已验证；超时熔断与停机三 Scenario 回归 + 断言注入验收，见 tasks 4.1–4.4）
+- [x] 5.x 阶段 2 验收（四形状对照测量 + 晚到结果回归见「阶段 2 验收」附录；Windows 已测，Linux/macOS 待 CI 原生构建，`native/results/stage2_acceptance.json`）
 - 12 并发获得最大核利用率形状 → 原生任务的池大小默认带 8–12 线程（注册接入时与 `worker:pool:size` 对齐）

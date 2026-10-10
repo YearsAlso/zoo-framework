@@ -156,7 +156,9 @@ class ModbusWorker(DualArmWorker):
     """原生臂看门人：声明原生任务名后，框架按逐类统计自动选臂."""
 
     def __init__(self, props: dict):
-        props = {**props, "native_task_name": "modbus.poll"}  # 声明原生臂
+        # modbus_rtu.parse_response 是当前扩展唯一注册的真实任务；
+        # 换其他任务名前需先在扩展侧注册
+        props = {**props, "native_task_name": "modbus_rtu.parse_response"}
         super().__init__(props)
 
     def _execute_python(self):
@@ -174,7 +176,7 @@ class ModbusWorker(DualArmWorker):
 |----|------|------|
 | `adaptive:enabled` | `false` | 自适应决策总开关；关闭 = 零分支零锁 |
 | `adaptive:exploration` | `0.05` | ε-greedy 探索率 |
-| `adaptive:explorationOverride:<Worker类>:<值>` | 全局值 | 按类覆盖探索率 |
+| `adaptive:explorationOverride:<Worker类名>` | 全局值 | 按类覆盖探索率（两段键：前缀 + 类名，键值为探索率） |
 | `adaptive:statsPath` | `""`（空 = 不持久化） | 两臂统计的 JSON 快照路径（原子写 + MD5 校验，重启恢复为先验） |
 
 **两条硬语义**：
@@ -184,6 +186,59 @@ class ModbusWorker(DualArmWorker):
   相互独立判定
 - **fail-open**：决策/统计/持久化任何异常都不传导为任务失败；双臂执行体自身的
   异常照 `BaseWorker` 契约 `_on_error` 传播
+
+### NativeTaskWorker
+
+原生任务 Worker：复用既有 Worker 生命周期，执行一个**原生扩展注册的任务**。
+公共面在 `zoo_framework.native`（不经 `zoo_framework.workers` 导出）。任务交给
+适配器，由适配器负责加载扩展、握手、转换输入输出、映射错误；结果只经既有单一
+结算点（`run_and_settle → settle`）投递，适配器不投递、不碰 run_id/session_id。
+
+```python
+from zoo_framework.native import NativeTaskWorker
+
+
+class DigestTaskWorker(NativeTaskWorker):
+    def __init__(self):
+        super().__init__(
+            {
+                "name": "digest-task",
+                "task_name": "digest_sha256",  # 必需：原生任务按显式名称注册，缺省报错
+                "input": b"hello",
+            }
+        )
+```
+
+- `_execute()` 链路：`adapter.contract()` → `prepare_input()` → `execute()` →
+  `convert_output()`，返回值进 `WorkerResult.content`
+- 原生执行体运行期间**释放 GIL**——长任务跑着时 Python 控制线程（调度轮、其他
+  Worker、事件管线）照常推进
+- **显式拒绝，不静默回退**：扩展缺失 / 契约版本不匹配 / 能力不支持 / 任务未注册 /
+  输入格式或尺寸不合格 → 执行前 `NativeInvalidInput`，绝无静默回退 Python 实现的路径
+- **错误三族**（基类 `NativeTaskError`）：`NativeInvalidInput`（输入侧与握手在执行前拒绝；输出解码失败发生在执行后，同属本族）/
+  `NativeTaskFailed`（受控业务失败）/ `NativePanic`（panic 兜底；**不是进程隔离**）
+
+**执行契约**（`NativeTaskContract`，语言无关，不含 PyO3 / Tokio 类型）：
+`name` / `contract_version`（当前 `CONTRACT_VERSION = 1`，扩展上报值必须相等）/
+`input_format`、`output_format`（首版 `bytes` 直传与 `json`）/
+`max_input_bytes`（超限执行前拒绝）/ `error_classes` / `capabilities`
+（`internal_parallel`、`zero_copy` 首版声明不支持，扩展声明即拒绝）。
+
+**可选安装**：原生扩展（Rust crate `native/`，maturin 构建后端）**不随主包分发**，
+需要时从仓库源码安装（要求 Rust 工具链；产物模块名 `zoo_framework_native`）：
+
+```bash
+uv pip install --python .venv/Scripts/python.exe ./native
+```
+
+未安装时既有功能不受影响；请求原生任务会收到指明「缺的是扩展」的显式错误。
+
+**注册**：零参构造的子类走 `Master.register_worker(name, worker_class)`；构造需要
+参数的走 `worker_registry.register_factory(...)` + `waiter.add_worker(...)`——
+只登记注册表不加调度列表的 Worker 永远不会被派发。
+
+**进程级单例**：`get_native_adapter()` 取单例（首次访问创建，懒握手），`reset_native_adapter()`
+供测试与新扩展热加载。
 
 ---
 
