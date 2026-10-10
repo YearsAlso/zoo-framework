@@ -278,8 +278,10 @@ Windows / Python 3.13 实测，负载为代表性任务（JSON 编解码 + 字�
 毫秒级任务是可忽略的，对 100 µs 以下的任务则占主导 —— 任务粒度请据此选择。
 拆解与跨平台说明见 `bench/DECISION.md`。
 
-![框架开销占端到端延迟的比例](docs/assets/bench/overhead_ratio.zh.png)
-*0.10.0 那一轮的快照 —— 维护中的逐版本报告见
+![各基线相对 Zoo Framework 的端到端耗时倍数](docs/assets/bench/relative_multiple.zh.png)
+*各基线相对 Zoo Framework 的端到端耗时倍数（高于 1.0 = Zoo 更快）：并发 1 与最小
+任务档下 Zoo **比 `process_pool` 快 2.27×**，任务体 ≳40 µs 后与 `apscheduler` /
+`asyncio` / 裸线程持平。0.10.0 那一轮的快照 —— 维护中的逐版本报告见
 [zoo-bench 线上报告](https://yearsalso.github.io/zoo-bench/)。*
 
 > **关于上面这张表**：它是 `adopt-rust-core` 那次研究留下的**一次性证据**，只在 Windows 上测过

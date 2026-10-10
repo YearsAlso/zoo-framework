@@ -1,0 +1,12 @@
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "zoo-framework-native"
+version = "0.1.0"
+description = "zoo-framework 原生任务执行扩展（可选安装；未安装时框架一切如旧）"
+requires-python = ">=3.13"
+
+# 独立 pyproject：主包（zoo-framework）的构建完全不读本文件；
+# wheel 产物是单一 cdylib 扩展模块 zoo_framework_native，安装即得。
