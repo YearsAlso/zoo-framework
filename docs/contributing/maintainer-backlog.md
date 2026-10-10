@@ -15,6 +15,7 @@
 |---|---|---|
 | [#119](https://github.com/YearsAlso/zoo-framework/issues/119) | 迁移到 PEP 639 许可证写法，补 CITATION.cff 与 SBOM | open |
 | [#141](https://github.com/YearsAlso/zoo-framework/issues/141) | 补齐 40 处公开 API 签名缺失的类型注解，让 `mkdocs --strict` 与 mypy 门禁真正生效 | open |
+| [门禁放宽建议](../CONTRIBUTING_MAINTAINER.md#gate-suggestions-zh) | 覆盖率下限 30%／mypy 范围／文档站 strict 三条**建议**调整，均标注"尚未生效"、未动 `.github/workflows/` | 建议，无 issue |
 
 ## 安全与供应链
 

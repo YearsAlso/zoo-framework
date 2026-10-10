@@ -18,7 +18,7 @@ site_description: 后台任务编排框架 —— 调度 Worker、投递事件�
 site_url: https://yearsalso.github.io/zoo-framework/
 repo_url: https://github.com/YearsAlso/zoo-framework
 repo_name: YearsAlso/zoo-framework
-# 文档改动一律走 dev 分支（见 CONTRIBUTING.md 的分支规范），
+# 文档改动一律走 dev 分支（见 docs/CONTRIBUTING_MAINTAINER.md 的分支规范），
 # 因此“编辑此页”指向 dev 而不是默认分支 main。
 edit_uri: edit/dev/docs/
 
@@ -109,6 +109,8 @@ nav:
       - 目录结构: contributing/structure.md
       - 调试指南: contributing/debugging.md
       - 贡献指南: contributing/contributing.md
+      - 完整贡献者规范: CONTRIBUTING_MAINTAINER.md
+      - 可上手的任务: GOOD_FIRST_ISSUES.md
       - 品牌与视觉规范: contributing/brand.md
       - 路线图: contributing/roadmap.md
       - 维护者待办台账: contributing/maintainer-backlog.md

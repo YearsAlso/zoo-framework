@@ -5,9 +5,10 @@
 **贡献者入口的既存契约**
 
 - `CONTRIBUTING.md` 542 行，中英双半：`## 🇬🇧 English` 在第 8 行、`## 🇨🇳 中文` 在第 286 行，
-  每半 13 个 `###` 章节（英文：Before you write code / Development setup / Branch strategy /
+  每半 **12** 个 `###` 章节（英文：Before you write code / Development setup / Branch strategy /
   Commit messages / Quality gates / Tests / Spec-driven changes / Documentation contributions /
   Pull requests / Good first issues / Reporting bugs and proposing features / Code of Conduct）。
+  本变更另在两半各新增 2 个 `###` 小节（D6 流程资产、D8 门禁建议），故搬移后每半 14 个。
 - **双语平行是本文件已被其它 change 引用的明文契约**（`readme-first-screen`、`example-hygiene`
   的 design 都写明"grep 双半命中"）。拆分后两半仍必须平行。
 - 文件内有 4 类**仓库根相对链接**：`SECURITY.md`、`CODE_OF_CONDUCT.md`、
@@ -69,10 +70,22 @@
 
 ### D2 完整规范进 `docs/` 后的三条改写规则
 
-其一，**语言锚点改显式 ASCII id**：`## 🇬🇧 English {#english}` / `## 🇨🇳 中文 {#zh}`，
-页内链接改为 `[中文](#zh)` / `[English](#english)`。（`attr_list` 已在 `mkdocs.yml:143` 启用；
-根 `CONTRIBUTING.md` 不进 `docs/**` 扫描范围，GitHub 的 slugify 也保留 Unicode，
-故**精简版可保持不变**——只有搬进 `docs/` 的那份必须改。）
+其一，**语言锚点改显式 ASCII id**：`## 🇬🇧 English {#en}` / `## 🇨🇳 中文 {#zh}`，
+页内链接改为 `[English](#en) | [中文](#zh)`。**锚点 id 用 `{#en}`/`{#zh}` 而不是
+`{#english}`/`{#zh}`** —— 这是本仓库既存惯例：`docs/benchmark.md` 与
+`docs/contributing/structure.md` 两份双语页都用 `{#en}`/`{#zh}`，nav 与页内链接也一律写
+`(#en)`/`(#zh)`；缩写与既有页面一致，读者在两个双语页之间跳转时不会遇到两套写法。
+
+**两套双语锚点约定，按文件位置区分（本变更同时落在两侧，不能混用）**：
+
+| 位置 | 语言导航行 | 标题 | GitHub 可达性 |
+|---|---|---|---|
+| **根级**文件（`CONTRIBUTING.md`、`CONTRIBUTORS.md`、`MAINTAINERS.md`…） | `[English](#english) \| [中文](#中文)` | 无 `{#…}`，仅 `<a name="english"></a>` / `<a name="中文"></a>` | GitHub 不解析 attr_list，故必须靠 `name=` 锚点；链接文字与锚点名**同形** |
+| **`docs/` 内**文件（`CONTRIBUTING_MAINTAINER.md`…） | `[English](#en) \| [中文](#zh)` | `{#en}` / `{#zh}`（attr_list 已启用） | 该页服务于文档站，锚点由 mkdocs 生成 |
+
+两处都保留 `<a name=…></a>` 那一行：根级文件靠它、`docs/` 内的文件靠它供 GitHub 读者使用
+（`docs/benchmark.md`、`docs/contributing/structure.md` 都是这么写的）。**根级文件不得写
+`{#en}`**：GitHub 会把 `{#en}` 当标题正文渲染，`[English](#en)` 反而变成死链。
 
 其二，**跨出 `docs_dir` 的链接改写为 dev 分支的绝对 GitHub URL**：
 `SECURITY.md`、`CODE_OF_CONDUCT.md`、`.github/PULL_REQUEST_TEMPLATE.md` →
@@ -173,6 +186,11 @@ archiveDir: path.join(rootPath, 'openspec', 'changes', 'archive'),
 在 `docs/CONTRIBUTING_MAINTAINER.md` 新增一节列出**建议放宽**的候选（如"覆盖率的
 `--cov-fail-under=30` 对 0.x 阶段偏高"），每条标注**建议、尚未生效**，并从
 `docs/contributing/maintainer-backlog.md` 交叉引用一行。
+
+该行**放在「打包与规范」分区、紧挨 `#141`**（同一批门禁话题），且用**显式 ASCII 锚点**
+`{#gate-suggestions-zh}` 指到该小节 —— 台账页在 `docs/**` 扫描范围内，写中文锚点会被
+`test_no_cjk_anchor_links` 拦下（同 D2）。该行在「状态」列写明"建议，无 issue"，
+以免与台账页"issue tracker 是唯一真源"的口径冲突。
 
 **替代方案**（不选）：只写进 `maintainer-backlog.md` —— 该页自己的口径是"issue tracker 是唯一真源，
 本页只写一行索引、不复制正文"，建议条目没有对应 issue，塞进去会破坏该页的口径；新建第四份文档 ——

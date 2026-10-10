@@ -167,7 +167,8 @@ python src/main.py
 ### 给贡献者
 
 从 [贡献者文档](contributing/README.md) 开始：开发环境搭建、目录结构、调试指南、
-贡献规范、品牌与视觉规范、路线图。
+贡献规范、品牌与视觉规范、路线图。完整规范在 [CONTRIBUTING_MAINTAINER.md](CONTRIBUTING_MAINTAINER.md)，
+想找一件能立马上手的小活看 [GOOD_FIRST_ISSUES.md](GOOD_FIRST_ISSUES.md)。
 
 > **关于命名**：框架用动物园隐喻命名（Worker / Master / Waiter / Cage / Event /
 > FIFO / Reactor / StateMachine），但**隐喻只影响命名，不影响语义**。若某个名字

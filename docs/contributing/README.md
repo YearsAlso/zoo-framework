@@ -8,7 +8,9 @@
 | [开发环境搭建](development.md) | 从零准备一个可提交 PR 的环境 |
 | [目录结构](structure.md) | 仓库各目录的职责 |
 | [调试指南](debugging.md) | 常见问题排查与诊断工具 |
-| [贡献指南](contributing.md) | 分支规范、提交规范、质量门禁、OpenSpec 流程 |
+| [贡献指南](contributing.md) | 贡献方式与"一步一步"的入口：每一步的详版在哪 |
+| [完整贡献者规范](../CONTRIBUTING_MAINTAINER.md) | 分支策略、提交信息、质量门禁、类型门禁、规范先行流程、发布流程（唯一的权威规范） |
+| [可上手的任务](../GOOD_FIRST_ISSUES.md) | 适合第一次提 PR 的自包含小活（含文件路径、量级、验收标准） |
 | [品牌与视觉规范](brand.md) | 标识、色彩、字体、图表规范（改文档或素材前必读） |
 | [路线图](roadmap.md) | 使用者可感知的能力路线图（Now／Next／Later） |
 | [维护者待办台账](maintainer-backlog.md) | 维护者自己的债务与整改项索引（issue 编号） |

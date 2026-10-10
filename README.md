@@ -399,9 +399,11 @@ performance benchmarks). It is not aimed at people using the framework:
   [SECURITY.md](SECURITY.md) for the private reporting route.
 - **Code of Conduct** — [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
-The project is maintained by one person, so issues are answered on a best-effort basis.
-A report with a reproduction, your Python version and your OS gets a response far
-faster than one without.
+The project is maintained by one person. [MAINTAINERS.md](MAINTAINERS.md) turns that into
+numbers you can hold it to: a small pull request or a clear report gets a first reply
+**within 7 days**. A report with a reproduction, your Python version and your OS gets a
+response far faster than one without. Everyone whose work lands is listed in
+[CONTRIBUTORS.md](CONTRIBUTORS.md).
 
 ### Governance
 
@@ -412,7 +414,7 @@ Who decides what, who owns what, and how long a reply is expected to take:
 - [ADOPTERS.md](ADOPTERS.md) — who uses the framework, each row labelled verifiable or not
 - [SECURITY.md](SECURITY.md) — vulnerability reporting and the trust model
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — expected behaviour and how to report abuse
-- [CONTRIBUTING.md](CONTRIBUTING.md) — development setup, branch model, quality gates
+- [CONTRIBUTING.md](CONTRIBUTING.md) — the one-page entry point for contributors
 - [`.well-known/security.txt`](.well-known/security.txt) — the machine-readable security
   contacts (RFC 9116)
 
@@ -421,8 +423,11 @@ describing a committee that does not exist.
 
 ### Contributing
 
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide
-and [docs/BRANCHING.md](docs/BRANCHING.md) for the branch model.
+Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) is the one-page entry point;
+the complete spec is [docs/CONTRIBUTING_MAINTAINER.md](docs/CONTRIBUTING_MAINTAINER.md), and
+the branch model is in [docs/BRANCHING.md](docs/BRANCHING.md). For a scoped first task see
+[docs/GOOD_FIRST_ISSUES.md](docs/GOOD_FIRST_ISSUES.md); contributors are listed in
+[CONTRIBUTORS.md](CONTRIBUTORS.md).
 
 ```bash
 git clone --recursive https://github.com/YearsAlso/zoo-framework.git

@@ -370,8 +370,9 @@ Windows / Python 3.13 实测，负载为代表性任务（JSON 编解码 + 字�
 - **安全漏洞** —— **不要**开公开 issue，请见 [SECURITY.md](SECURITY.md) 的私密上报途径。
 - **行为准则** —— [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。
 
-项目由一个人维护，issue 按尽力而为的原则响应。附带最小复现、Python 版本和操作系统的
-报告，会比其他报告快得多。
+项目由一个人维护。[MAINTAINERS.md](MAINTAINERS.md) 把这句话落成可以对照的数字：小的 PR
+或清晰的报告，**7 天内**得到首次回应。附带最小复现、Python 版本和操作系统的报告，会比
+其他报告快得多。每一个把工作合进来的人都记在 [CONTRIBUTORS.md](CONTRIBUTORS.md)。
 
 ### 治理与规范
 
@@ -382,7 +383,7 @@ Windows / Python 3.13 实测，负载为代表性任务（JSON 编解码 + 字�
 - [ADOPTERS.md](ADOPTERS.md) —— 谁在使用本框架，逐条标注可核实与否
 - [SECURITY.md](SECURITY.md) —— 漏洞报送与信任模型
 - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) —— 行为期待与举报方式
-- [CONTRIBUTING.md](CONTRIBUTING.md) —— 开发环境、分支规范、质量门禁
+- [CONTRIBUTING.md](CONTRIBUTING.md) —— 贡献者入口（一页纸）
 - [`.well-known/security.txt`](.well-known/security.txt) —— 安全联系方式的机器可读版本（RFC 9116）
 
 本项目由一个人维护；[GOVERNANCE.md](GOVERNANCE.md) 直接把这一点写出来，而不是描述一个
@@ -390,8 +391,11 @@ Windows / Python 3.13 实测，负载为代表性任务（JSON 编解码 + 字�
 
 ### 贡献代码
 
-欢迎贡献，完整流程见 [CONTRIBUTING.md](CONTRIBUTING.md)；分支模型见
-[docs/BRANCHING.md](docs/BRANCHING.md)。
+欢迎贡献。[CONTRIBUTING.md](CONTRIBUTING.md) 是**一页纸**的入口，完整规范在
+[docs/CONTRIBUTING_MAINTAINER.md](docs/CONTRIBUTING_MAINTAINER.md)，分支模型见
+[docs/BRANCHING.md](docs/BRANCHING.md)。想找一件能立马上手的小活看
+[docs/GOOD_FIRST_ISSUES.md](docs/GOOD_FIRST_ISSUES.md)；贡献者名单在
+[CONTRIBUTORS.md](CONTRIBUTORS.md)。
 
 ```bash
 git clone --recursive https://github.com/YearsAlso/zoo-framework.git
