@@ -373,6 +373,21 @@ Windows / Python 3.13 实测，负载为代表性任务（JSON 编解码 + 字�
 项目由一个人维护，issue 按尽力而为的原则响应。附带最小复现、Python 版本和操作系统的
 报告，会比其他报告快得多。
 
+### 治理与规范
+
+谁决策、谁负责什么、出问题时预期多久能收到回应：
+
+- [GOVERNANCE.md](GOVERNANCE.md) —— 决策方式，以及怎么成为维护者
+- [MAINTAINERS.md](MAINTAINERS.md) —— 职责分区与可预期的响应时间
+- [ADOPTERS.md](ADOPTERS.md) —— 谁在使用本框架，逐条标注可核实与否
+- [SECURITY.md](SECURITY.md) —— 漏洞报送与信任模型
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) —— 行为期待与举报方式
+- [CONTRIBUTING.md](CONTRIBUTING.md) —— 开发环境、分支规范、质量门禁
+- [`.well-known/security.txt`](.well-known/security.txt) —— 安全联系方式的机器可读版本（RFC 9116）
+
+本项目由一个人维护；[GOVERNANCE.md](GOVERNANCE.md) 直接把这一点写出来，而不是描述一个
+并不存在的委员会。
+
 ### 贡献代码
 
 欢迎贡献，完整流程见 [CONTRIBUTING.md](CONTRIBUTING.md)；分支模型见

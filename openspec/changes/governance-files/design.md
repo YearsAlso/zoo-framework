@@ -41,7 +41,8 @@
 "参考 Contributor Covenant v2.1 制定，并按本项目规模做了精简"。
 
 **用户选定 B**：本变更不迁移版本，只在 CoC 顶部如实披露"官方当前版本已是 v3.0、
-本仓仍基于 v2.1 的精简改写版、迁移跟踪于 issue #<迁移 issue>"，另开 issue 跟踪迁移。
+本仓仍基于 v2.1 的精简改写版、迁移跟踪于 issue #150"，另开
+[#150](https://github.com/YearsAlso/zoo-framework/issues/150) 跟踪迁移（apply 阶段已创建）。
 理由（也写进迁移 issue）：v3.0 是结构性重写（Encouraged / Restricted Behaviors、
 Community Moderators 术语、四级执行阶梯、必须自填举报方式），属于政策文本层面的
 独立工作，与"补齐治理材料"不是同一关注点；一个变更一个关注点。

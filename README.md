@@ -403,6 +403,22 @@ The project is maintained by one person, so issues are answered on a best-effort
 A report with a reproduction, your Python version and your OS gets a response far
 faster than one without.
 
+### Governance
+
+Who decides what, who owns what, and how long a reply is expected to take:
+
+- [GOVERNANCE.md](GOVERNANCE.md) — how decisions are made, and how to become a maintainer
+- [MAINTAINERS.md](MAINTAINERS.md) — areas of responsibility and the expected response times
+- [ADOPTERS.md](ADOPTERS.md) — who uses the framework, each row labelled verifiable or not
+- [SECURITY.md](SECURITY.md) — vulnerability reporting and the trust model
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — expected behaviour and how to report abuse
+- [CONTRIBUTING.md](CONTRIBUTING.md) — development setup, branch model, quality gates
+- [`.well-known/security.txt`](.well-known/security.txt) — the machine-readable security
+  contacts (RFC 9116)
+
+This is a one-person project, and [GOVERNANCE.md](GOVERNANCE.md) says so plainly instead of
+describing a committee that does not exist.
+
 ### Contributing
 
 Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide
