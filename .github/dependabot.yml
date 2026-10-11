@@ -7,10 +7,19 @@
 #   Dependabot 能力内（它只改清单文件），锁文件的刷新仍靠发布流程或人工
 #
 # 与 CI 门禁（mypy/ruff/pytest 硬门禁）天然配合：升级 PR 自动被测试验证。
+#
+# 🔑 target-branch: dev —— 不写这一行时，Dependabot 按**默认分支**（main）开 PR，
+# 与 docs/BRANCHING.md「main 只在发版时接收来自 dev 的合并」相悖，且有两处实测代价：
+# (a) 触及 .github/workflows/release.yml 的升级（actions/checkout、actions/setup-python、
+#     sigstore/cosign-installer）合入 main 会被 release.yml 的 decide 判为 bump ——
+#     等于顺手发布一个正式版；(b) 依赖升级绕过 dev 的集成验证。
+# 注意本文件**只从默认分支读取**：改动必须落到 main 才生效（本文件不在 decide 的发布
+# 相关路径白名单内，故合它自身不会触发发版）。
 
 version: 2
 updates:
   - package-ecosystem: github-actions
+    target-branch: dev
     directory: /
     schedule:
       interval: weekly
@@ -23,6 +32,7 @@ updates:
           - 'patch'
 
   - package-ecosystem: pip
+    target-branch: dev
     directory: /
     schedule:
       interval: weekly
