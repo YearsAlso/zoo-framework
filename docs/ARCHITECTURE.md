@@ -440,8 +440,9 @@ classDiagram
 
 ### 10.  原生任务执行 —— Rust 扩展接入
 
-**职责**：Python 保留编排与生命周期，Rust 经显式适配层执行真实任务（首个任务：
-Modbus RTU 响应帧解析）
+**职责**：Python 保留编排与生命周期，Rust 经显式适配层执行真实任务。框架侧与具体
+任务无关（只按任务名分派）；随扩展发布的 `modbus_rtu.parse_response` 是**样例负载**
+（阶段 0 的验收对象与等价性对照体，非框架功能），生产使用应以自有任务替换
 
 ```mermaid
 classDiagram
