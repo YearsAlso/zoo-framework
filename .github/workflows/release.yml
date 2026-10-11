@@ -242,10 +242,17 @@ jobs:
           branch: release/bump-${{ steps.calc_version.outputs.new_version }}
           # 分支保护要求提交签名；经 API 产生的提交由 GitHub 签名，git commit 产生的不是
           sign-commits: true
+          # 这份清单必须与上面 "Update version declarations" 里 sed 的四处**逐项一致**：
+          # 只列三处时，CITATION.cff 会被改写、被断言核对（断言读的是工作区），
+          # 却从未被 stage —— 于是 bump 提交只带三处，第四处静默留在旧版本号上
+          # （0.11.1-beta 那次即如此：CITATION.cff 停 0.10.6-beta）。
+          # tests/test_doc_consistency.py::test_release_bump_covers_every_version_place
+          # 按本文件机械核对这两份清单。
           add-paths: |
             pyproject.toml
             .env
             zoo_framework/__init__.py
+            CITATION.cff
           commit-message: "chore(release): bump version to ${{ steps.calc_version.outputs.new_version }} [skip ci]"
           title: "chore(release): 版本号升到 ${{ steps.calc_version.outputs.new_version }}"
           body: |

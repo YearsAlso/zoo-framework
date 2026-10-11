@@ -119,10 +119,10 @@ bench/
 ├── profile_framework.py         framework overhead as a share of end-to-end latency
 ├── compare_execution_models.py  Python dispatch path vs Rust (Tokio) dispatch path
 ├── results/*.json               one JSON per platform, plus SUMMARY.json
-└── pyo3_probe/                  the Rust probe (PyO3 0.23 + tokio 1, cdylib)
+└── pyo3_probe/                  the Rust probe (PyO3 0.29 + tokio 1, cdylib)
 ```
 
-**The Rust probe is deliberately minimal** — 8 `#[pyfunction]`s (Python→Rust round trip, Rust→Python callback holding the GIL, `allow_threads` round trip, fine- vs coarse-grained crossing counts, three panic paths) plus one `#[pyclass]` `RustDispatcher` wrapping a multi-thread Tokio runtime. `submit` crosses the boundary twice per task (`Python::with_gil` for the body, again for the completion callback) and **implements no scheduling semantics** — no timeout/circuit-breaker, no in-flight table, no result aggregation. It therefore measures a **lower bound**; a real Rust scheduler would be slower than the 51–67 µs it reports.
+**The Rust probe is deliberately minimal** — 8 `#[pyfunction]`s (Python→Rust round trip, Rust→Python callback holding the GIL, `allow_threads` round trip, fine- vs coarse-grained crossing counts, three panic paths) plus one `#[pyclass]` `RustDispatcher` wrapping a multi-thread Tokio runtime. `submit` crosses the boundary twice per task (`Python::attach` for the body, again for the completion callback) and **implements no scheduling semantics** — no timeout/circuit-breaker, no in-flight table, no result aggregation. It therefore measures a **lower bound**; a real Rust scheduler would be slower than the 51–67 µs it reports.
 
 **Verdict: no-go** for the framework's current shape (dispatch a Python callable, run it, collect the completion signal). Measured end-to-end speedups: 1.67x (cpu-1x), 1.22x (cpu-10x), 1.01x (io-10ms). **The bottleneck is the GIL and cross-thread wakeup, not the scheduler** — the boundary crossing itself costs only 28.9 ns (the design had cited 0.33 µs, an ~11x overestimate taken from a ctypes upper bound). Rust only flips the 15%-overhead threshold inside a narrow ~290–640 µs band of median task duration, and even there caps at 1.67x.
 

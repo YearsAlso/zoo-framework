@@ -717,3 +717,132 @@ def test_floor_claim_scanner_has_teeth():
         )
     hurt = [sample for sample in _SYNTHETIC_NON_CLAIMS if _floor_claims(sample)]
     assert not hurt, f"以下非门槛写法被门槛扫描误伤：{hurt}"
+
+
+# ------------------------------------------------- 版本号真源（release 工作流）
+
+
+_RELEASE_WORKFLOW = ".github/workflows/release.yml"
+
+# release 工作流的版本改写真身：``sed -i "s/^<模式>/<替换>/" <文件>``
+_RELEASE_SED_RE = re.compile(
+    r"""^[ \t]*sed -i "s/\^(?P<pattern>.*?)/(?P<replacement>.*)/" (?P<file>\S+)[ \t]*$""",
+    re.MULTILINE,
+)
+
+# ``create-pull-request`` 步骤的块状目录清单
+_RELEASE_ADD_PATHS_RE = re.compile(
+    r"^[ \t]*add-paths:[ \t]*\|[ \t]*\n((?:[ \t]+\S+[ \t]*\n)+)", re.MULTILINE
+)
+
+# sed 的 BRE 分组噪声（``\([[:space:]]*\)``）不参与行首锚点
+_BRE_GROUP_RE = re.compile(r"\\\(.*?\\\)")
+
+
+def _release_version_places(workflow_text: str) -> dict[str, str]:
+    """解析 release 工作流的版本改写步骤 → ``{被改文件: 行首锚点}``。
+
+    锚点即"该文件里版本声明行长什么样"的字面前缀（如 ``pyproject.toml`` 的
+    ``version = "``）：由 sed 模式本身推出，因此模式与文件格式一旦脱节就能被检出。
+
+    Args:
+        workflow_text: ``release.yml`` 的文本内容
+
+    Returns:
+        文件路径到行首锚点的映射
+    """
+    places: dict[str, str] = {}
+    for match in _RELEASE_SED_RE.finditer(workflow_text):
+        # 模式里的 \" 是 shell 转义，落到被测文件里就是普通的 " —— 先还原再切锚点
+        pattern = match.group("pattern").replace('\\"', '"')
+        # 去掉"任意值 + 收尾引号"（``.*"``）或"任意值"（``.*``），剩下的就是锚点
+        # （锚点自带值前的开引号：``version = "`` 中的那个 " 是字面量，不是通配）
+        if pattern.endswith('.*"'):
+            pattern = pattern[: -len('.*"')]
+        elif pattern.endswith(".*"):
+            pattern = pattern[: -len(".*")]
+        places[match.group("file")] = _BRE_GROUP_RE.sub("", pattern)
+    return places
+
+
+def _release_add_paths(workflow_text: str) -> set[str]:
+    """取 ``add-paths`` 块状清单里的文件集合；非块状写法返回空集，由调用方报错。"""
+    match = _RELEASE_ADD_PATHS_RE.search(workflow_text)
+    if match is None:
+        return set()
+    return {line.strip() for line in match.group(1).splitlines() if line.strip()}
+
+
+def test_release_bump_covers_every_version_place():
+    """版本号真源：release 改写到哪几处，就必须提交哪几处。
+
+    牙齿：从 ``add-paths`` 里删掉 ``CITATION.cff`` 即红——那正是 0.11.1-beta 那次的
+    真实状态：``CITATION.cff`` 被 sed 改写、被同一段脚本的断言核对过（断言读的是
+    **工作区**），却从未被 stage，于是 bump 提交只带三处，第四处静默停在旧版本号，
+    包对外自称的版本与 ``pyproject.toml`` 不符。
+    """
+    workflow = (REPO_ROOT / _RELEASE_WORKFLOW).read_text(encoding="utf-8")
+
+    places = _release_version_places(workflow)
+    assert len(places) >= 4, (
+        f"从 {_RELEASE_WORKFLOW} 只解析出 {sorted(places)} 处版本声明——"
+        "解析失效或工作流已漂移（CLAUDE.md 声明版本号真源为四处）"
+    )
+
+    staged = _release_add_paths(workflow)
+    assert staged, f"{_RELEASE_WORKFLOW} 的 add-paths 不是块状清单，无法机械核对"
+
+    missing = set(places) - staged
+    assert not missing, (
+        f"这些文件被改写却没被提交：{sorted(missing)}——sed 改的是工作区，"
+        "脚本里的断言核对的也是工作区，漏提交不会有任何报错"
+    )
+    stale = staged - set(places)
+    assert not stale, f"add-paths 订阅了已不再被改写的文件：{sorted(stale)}"
+
+
+def test_release_sed_patterns_match_their_files():
+    """每处版本声明的 sed 模式必须仍能命中该文件——否则 bump 静默 no-op。
+
+    牙齿：把 ``zoo_framework/__init__.py`` 的 ``__version__ = "..."`` 改成单引号、
+    或把 ``CITATION.cff`` 的 ``version:`` 缩进一层，本断言即红。这正是本仓发生过的
+    事故形态：release 的 sed 曾按**版本值**匹配，文件一漂移模式就匹配不到任何行，
+    bump 报告成功却什么都没写。
+    """
+    workflow = (REPO_ROOT / _RELEASE_WORKFLOW).read_text(encoding="utf-8")
+    places = _release_version_places(workflow)
+    assert places, "未解析出任何版本声明位置"
+
+    for rel, anchor in sorted(places.items()):
+        path = REPO_ROOT / rel
+        assert path.is_file(), f"release 工作流改写的文件不存在：{rel}"
+        lines = path.read_text(encoding="utf-8").splitlines()
+        assert any(line.lstrip().startswith(anchor) for line in lines), (
+            f"{rel} 里没有以 {anchor!r} 开头的行——release 的 sed 会静默 no-op"
+        )
+
+
+def test_version_place_scanner_has_teeth():
+    """版本号扫描器的正反样本自检（防空跑，与门槛扫描器同形）。
+
+    牙齿：把锚点提取（BRE 分组剥离 / 转义引号还原）或 add-paths 解析改坏后本断言
+    立刻变红，而不是让 ``test_release_bump_covers_every_version_place`` 静默退化。
+    """
+    synthetic = "\n".join(
+        [
+            r'          sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" pyproject.toml',
+            r'          sed -i "s/^VERSION=.*/VERSION=$NEW_VERSION/" .env',
+            r'          sed -i "s/^\([[:space:]]*\)__version__ = \".*\"/\1__version__ = \"$NEW_VERSION\"/" zoo_framework/__init__.py',
+            r'          sed -i "s/^version: \".*\"/version: \"$NEW_VERSION\"/" CITATION.cff',
+        ]
+    )
+    assert _release_version_places(synthetic) == {
+        "pyproject.toml": 'version = "',
+        ".env": "VERSION=",
+        "zoo_framework/__init__.py": '__version__ = "',
+        "CITATION.cff": 'version: "',
+    }, "锚点提取已漂移——它同时是 test_release_sed_patterns_match_their_files 的基准"
+
+    assert _release_add_paths(
+        "        with:\n          add-paths: |\n            pyproject.toml\n            .env\n"
+    ) == {"pyproject.toml", ".env"}
