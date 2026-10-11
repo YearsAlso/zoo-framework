@@ -1,5 +1,14 @@
 # DECISION — add-native-task-execution / 阶段 0 与阶段 2 测量记录
 
+> **本文档中的 Modbus 是样例负载，不是框架功能。** `modbus_rtu.parse_response` 是
+> 阶段 0 为判定 go/no-go 选定的首个真实业务任务，随后随 `native/` 扩展一并发布。
+> 它的作用有二：提供可复现的收益证据（本文件与 `native/results/`），以及充当两侧
+> 语义等价的对照体（`native/reference/modbus_rtu.py`）。
+> 框架侧 `zoo_framework/native/` 与具体任务无关——只按任务名分派、不认识任何业务
+> 语义；生产部署 SHOULD 以自有任务替换之（移除样例须同步摘除 `native/src/lib.rs`
+> 与 `contract.rs` 中的注册点，框架侧无需改动）。替换掉样例不影响本文件测量结论的
+> 有效性——它是对「粗粒度原生任务」这一形态的判定，Modbus 只是承载该判定的样本。
+
 ## 结论（第二组测量：首个真实任务四链路对照）
 
 **go，附工作包络：Modbus RTU 响应帧解析在 ≥8 寄存器（≥21 字节）帧上端到端收益

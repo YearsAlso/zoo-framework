@@ -12,6 +12,19 @@
 ::: zoo_framework.native.contract.NativeContractDescriptor
 ::: zoo_framework.native.contract.CONTRACT_VERSION
 
+## 样例任务
+
+扩展随包携带一个样例任务 `modbus_rtu.parse_response`（Modbus RTU 响应帧解析）。
+它是阶段 0 为判定「原生执行值不值得做」而选定的**首个真实业务任务**，作用有两重：
+给出可复现的收益证据（工作包络：帧 ≥8 寄存器端到端 9.87x–10.22x；1 寄存器小帧
+1.07x，留在 Python 侧不路由原生，见 `native/DECISION.md`），以及充当两侧语义等价的
+对照体（`native/reference/modbus_rtu.py`，逐值比对）。
+
+它是**样例负载，不是框架功能**：框架侧只按任务名分派，不认识任何具体任务。生产使用
+SHOULD 在扩展侧注册自有任务名与契约；移除样例须同步摘除 `native/src/lib.rs`
+（`execute` 的分支）与 `contract.rs`（任务常量与契约构造函数）中的注册点，框架侧
+无需任何改动。
+
 ## 错误分类
 
 ::: zoo_framework.native.contract.NativeTaskError

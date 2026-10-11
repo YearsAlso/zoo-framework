@@ -2,7 +2,7 @@
 name = "zoo_framework_native"
 version = "0.1.0"
 edition = "2021"
-description = "zoo-framework 原生任务执行扩展（可选安装，契约版本 1）"
+description = "zoo-framework 原生任务执行扩展（可选安装，契约版本 1；内置任务为样例负载，非框架功能）"
 
 [lib]
 name = "zoo_framework_native"

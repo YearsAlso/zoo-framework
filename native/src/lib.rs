@@ -11,6 +11,13 @@
 //! 对 Python 适配器（zoo_framework/native/adapter.py）暴露的四个入口：
 //!   contract_version() / capabilities() / tasks() / execute(task, payload)
 //! 语义细节见 contract.rs 模块注释。
+//!
+//! **本 crate 内置的 `modbus_rtu.parse_response` 是样例负载，不是框架功能**：
+//! 它是阶段 0 为判定 go/no-go 选定的首个真实业务任务（native/DECISION.md），
+//! 作用是提供可复现的收益证据与两侧语义等价的对照体。框架侧
+//! （zoo_framework/native/）与具体任务无关，只按任务名分派。生产使用 SHOULD
+//! 换成自有任务——在扩展侧注册任务名与契约即可；移除样例须同步摘除本文件
+//! `execute` 的 match 分支、contract.rs 的任务常量与契约构造函数，框架侧无需改动。
 
 mod contract;
 mod modbus;

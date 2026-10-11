@@ -161,8 +161,8 @@ class ModbusWorker(DualArmWorker):
     """原生臂看门人：声明原生任务名后，框架按逐类统计自动选臂."""
 
     def __init__(self, props: dict):
-        # modbus_rtu.parse_response 是当前扩展唯一注册的真实任务；
-        # 换其他任务名前需先在扩展侧注册
+        # modbus_rtu.parse_response 是扩展随包携带的样例任务（非框架功能）；
+        # 生产使用应换成自有任务——先在扩展侧注册任务名与契约
         props = {**props, "native_task_name": "modbus_rtu.parse_response"}
         super().__init__(props)
 
@@ -484,7 +484,7 @@ delay_mgr = WorkerDelayManager()
 
 # 直接设置固定延迟（秒）
 delay_mgr.set_delay("worker_name", 5.0)
-delay_mgr.get_delay("worker_name")          # -> 5.0
+delay_mgr.get_delay("worker_name")  # -> 5.0
 
 # 或让延迟按执行次数指数退避
 delay_mgr.record_execute("worker_name")
