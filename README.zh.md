@@ -182,9 +182,11 @@ python src/main.py
 
 脚手架产出的项目开箱即有一个 demo Worker —— 每 10 秒一行 `[sample_worker] tick #N`。
 那是你的代码在跑；框架自己的系统日志长得不一样（走的是日志通道）。新增自己的
-Worker 是可选的：
+Worker 是可选的 —— 下面这段是自足的（前两行就是刚跑过的那两条），可以直接整体复制：
 
 ```bash
+zfc --create myapp
+cd myapp
 zfc --worker my_task
 ```
 

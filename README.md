@@ -196,9 +196,12 @@ python src/main.py
 
 The scaffolded project has a demo Worker wired in — a `[sample_worker] tick #N` line
 every 10 seconds. That is your code running; the framework's own system logs look
-different (they go through the logger). Adding your own worker is optional:
+different (they go through the logger). Adding your own worker is optional — the block is
+self-contained (its first two lines are the ones you just ran), so you can copy it as-is:
 
 ```bash
+zfc --create myapp
+cd myapp
 zfc --worker my_task
 ```
 
