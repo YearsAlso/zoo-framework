@@ -5,7 +5,7 @@ description: 跨平台一致性审查 Skill — 审查代码在 Windows/Linux/ma
 
 # Cross-Platform Review — 跨平台一致性审查
 
-审查代码变更在 Windows / Linux / macOS 上是否行为一致，防止"只在开发机能跑"的缺陷。对应 `openspec/specs/cross-platform-io/spec.md` 与 CI 的三平台矩阵（ubuntu / windows / macos，Python 3.13）。reviewer 在涉及 `zoo_framework/utils/**`、持久化、调度/计时、进程/线程生命周期的变更时附加调用本 skill。
+审查代码变更在 Windows / Linux / macOS 上是否行为一致，防止"只在开发机能跑"的缺陷。对应 `openspec/specs/cross-platform-io/spec.md` 与 CI 的三平台矩阵（ubuntu / windows / macos，矩阵版本见 `.github/workflows/tests.yml`）。reviewer 在涉及 `zoo_framework/utils/**`、持久化、调度/计时、进程/线程生命周期的变更时附加调用本 skill。
 
 ## 触发变更路径
 - `zoo_framework/utils/file_utils.py`、`log_utils.py`、`structured_log.py`（编码/路径/控制台输出）
@@ -43,7 +43,7 @@ description: 跨平台一致性审查 Skill — 审查代码在 Windows/Linux/ma
 - 子进程/`multiprocessing.Lock` 在 Windows 无 `fork`（spawn 启动开销大），bench 已测 `multiprocessing.Lock` 慢于 `threading.RLock`——锁选型见 architecture-review
 
 ### 6. CI 三平台矩阵
-- 新增测试/功能是否在 ubuntu/windows/macos 都能通过（CI 强制三平台 Python 3.13）
+- 新增测试/功能是否在 ubuntu/windows/macos 都能通过（CI 强制三平台，矩阵版本见 `.github/workflows/tests.yml`）
 - 平台特定断言是否用 `sys.platform` / `platform.system()` 守卫，避免只在单机通过
 - 注意工作树里 3.9 的 `venv/` 无法导入本包——本地验证须用 3.13 解释器（`uv run --no-sync` / `.venv`）
 

@@ -45,14 +45,18 @@ class SVMWorker:
                 "last_execute_time": 0.0,
                 "status": "running",
             }
-            LogUtils.info(f"✅ Worker '{name}' registered to SVM")
+            # 如实表述：指标输入链路未接通，健康报告恒为零——不声称监控已生效
+            LogUtils.debug(
+                f"SVM worker '{name}' registered"
+                " (metrics input not wired; get_health_report() returns zeros)"
+            )
 
     def unregister_worker(self, name: str) -> None:
         """Remove a Worker from the SVM manager."""
         with self._lock:
             self._workers.pop(name, None)
             self._metrics.pop(name, None)
-            LogUtils.info(f"🗑️ Worker '{name}' unregistered from SVM")
+            LogUtils.debug(f"SVM worker '{name}' unregistered (metrics input not wired)")
 
     def record_execute(self, name: str, duration: float, success: bool = True) -> None:
         """Record a Worker's execution metrics."""
@@ -111,7 +115,10 @@ class SVMWorker:
         self._monitor_thread = threading.Thread(target=self._monitor_loop, name="zoo-svm")
         self._monitor_thread.daemon = True
         self._monitor_thread.start()
-        LogUtils.info("🔍 SVM monitoring started")
+        # 监控线程真实启动，但指标输入未接通——如实说明，不声称监控已生效
+        LogUtils.debug(
+            "SVM monitor thread started (metrics input not wired; health report stays zero)"
+        )
 
     def stop_monitoring(self) -> None:
         """Stop the monitoring thread.
@@ -123,7 +130,7 @@ class SVMWorker:
         self._stop_event.set()
         if self._monitor_thread:
             self._monitor_thread.join(timeout=5)
-        LogUtils.info("🛑 SVM monitoring stopped")
+        LogUtils.debug("SVM monitor thread stopped (metrics input not wired)")
 
     def _monitor_loop(self) -> None:
         """The monitoring loop."""
@@ -292,7 +299,9 @@ class Master:
 
         # Start monitoring
         self.svm_worker.start_monitoring()
-        LogUtils.info("✅ SVM Worker setup completed")
+        LogUtils.debug(
+            "SVM worker setup done (metrics input not wired; get_health_report() returns zeros)"
+        )
 
     def _create_waiter(self) -> None:
         """Create the Waiter.

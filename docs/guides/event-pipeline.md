@@ -22,7 +22,7 @@ def on_order_created(req):
 manager = EventReactorManager()
 manager.dispatch("order.created", {"id": 42}, channel="business")
 
-print(received)     # [('order.created', {'id': 42})]
+print(received)  # [('order.created', {'id': 42})]
 ```
 
 `@event` 的参数：
@@ -43,6 +43,7 @@ print(received)     # [('order.created', {'id': 42})]
 ```python
 @event(topic="order.created", channel="business")
 def on_business(req): ...
+
 
 @event(topic="order.created", channel="audit")
 def on_audit(req): ...
@@ -79,17 +80,28 @@ def on_audit(req): ...
 
 ## 节拍与推送模型
 
-事件管道默认按**节拍**检查（`event:delay`，默认 5 秒）。
-对延迟敏感的场景可以启用推送模型：
+事件管道默认按**节拍**检查：每个消费轮把已入队的事件排空，然后按 `event:delay`
+（默认 5 秒）等待，再开始下一轮。事件等待多久，取决于它落在这一轮的哪个位置。
+
+对延迟敏感的场景可以启用**推送模型**——消费者改为挂在通道上等，
+队列一有事件就把它叫醒，而不是睡满节拍再来看：
 
 ```json
 { "event": { "pushModelEnabled": true, "pushFallbackTimeout": 1.0 } }
 ```
 
-推送模型下事件到达即投递，不再等节拍；超时后回退到轮询。
+被叫醒的这一轮立即排空；没人入队则等满 `event:pushFallbackTimeout`
+（默认 1 秒）后照常扫一遍，**通知漏了也不会让事件困在队列里**。
+关闭时（默认）走原有轮询路径。
 
-批量派发也是可配置的（`event:dispatchBatchingEnabled` 与 `event:batchMaxSize`）。
-完整键位见[配置参考](config-reference.md)。
+> **它的边界**：等待发生在每个消费轮的**开头**，轮与轮之间的节拍照旧。
+> 因此落在等待窗口里的入队事件可以立刻投递，落在节拍里的入队事件仍等下一轮
+> ——**最坏延迟不变**。要缩短最坏延迟，调的是 `event:delay` 本身。
+
+**批量派发**同样是可配置的（`event:dispatchBatchingEnabled` 与 `event:batchMaxSize`）：
+开启后，同一通道内发给同一响应器的一批事件合并为一次投递，批大小的上限按
+「每轮、每通道取出的事件数」计——超出上限的事件**原样留在队列**里等下一轮，
+不裁批、不丢失、也不记死信。默认关闭。完整键位见[配置参考](config-reference.md)。
 
 ## 语义边界（重要）
 

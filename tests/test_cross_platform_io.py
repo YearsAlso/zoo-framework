@@ -228,6 +228,12 @@ class TestBackupNaming:
 
     @staticmethod
     def _make_backups(tmp_path, count=5):
+        """连做 count 次备份，返回 (按创建顺序的名字, 磁盘上按名排序的名字)。
+
+        创建顺序必须单独留痕：把返回值排序后再断言"排序等于创建顺序"是恒真断言
+        （本文件此前正是那样写的，坏实现照样绿灯）。磁盘清单同样必要——名字被复用
+        时它才会变短。
+        """
         import glob
 
         from zoo_framework.core.persistence_scheduler import BackupManager
@@ -235,39 +241,80 @@ class TestBackupNaming:
         source = tmp_path / "state.pic"
         manager = BackupManager(backup_dir="backups", max_backups=10)
 
+        created = []
         for index in range(count):
             source.write_text(f"version-{index}")
-            manager.create_backup(str(source))
+            backup_path = manager.create_backup(str(source))
+            assert backup_path, "备份创建失败（返回 None）"
+            created.append(os.path.basename(backup_path))
 
-        return sorted(os.path.basename(p) for p in glob.glob(str(tmp_path / "backups" / "*.bak")))
+        backup_dir = tmp_path / "backups"
+        on_disk = sorted(os.path.basename(p) for p in glob.glob(str(backup_dir / "*.bak")))
+        return created, on_disk
 
     def test_same_second_backups_do_not_collide(self, tmp_path):
-        """Scenario: 同一秒内的连续备份互不覆盖."""
-        names = self._make_backups(tmp_path, count=5)
-        assert len(names) == 5, f"同秒备份相互覆盖，只留下 {len(names)} 个文件"
+        """Scenario: 同一秒内的连续备份互不覆盖.
+
+        牙齿：断言**磁盘上**确有 5 个文件、且创建过程没有复用同一个路径。命名若只
+        靠时钟唯一（同 tick 内取到同一微秒串），后写覆盖先写，两条断言都会红——
+        本仓 CI（Windows + Python 3.11）就是这样翻红的。
+        """
+        created, on_disk = self._make_backups(tmp_path, count=5)
+        assert len(on_disk) == 5, f"同秒备份相互覆盖，只留下 {len(on_disk)} 个文件：{on_disk}"
+        assert len(set(created)) == 5, f"备份路径被复用：{created}"
+
+    def test_same_tick_backups_do_not_collide(self, tmp_path, monkeypatch):
+        """时钟停在同一读数时，连做的备份仍互不覆盖（唯一性不依赖时钟粒度）.
+
+        牙齿：本条把 `datetime.now()` 冻死，于是"靠微秒串唯一"的实现**必然**只留下
+        1 个文件而变红；只有显式消解重名（追加 `_2`/`_3`…）的实现能过。
+        `test_same_second_backups_do_not_collide` 是同一缺陷的偶然复现（要撞上粗粒度
+        时钟才红），本条是它的确定性版本——CI 上那条红过、本机却连过 3 次即为例证。
+        """
+        import zoo_framework.core.persistence_scheduler as ps
+
+        class FrozenDatetime:
+            """冻结 datetime.now()：模拟两次调用落在同一时钟 tick。"""
+
+            @staticmethod
+            def now():
+                return datetime(2026, 1, 1, 0, 0, 0, 123456)
+
+        monkeypatch.setattr(ps, "datetime", FrozenDatetime)
+
+        created, on_disk = self._make_backups(tmp_path, count=5)
+        assert len(on_disk) == 5, f"同一读数下的备份相互覆盖：{on_disk}"
+        assert created == sorted(created), f"追加序号后字典序不再等于创建顺序：{created}"
+        # 首个占用者保持原名，后来者追加序号（后缀不参与时间戳比较）
+        assert created[0].endswith("20260101_000000_123456.bak"), created[0]
+        assert created[1].endswith("20260101_000000_123456_2.bak"), created[1]
 
     def test_name_order_matches_time_order(self, tmp_path):
-        """Scenario: 名称排序等价于时间排序."""
-        names = self._make_backups(tmp_path, count=5)
-        assert names == sorted(names), "字典序与创建顺序不一致"
+        """Scenario: 名称排序等价于时间排序.
+
+        牙齿：拿**创建顺序**与字典序比。此前是拿排序结果与自身比（恒真），
+        命名一乱序也照样绿。
+        """
+        created, _ = self._make_backups(tmp_path, count=5)
+        assert created == sorted(created), f"字典序与创建顺序不一致：{created}"
 
     def test_latest_backup_is_actually_the_newest(self, tmp_path):
         """取最新备份的既有逻辑（按名倒序取首个）仍正确."""
-        names = self._make_backups(tmp_path, count=5)
-        assert sorted(names, reverse=True)[0] == names[-1]
+        created, _ = self._make_backups(tmp_path, count=5)
+        assert sorted(created)[-1] == created[-1], f"按名倒序取到的不是最后创建的那个：{created}"
 
     def test_mixed_old_and_new_naming_still_picks_latest(self, tmp_path):
         """Scenario: 新旧命名混排时仍能取到最新."""
         import glob
 
-        names = self._make_backups(tmp_path, count=3)
+        created, _ = self._make_backups(tmp_path, count=3)
         legacy = tmp_path / "backups" / "state.20200101_000000.bak"
         legacy.write_text("legacy")
 
         all_names = sorted(
             os.path.basename(p) for p in glob.glob(str(tmp_path / "backups" / "*.bak"))
         )
-        assert sorted(all_names, reverse=True)[0] == names[-1], "混排后取到的不是最新的备份"
+        assert all_names[-1] == created[-1], "混排后取到的不是最新的备份"
 
     def test_timestamp_keeps_lexicographic_ordering(self):
         """命名格式的性质守卫：微秒后缀为定宽，字典序仍等于时间序."""
@@ -298,24 +345,66 @@ class TestCliWorkerDirResolution:
         os.chdir(original)
 
     def test_resolves_into_src_when_present(self, tmp_path, in_dir):
-        """Scenario: 工作目录下存在源码目录时产出到其中."""
+        """Scenario: 项目入口在当前目录时，产出位于项目的 src/workers."""
         from zoo_framework.cli import resolve_worker_dir
 
         project = tmp_path / "demo"
         (project / "src").mkdir(parents=True)
+        (project / "src" / "main.py").write_text("", encoding="utf-8")
         in_dir(str(project))
 
         assert os.path.normpath(resolve_worker_dir()) == os.path.normpath("src/workers")
 
-    def test_resolves_to_workers_when_src_absent(self, tmp_path, in_dir):
-        """Scenario: 工作目录下不存在源码目录时产出到当前目录."""
+    def test_rejects_directory_without_scaffold_entry(self, tmp_path, in_dir):
+        """Scenario: 当前目录及父目录都没有项目入口时拒绝生成."""
+        import click
+
         from zoo_framework.cli import resolve_worker_dir
 
         plain = tmp_path / "plain"
         plain.mkdir()
         in_dir(str(plain))
 
-        assert os.path.normpath(resolve_worker_dir()) == os.path.normpath("workers")
+        with pytest.raises(click.ClickException, match=r"src/main\.py"):
+            resolve_worker_dir()
+        assert not (plain / "workers").exists()
+
+    def test_resolves_to_nearest_parent_project(self, tmp_path, in_dir):
+        """Scenario: 子目录调用会定位最近父目录中的项目入口."""
+        from zoo_framework.cli import resolve_worker_dir
+
+        outer = tmp_path / "outer"
+        (outer / "src").mkdir(parents=True)
+        (outer / "src" / "main.py").write_text("", encoding="utf-8")
+        project = outer / "nested"
+        (project / "src").mkdir(parents=True)
+        (project / "src" / "main.py").write_text("", encoding="utf-8")
+        child = project / "scripts"
+        child.mkdir()
+        in_dir(str(child))
+
+        assert os.path.normpath(resolve_worker_dir()) == os.path.normpath("../src/workers")
+
+    def test_worker_func_from_child_writes_and_wires_to_nearest_project(self, tmp_path, in_dir):
+        """子目录调用仍写入最近项目并更新该项目入口."""
+        from zoo_framework.cli import create_func, worker_func
+
+        in_dir(str(tmp_path))
+        project = tmp_path / "demo6"
+        create_func(str(project))
+        child = project / "scripts"
+        child.mkdir()
+        in_dir(str(child))
+
+        worker_func("nested_task")
+
+        module = project / "src" / "workers" / "nested_task_worker.py"
+        main = (project / "src" / "main.py").read_text(encoding="utf-8")
+        assert module.exists()
+        # 类名按 #112 的命名契约转 PascalCase（`nested_task` → `NestedTaskWorker`）；
+        # 此处曾写成合入前的旧命名 `Nested_TaskWorker`，与实现脱节后必红。
+        assert "from workers.nested_task_worker import NestedTaskWorker" in main
+        assert not (child / "workers").exists()
 
     def test_resolution_does_not_depend_on_argv0(self, tmp_path, in_dir, monkeypatch):
         """Scenario: 判定不依赖进程启动方式.
@@ -327,6 +416,7 @@ class TestCliWorkerDirResolution:
 
         project = tmp_path / "demo2"
         (project / "src").mkdir(parents=True)
+        (project / "src" / "main.py").write_text("", encoding="utf-8")
         in_dir(str(project))
 
         results = []
@@ -347,12 +437,19 @@ class TestCliWorkerDirResolution:
 
         project = tmp_path / "demo3"
         project.mkdir()
+        src = project / "src"
+        src.mkdir()
+        from zoo_framework.templates import WORKER_IMPORT_MARKER, WORKER_REGISTRATION_MARKER
+
+        (src / "main.py").write_text(
+            f"{WORKER_IMPORT_MARKER}\n{WORKER_REGISTRATION_MARKER}\n", encoding="utf-8"
+        )
         in_dir(str(project))
 
         worker_func("my_task")
 
-        assert (project / "workers" / "my_task_worker.py").exists()
-        assert (project / "workers" / "__init__.py").exists()
+        assert (src / "workers" / "my_task_worker.py").exists()
+        assert (src / "workers" / "__init__.py").exists()
 
     def test_worker_func_targets_src_inside_scaffolded_project(self, tmp_path, in_dir):
         """脚手架项目内新增 Worker 落在 src/workers 下."""

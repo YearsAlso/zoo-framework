@@ -26,14 +26,13 @@ the pop, MUST NOT be changed to raise `IndexError`).
 from collections import deque
 from typing import Generic, TypeVar
 
-# ruff's UP046 demands the PEP 695 form `class BaseFIFO[_T]:`, but mypy 1.7.1
-# does not support PEP 695 (see the same note in utils/thread_safe_dict.py).
-# The two tools demand opposite things, hence keep the Generic form + a
-# targeted noqa.
+# PEP 695 泛型（`class BaseFIFO[_T]:`）需要 Python 3.12+，而本项目的下界是 3.11，
+# 因此 `Generic` 形式是唯一合法写法，UP046 不适用、无需抑制
+# （同见 utils/thread_safe_dict.py 的说明）。
 _T = TypeVar("_T")
 
 
-class BaseFIFO(Generic[_T]):  # noqa: UP046
+class BaseFIFO(Generic[_T]):
     """FIFO base class."""
 
     def __init__(self):

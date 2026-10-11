@@ -18,12 +18,25 @@ site_description: 后台任务编排框架 —— 调度 Worker、投递事件�
 site_url: https://yearsalso.github.io/zoo-framework/
 repo_url: https://github.com/YearsAlso/zoo-framework
 repo_name: YearsAlso/zoo-framework
-# 文档改动一律走 dev 分支（见 CONTRIBUTING.md 的分支规范），
+# 文档改动一律走 dev 分支（见 docs/CONTRIBUTING_MAINTAINER.md 的分支规范），
 # 因此“编辑此页”指向 dev 而不是默认分支 main。
 edit_uri: edit/dev/docs/
 
 docs_dir: docs
 site_dir: site
+
+# 构建钩子：按清单把仓库根的真源复制进站点产物——.well-known/（RFC 9116 的
+# security.txt）与 llms.txt（llms.txt 约定的位置就是站点根）。清单见
+# scripts/mkdocs_hooks.py 的 COPY_MANIFEST。
+#
+# 为什么不直接在 docs/ 里放一份副本：mkdocs 会忽略点开头的目录——实测把文件放在
+# docs/.well-known/ 后构建，site/.well-known/ 不会产生（同目录下非点开头的文件正常
+# 发布）。所以副本既不可达、又会与真源漂移；改为构建期从唯一真源（仓库根）复制。
+# 源文件缺失时钩子直接报错，不让"看起来成功但没有 security.txt / llms.txt"的站点发布出去。
+# 对应 openspec/changes/governance-files/design.md D1 与
+# openspec/changes/agent-discoverability/design.md D4。
+hooks:
+  - scripts/mkdocs_hooks.py
 
 theme:
   name: material
@@ -85,6 +98,10 @@ nav:
   - 性能基准: benchmark.md
   - 迁移指南: MIGRATION.md
   - 版本政策: VERSION_POLICY.md
+  - 安全:
+      # 使用者视角的安全说明 + 供应链加固的实际状态（含默认分支与开发线的差异）
+      - 安全模型: SECURITY_MODEL.md
+      - 供应链加固状态: security-supply-chain.md
   - 常见问题: FAQ.md
   - 给贡献者:
       - 总览: contributing/README.md
@@ -92,9 +109,11 @@ nav:
       - 目录结构: contributing/structure.md
       - 调试指南: contributing/debugging.md
       - 贡献指南: contributing/contributing.md
+      - 完整贡献者规范: CONTRIBUTING_MAINTAINER.md
+      - 可上手的任务: GOOD_FIRST_ISSUES.md
       - 品牌与视觉规范: contributing/brand.md
       - 路线图: contributing/roadmap.md
-      - 维护者待办: contributing/maintainer-backlog.md
+      - 维护者待办台账: contributing/maintainer-backlog.md
 
 plugins:
   - search:

@@ -1,56 +1,63 @@
-# 维护者待办
+# 维护者待办台账
 
-本页是**维护者自己**的工作队列：CI、合规、重构、治理。
-它**不面向使用者**——使用者关心的能力方向见[路线图](roadmap.md)。
+这一页是**维护者自己的活**——对使用者没有直接感知、但影响可信度、合规与开发者体验
+的债务与整改项。**使用者可感知的能力方向在 [路线图](roadmap.md)**，两边不重复登记。
 
-> 分开的理由：此前这些内部项与用户可见的路线图混在一起（同页既写「v1.0 里程碑」
-> 又写「刷新 uv.lock」），访客读到的是「维护者在为一个不存在的受众做合规」，
-> 而不是「这里有人在解决我的问题」。
+> **口径**：issue tracker 是唯一真源，本页只是索引——每条只写一行（编号 + 一句话），
+> **不复制 issue 正文**，避免双源漂移。对应 issue 关闭后，请把该行删除或移入下方
+> "已完成"清单。
+>
+> **快照日期**：2026-10-10（`gh issue list --state open` 全量核对）。
 
----
+## 打包与规范
 
-## CI 与供应链
-
-| 项 | 状态 | 备注 |
+| 项 | 一句话 | 状态 |
 |---|---|---|
-| 刷新 `uv.lock`、消除已知漏洞 | 未开始 | issue #93。当前 `uv lock --check` 失败 |
-| 分支保护 + 要求 PR 审批 | 进行中 | issue #96（需仓库设置） |
-| 申请 OpenSSF Best Practices 徽章 | 未开始 | issue #95；前置材料见 issue #120 |
-| 收口 #89–#95 的实际生效状态 | 未开始 | issue #121 |
+| [#119](https://github.com/YearsAlso/zoo-framework/issues/119) | 迁移到 PEP 639 许可证写法，补 CITATION.cff 与 SBOM | open |
+| [#141](https://github.com/YearsAlso/zoo-framework/issues/141) | 补齐 40 处公开 API 签名缺失的类型注解，让 `mkdocs --strict` 与 mypy 门禁真正生效 | open |
+| [门禁放宽建议](../CONTRIBUTING_MAINTAINER.md#gate-suggestions-zh) | 覆盖率下限 30%／mypy 范围／文档站 strict 三条**建议**调整，均标注"尚未生效"、未动 `.github/workflows/` | 建议，无 issue |
 
-## 代码质量
+## 安全与供应链
 
-| 项 | 状态 | 备注 |
+| 项 | 一句话 | 状态 |
 |---|---|---|
-| 补齐公开 API 签名缺失的类型注解 | 未开始 | issue #141。40 处 griffe 告警，`mkdocs build --strict` 因此不通过 |
-| 修 `test_event_push_model` 的 macOS 间歇失败 | 未开始 | issue #144。会制造假红灯，对外部贡献者尤其劝退 |
-| `bumpversion` 的 `current_version` 与 `project.version` 对齐 | 未开始 | issue #115（前者 0.8.0，后者 0.10.x） |
+| [#121](https://github.com/YearsAlso/zoo-framework/issues/121) | 收口 #89–#95 安全项的实际生效状态，输出 SECURITY_MODEL.md | open |
+| [#129](https://github.com/YearsAlso/zoo-framework/issues/129) | 原生扩展无 CI、无 wheel、未启用 abi3、PyPI 404——go 结论交付不到使用者手上 | open（P0） |
 
-## 仓库卫生
+## 合规与治理材料
 
-| 项 | 状态 | 备注 |
+| 项 | 一句话 | 状态 |
 |---|---|---|
-| 清理 `example/redis.json`（与「无 broker」定位矛盾） | 未开始 | issue #116 |
-| `example/agent` 子模块在普通 clone 下是空目录 | 未开始 | issue #116 |
-| 文档里的测试数量与实际不符（367 / 662 vs 实测值） | 未开始 | issue #114 |
+| [#120](https://github.com/YearsAlso/zoo-framework/issues/120) | 补齐 GOVERNANCE／MAINTAINERS／ADOPTERS／security.txt（OpenSSF 徽章前置材料） | open |
 
-## 治理与规范
+## 可发现性与贡献者体验
 
-| 项 | 状态 | 备注 |
+| 项 | 一句话 | 状态 |
 |---|---|---|
-| 补齐 `GOVERNANCE` / `MAINTAINERS` / `ADOPTERS` / `security.txt` | 未开始 | issue #120 |
-| 输出 `docs/SECURITY_MODEL.md` | 未开始 | issue #121 |
-| 迁移到 PEP 639 许可证写法、补 `CITATION.cff` | 未开始 | issue #119 |
-| 回填 `0.9.x` / `0.10.x` 的 CHANGELOG | 未开始 | issue #117（当前只有 2 条，而 PyPI 有 37 个版本） |
-| 拆分 `CONTRIBUTING.md`（542 行）并开免流程通道 | 未开始 | issue #123 |
+| [#122](https://github.com/YearsAlso/zoo-framework/issues/122) | 新增 llms.txt／AGENTS.md，README 补自然语言 FAQ（AI 检索可发现性） | open |
+| [#123](https://github.com/YearsAlso/zoo-framework/issues/123) | 打开贡献路径：拆分 CONTRIBUTING、免流程通道、5 个真 good-first-issue | open |
 
-## 流程资产
+## 工程债与开发者体验
 
-| 项 | 状态 | 备注 |
+| 项 | 一句话 | 状态 |
 |---|---|---|
-| `openspec/changes/archive/**`（134 文件 / 7,776 行）降低曝光 | 未开始 | issue #123 |
-| `.claude/`（52 文件 / 5,333 行）是否移出仓库根目录 | 未评估 | issue #123 |
+| [#144](https://github.com/YearsAlso/zoo-framework/issues/144) | `test_worker_wakes_on_producer_event` 在 macOS 间歇失败，制造假红灯 | open（P1） |
+| [#131](https://github.com/YearsAlso/zoo-framework/issues/131) | `zfc --worker` 在项目外静默成功，留下游离 `workers/` 并返回 0，违反自身契约 | open |
+| [#130](https://github.com/YearsAlso/zoo-framework/issues/130) | 原生收益包络回归：门槛在 10.3 字节，当前写 ≥21，建议补测 10／12／16B | open |
+| [#112](https://github.com/YearsAlso/zoo-framework/issues/112) | `zfc --worker` 生成的类名未转 PascalCase（如 `My_TaskWorker`） | open |
 
----
+## 总纲与仓库设置
 
-*Last updated: 2026-10-10*
+| 项 | 一句话 | 状态 |
+|---|---|---|
+| [#125](https://github.com/YearsAlso/zoo-framework/issues/125) | 吸引力审计总纲与工作队列（含 GitHub 仓库设置类运营动作：Topics／About 等） | open（元 issue） |
+
+## 已完成（本分支在途，合入 `main` 后自动关闭）
+
+| 项 | 说明 |
+|---|---|
+| [#114](https://github.com/YearsAlso/zoo-framework/issues/114) | 文档自相矛盾清理 + 文档一致性测试 |
+| [#115](https://github.com/YearsAlso/zoo-framework/issues/115) | bumpversion 版本字段说谎 + uv.lock 陈旧 |
+| [#116](https://github.com/YearsAlso/zoo-framework/issues/116) | `example/` 残留与子模块说明 |
+| [#117](https://github.com/YearsAlso/zoo-framework/issues/117) | CHANGELOG 回填与 release note 模板 |
+| [#118](https://github.com/YearsAlso/zoo-framework/issues/118) | 本页与路线图的拆分（本变更） |

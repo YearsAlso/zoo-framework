@@ -43,6 +43,12 @@ def _event_worker(name="E"):
 # =============================================================================
 
 
+# 时限与等待的余量：用 ``sleep`` 之后断言"已超时"，余量必须**远大于平台时钟粒度**。
+# Windows 上 Python 3.11／3.12 的 ``time.monotonic()`` 粒度约 15.6 ms（3.13 起改用高精度
+# 计数器），于是"时限 0.05 + 睡眠 0.06"实测出的增量可能是 46.8 ms（量化到 3 个 tick）——
+# 比时限还小，断言随 tick 相位偶发翻红（本机实测 3/20 次；CI 的 windows × 3.11 作业会踩到，
+# 实测数字与处置见 docs/contributing/development.md 的「Python 下界的依据」）。故时限取
+# 0.01 s、等待取 0.2 s：余量 0.19 s 是 tick 的 12 倍，量化误差不可能翻转判定。
 class TestEventExpiryTimeBase:
     """时间计算 MUST 以单调时钟为基准（事件的超时判定）."""
 
@@ -52,10 +58,10 @@ class TestEventExpiryTimeBase:
         没有这一条，下面的"不受墙钟影响"可能只是因为超时判定从未生效。
         """
         node = EventNode(topic="t", content="c")
-        node.set_timeout(0.05)
+        node.set_timeout(0.01)
         assert node.is_expire() is False
 
-        time.sleep(0.06)
+        time.sleep(0.2)
         assert node.is_expire() is True
 
     def test_wall_clock_forward_jump_does_not_expire_event(self, monkeypatch):
@@ -71,8 +77,8 @@ class TestEventExpiryTimeBase:
         """Scenario: 墙钟被调整不影响期限判定（向后跳）."""
         real_time = time.time
         node = EventNode(topic="t", content="c")
-        node.set_timeout(0.05)
-        time.sleep(0.06)
+        node.set_timeout(0.01)
+        time.sleep(0.2)
         assert node.is_expire() is True
 
         monkeypatch.setattr(time, "time", lambda: real_time() - 31_536_000)

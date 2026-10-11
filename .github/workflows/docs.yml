@@ -7,6 +7,10 @@
 # 触发条件：
 # - main 分支的 docs/ 目录有变更
 # - 手动触发
+#
+# `.well-known/**` 与 `llms.txt` 必须列入触发路径：这两个文件被 mkdocs 构建钩子复制进
+# 站点产物（见 mkdocs.yml 的 hooks），若只改它们的内容（例如续期 Expires、
+# 更新 llms.txt 的链接）却不触发本工作流，已发布的站点会一直带着旧文件。
 
 name: 📚 Deploy Documentation
 
@@ -15,7 +19,10 @@ on:
     branches: [main]
     paths:
       - 'docs/**'
+      - '.well-known/**'
+      - 'llms.txt'
       - 'README.md'
+      - 'scripts/mkdocs_hooks.py'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -34,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - name: Setup Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
@@ -47,7 +54,7 @@ jobs:
           pip install -e ".[docs]"
 
       - name: Setup Pages
-        uses: actions/configure-pages@1f0c5cde4bc74cd7e1254d0cb4de8d49e9068c7d  # v4
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d  # v6.0.0
 
       # 如果使用 MkDocs
       - name: Build with MkDocs

@@ -115,3 +115,12 @@ class DemoThread(BaseWorker):
         if len(self._state_history) > self._max_history_size:
             # 移除最旧的记录
             self._state_history.pop(0)
+
+
+if __name__ == "__main__":
+    # 独立运行演示：注册并调度 DemoThread（演示"Worker + 状态机"的组合）。
+    from zoo_framework.core import Master
+
+    master = Master()
+    master.register_worker("TestThread", DemoThread)
+    master.run()

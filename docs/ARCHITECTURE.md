@@ -83,7 +83,7 @@ classDiagram
 
 **关键特性**：
 - Worker 自动注册和生命周期管理
-- SVM 健康监控
+- SVM 健康监控（指标链路尚未接通 —— `get_health_report()` 恒返回 `execute_count: 0`）
 - 优雅关闭
 
 ### 2.  Worker —— 任务单元
@@ -440,8 +440,9 @@ classDiagram
 
 ### 10.  原生任务执行 —— Rust 扩展接入
 
-**职责**：Python 保留编排与生命周期，Rust 经显式适配层执行真实任务（首个任务：
-Modbus RTU 响应帧解析）
+**职责**：Python 保留编排与生命周期，Rust 经显式适配层执行真实任务。框架侧与具体
+任务无关（只按任务名分派）；随扩展发布的 `modbus_rtu.parse_response` 是**样例负载**
+（阶段 0 的验收对象与等价性对照体，非框架功能），生产使用应以自有任务替换
 
 ```mermaid
 classDiagram

@@ -164,9 +164,15 @@ class EventWorker(BaseWorker):
 
         与逐事件路径相同的排空骨架（批量扫描/去向语义/重试），仅投递段不同：
         同 (channel, reactor) 的待投递事件聚合为一批，以单个 callable 一次提交
-        ——执行器簿记按批计而非按事件计（31.9µs/事件 → 31.9µs/批）。
+        ——执行器簿记按批计而非按事件计（本变更 4.1 同一运行内实测：逐事件提交
+        5.8µs/事件 → 批上限 64 时摊到 0.17µs/事件；读数与口径见变更目录的
+        booking_measurement.json）。
         批内仍逐事件调用 execute(topic, content)，语义不变；批内异常捕获后
         打包为 BatchReactorError 上抛到 future，由批级上报携带事件定位信息。
+
+        批大小上限（design D2）：**限量的是取，不是裁**——本轮从每个通道最多
+        取出 `event:batchMaxSize` 个事件，超出的留在队列里按原顺序等下一轮。
+        每个批相应不超过该上限，大批独占执行器线程的形态被此上限兜住。
         """
         from zoo_framework.params import EventParams
 
@@ -178,8 +184,13 @@ class EventWorker(BaseWorker):
             pending = channel.size()
             # 聚合表：id(reactor) -> (reactor, [(topic, content, node), ...])
             batches: dict[int, tuple] = {}
-            while pending > 0 and len(batches) < batch_limit:
+            # 本轮从本通道取出的事件数（含过期/死信/回队者）——批上限的计量单位。
+            # 计数放在 `pending -= 1` 之前（design D2 的"限量扫描"）：到上限就不再
+            # pop，剩余事件**原样留在队列**里（不裁批、不丢失、不死信、不改顺序）。
+            taken = 0
+            while pending > 0 and taken < batch_limit:
                 pending -= 1
+                taken += 1
                 event_node = channel.pop_value()
                 if event_node is None:
                     break

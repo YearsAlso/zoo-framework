@@ -16,8 +16,8 @@ written so it does not need a manual edit at every version bump.
 | Version | Supported |
 |---|---|
 | Latest release on PyPI | ✅ |
-| The latest minor line (e.g. `0.9.x` when latest is `0.9.n`) | ✅ security fixes; recent fixes only |
-| Older minor lines (e.g. `0.8.x` when latest is `0.9.x`) | ❌ upgrade to the latest |
+| The latest minor line (the newest minor version series) | ✅ security fixes; recent fixes only |
+| Older minor lines | ❌ upgrade to the latest |
 | `1.0` and later (future) | ✅ |
 
 ### Reporting a vulnerability
@@ -96,8 +96,8 @@ Zoo Framework 尚未发布 1.0。只有最新的 minor 线（PyPI 上最新发�
 | 版本 | 是否支持 |
 |---|---|
 | PyPI 上的最新发布 | ✅ |
-| 最新 minor 线（如最新为 `0.9.n` 时的整个 `0.9.x`） | ✅ 仅安全修复 |
-| 更早的 minor 线（如最新为 `0.9.x` 时的 `0.8.x`） | ❌ 请升级到最新版 |
+| 最新 minor 线（最新次版本所在的整个系列） | ✅ 仅安全修复 |
+| 更早的 minor 线 | ❌ 请升级到最新版 |
 | 未来的 `1.0` 及以后 | ✅ |
 
 ### 报告漏洞

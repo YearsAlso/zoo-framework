@@ -182,9 +182,12 @@ class BackupManager:
         # 生成备份文件名
         # 时间戳精确到微秒：秒级精度下同一秒内的多次备份会相互覆盖。
         # 固定宽度的微秒后缀同时保证"字典序等于时间序"——取最新备份依赖该性质。
+        # 但"微秒唯一"只把碰撞概率压低，并不消除碰撞：时钟粒度粗的平台（Windows +
+        # Python 3.11 实测约 2ms）上，一个 tick 内的多次备份会取到同一个微秒串，
+        # 后写者静默覆盖先写者（CI 实测连做 5 次只剩 3 个）。故此处显式保证唯一。
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
         filename = os.path.basename(filepath)
-        backup_path = os.path.join(backup_dir, f"{filename}.{timestamp}.bak")
+        backup_path = self._unused_backup_path(backup_dir, f"{filename}.{timestamp}.bak")
 
         try:
             shutil.copy2(filepath, backup_path)
@@ -202,6 +205,29 @@ class BackupManager:
         except Exception as e:
             LogUtils.error(f"❌ Backup failed: {e}")
             return None
+
+    @staticmethod
+    def _unused_backup_path(backup_dir: str, name: str) -> str:
+        """返回 backup_dir 下尚未被占用的备份路径。
+
+        已被占用时在扩展名前追加 "_2"、"_3"…（首个占用者保持原名）。后缀不破坏
+        "字典序等于时间序"：同一时间戳内序号递增、字典序同步递增；时间戳不同时
+        先比时间戳，后缀压根不参与比较。
+
+        Args:
+            backup_dir: 备份目录
+            name: 候选文件名（含 .bak 后缀）
+
+        Returns:
+            可安全写入的完整路径（调用方随即写入，故只保证返回瞬间未被占用）
+        """
+        stem, ext = os.path.splitext(name)
+        candidate = os.path.join(backup_dir, name)
+        index = 1
+        while os.path.exists(candidate):
+            index += 1
+            candidate = os.path.join(backup_dir, f"{stem}_{index}{ext}")
+        return candidate
 
     def restore_backup(self, filepath: str) -> bool:
         """Restore the file from a backup.

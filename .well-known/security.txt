@@ -1,0 +1,16 @@
+# Zoo Framework 的安全漏洞报送入口（RFC 9116）
+#
+# 本文件是唯一真源：文档站构建时由 scripts/mkdocs_hooks.py 复制到站点产物的
+# .well-known/ 路径，因此仓库内不放第二份手写副本（副本既不可达又会与真源漂移）。
+#
+# 渠道必须与 SECURITY.md 一致——tests/test_governance_consistency.py 会核对这一点，
+# 改了 SECURITY.md 的报送渠道而不改本文件，测试会失败。
+#
+# Expires 到期后测试同样会失败：续期是一次必须动手的事，不允许静默过期。
+
+Contact: https://github.com/YearsAlso/zoo-framework/security/advisories/new
+Contact: mailto:mengxiang931015@live.com
+Expires: 2027-10-09T00:00:00.000Z
+Canonical: https://yearsalso.github.io/zoo-framework/.well-known/security.txt
+Policy: https://github.com/YearsAlso/zoo-framework/blob/main/SECURITY.md
+Preferred-Languages: zh, en

@@ -5,15 +5,12 @@ _K = TypeVar("_K")
 _V = TypeVar("_V")
 
 
-# ruff's UP046 demands the PEP 695 form `class ThreadSafeDict[_K, _V]:`, but **mypy 1.7.1 does
-# not yet support PEP 695** ("PEP 695 generics are not yet supported"), and 1.7.1 is both the
-# version pinned by pre-commit and the one CI installs. **This is the third time this conflict
-# appears in this repo** (the other two: mypy-vs-B010 when installing `__new__` in registry.py,
-# mypy-vs-UP047 on params_path.py's `param`) - the common root cause is that **the pinned mypy
-# version predates the syntax assumed by the ruff rules this repo enables**. All three resolve
-# the same way: a targeted noqa + an in-place explanation; **upgrading mypy resolves all three
-# at once** (a dependency change, out of scope).
-class ThreadSafeDict(Generic[_K, _V]):  # noqa: UP046 — see above: mypy 1.7.1 does not support PEP 695
+# PEP 695 泛型（`class ThreadSafeDict[_K, _V]:`）需要 Python 3.12+，而本项目的下界是 3.11
+# （`requires-python`，`[tool.ruff] target-version = "py311"` 跟随它），因此 `Generic`
+# 形式是**唯一合法写法**——UP046 不适用，无需抑制。若日后把门槛抬到 3.12+，ruff 会重新要求
+# PEP 695，而 pre-commit 钉的 mypy 1.7.1 不支持该语法，那时必须先升级 mypy
+# （见 docs/contributing/development.md 的「Python 下界的依据」）。
+class ThreadSafeDict(Generic[_K, _V]):
     """Thread safe dictionary.
 
     Lock ownership (align-execution-primitives D3, the same line as #50's

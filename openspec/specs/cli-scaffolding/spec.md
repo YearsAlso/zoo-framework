@@ -28,9 +28,13 @@
 
 ### Requirement: 新增 Worker 的名称 MUST 是合法标识符
 
-命令行工具在接受一个 Worker 名称时 MUST 先校验该名称可作为 Python 标识符使用：不以数字开头、不含连字符与空白、不是 Python 关键字。校验不通过时命令 MUST 以非 0 退出码失败并指明原因，MUST NOT 产出任何文件。
+命令行工具在接受一个 Worker 名称时 MUST 先校验该名称可作为 Python 标识符使用：
+不以数字开头、不含连字符与空白、不是 Python 关键字。校验不通过时命令 MUST 以非 0
+退出码失败并指明原因，MUST NOT 产出任何文件。
 
-名称校验 MUST 发生在产出之前，MUST NOT 依赖「生成后再检查」——产出不可解析的文件再报错，等于把恢复成本转嫁给调用方。
+合法名称的产物标识符 SHALL 遵循统一规则：**类名 = PascalCase(输入名) + "Worker"**，
+其中 PascalCase 按下划线分段、每段首字母大写后拼接（下划线不保留）。文件名、类名、
+入口注册名三者 SHALL 一致：文件名为 `<输入名>_worker.py`，注册名等于类名字符串。
 
 #### Scenario: 非法名称被拒绝
 - **WHEN** 以一个含连字符的名称请求新增 Worker
@@ -87,3 +91,13 @@
 #### Scenario: 不同名称的 Worker 互不影响
 - **WHEN** 先后以两个不同名称请求新增 Worker
 - **THEN** 入口文件中两个 Worker 的导入行与注册条目均存在，且各只出现一次
+
+### Requirement: 脚手架示例 Worker 的预置注册 MUST 与命名规则自洽
+
+`--create` 预置的示例 Worker（`sample`）SHALL 产自同一命名规则（类名
+`SampleWorker`），且 SHALL 与用户后续 `--worker` 新增的 Worker 在命名上
+同源——不存在两套推导逻辑。
+
+#### Scenario: 示例与用户新增同规则
+- **WHEN** 对比 `--create` 预置条目与 `--worker sample` 产出的类名
+- **THEN** 二者同为 `SampleWorker`，入口只登记一处（幂等接线判重不二次追加）
