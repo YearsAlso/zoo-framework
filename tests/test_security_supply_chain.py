@@ -227,6 +227,48 @@ def test_release_job_produces_sbom_and_signature() -> None:
     assert re.search(r"cosign sign-blob", code), "发布作业缺少 keyless 签名步骤"
 
 
+def test_non_distribution_artifacts_stay_out_of_the_upload_directory() -> None:
+    """非分发包产物不得落在 packages-dir 内——混放会让整个发布中止.
+
+    ``pypa/gh-action-pypi-publish`` 会把 ``packages-dir``（默认 ``dist/``）下的每个文件
+    都当作分发包校验，认不出即整体中止：签名产物留在 ``dist/`` 有 v0.11.0 实测，SBOM
+    留在 ``dist/`` 有 v0.11.1-beta / v0.11.2-beta 两次实测（``InvalidDistribution:
+    Unknown distribution format: 'sbom.spdx.json'``）。故 ``dist/`` 只允许 wheel 与
+    sdist，其余产物写进同级目录，再由 release 附件列表收走。
+
+    这条断言守的是"发布能跑通"这件事本身：断言红时发布一定是停的。
+    """
+    text = _read(RELEASE_WORKFLOW)
+
+    sbom_output = re.search(r"output-file:\s*(\S+)", text)
+    assert sbom_output, "SBOM 步骤没有 output-file，无从核对产物落点"
+    output_file = sbom_output.group(1)
+    assert not output_file.startswith("dist/"), (
+        f"SBOM 产物落在 PyPI 上传目录内，发布会被 InvalidDistribution 中止：{output_file}"
+    )
+    output_dir = output_file.rsplit("/", 1)[0]
+    assert re.search(rf"mkdir\s+-p\s+{re.escape(output_dir)}\b", text), (
+        f"SBOM 输出目录 {output_dir} 没有先行创建（syft 不自建父目录，生成步骤会失败）"
+    )
+
+    files_block = re.search(r"files: \|\n((?:\s+[\w./*-]+\n)+)", text)
+    assert files_block, "release 上传步骤没有 files 附件列表"
+    attachments = files_block.group(1).split()
+    assert attachments, "release 附件列表为空"
+
+    in_upload_dir = [path for path in attachments if path.startswith("dist/")]
+    assert in_upload_dir, f"附件列表没有指向 PyPI 上传目录的产物：{attachments}"
+    assert all(path.endswith((".whl", ".tar.gz")) for path in in_upload_dir), (
+        f"PyPI 上传目录内混入了非分发包（发布会被中止）：{in_upload_dir}"
+    )
+    assert any(path.endswith(".spdx.json") for path in attachments), (
+        f"release 附件缺少 SBOM：{attachments}"
+    )
+    assert any(path.endswith((".sig", ".pem")) for path in attachments), (
+        f"release 附件缺少签名或证书：{attachments}"
+    )
+
+
 def test_release_job_depends_on_tests_and_quality() -> None:
     """发布以测试与质量作业为前提——测试没过就不该有发布."""
     block = _job_block(_read(RELEASE_WORKFLOW), "release")

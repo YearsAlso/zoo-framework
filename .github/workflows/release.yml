@@ -454,13 +454,19 @@ jobs:
 
       # ── SBOM（packaging-standards / #119）──
       # 位置刻意放在构建之后、签名之前：SBOM 描述的就是即将发布的 dist/ 产物。
+      # 扫描目标是 dist/，产物 MUST 落在 dist/ 之外（同签名步骤的同一根因）：
+      # 上传工具会把 packages-dir（默认 dist/）下的每个文件都当作分发包校验，SBOM
+      # 留在 dist/ 即整体中止（v0.11.1-beta / v0.11.2-beta 实测：
+      # InvalidDistribution: Unknown distribution format: 'sbom.spdx.json'）。
       # 刻意不加 continue-on-error —— "看起来成功但没有 SBOM"的 release 比没有更糟。
+      - name: Prepare SBOM directory
+        run: mkdir -p dist-sbom
       - name: Generate SBOM (SPDX-JSON)
         uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c  # v0.24.3
         with:
           path: dist/
           format: spdx-json
-          output-file: dist/sbom.spdx.json
+          output-file: dist-sbom/sbom.spdx.json
           upload-artifact: false
           upload-release-assets: false
 
@@ -474,14 +480,21 @@ jobs:
         env:
           COSIGN_YES: "true"
         run: |
+          # 签名产物 MUST 落在 dist/ 之外：pypa/gh-action-pypi-publish 会把
+          # packages-dir（默认 dist/）下的每个文件都当作分发包校验，认不出 .pem
+          # 即整体中止（v0.11.0 首发实测：
+          # InvalidDistribution: Unknown distribution format: '....whl.pem'）。
+          # dist/ 只留 *.whl 与 *.tar.gz。
+          mkdir -p dist-signatures
           for f in dist/*.whl dist/*.tar.gz; do
+            name=$(basename "$f")
             cosign sign-blob --yes \
-              --output-signature "${f}.sig" \
-              --output-certificate "${f}.pem" \
+              --output-signature "dist-signatures/${name}.sig" \
+              --output-certificate "dist-signatures/${name}.pem" \
               "$f"
-            echo "signed: $f -> ${f}.sig"
+            echo "signed: $f -> dist-signatures/${name}.sig"
           done
-          ls -la dist/
+          ls -la dist/ dist-signatures/
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # release/v1（2026-10 取数）
@@ -549,9 +562,9 @@ jobs:
           files: |
             dist/*.whl
             dist/*.tar.gz
-            dist/*.sig
-            dist/*.pem
-            dist/*.spdx.json
+            dist-signatures/*.sig
+            dist-signatures/*.pem
+            dist-sbom/*.spdx.json
           draft: false
           prerelease: ${{ contains(github.ref_name, '-beta') }}
         env:
