@@ -72,12 +72,16 @@ def in_dir(tmp_path, monkeypatch):
 
 
 def _snapshot(root: Path) -> dict:
-    """记录目录下每个文件的字节内容，用于比对"现场未被改动"."""
-    return {
-        str(path.relative_to(root)): path.read_bytes()
-        for path in sorted(root.rglob("*"))
-        if path.is_file()
-    }
+    """记录目录下每个文件与目录，用于比对"现场未被改动".
+
+    目录也必须入账，只记录文件时"失败调用留下了一个空 workers/ 目录"这类改动在
+    快照里不可见——断言恒真，而被测契约恰恰是"不得创建文件或目录"。
+    """
+    snapshot: dict[str, bytes | None] = {}
+    for path in sorted(root.rglob("*")):
+        key = str(path.relative_to(root))
+        snapshot[key] = path.read_bytes() if path.is_file() else None
+    return snapshot
 
 
 # =============================================================================
@@ -198,6 +202,21 @@ class TestWorkerNameValidation:
         main_source = (in_dir / "proj" / "src" / "main.py").read_text(encoding="utf-8")
         assert f"from workers.{name}_worker import {expected}" in main_source
         assert f'("{expected}", {expected}),' in main_source
+
+
+class TestWorkerProjectRoot:
+    """cli-scaffolding: 项目外新增 Worker MUST 明确失败并保持现场不变."""
+
+    def test_worker_outside_scaffolded_project_fails_without_writing(self, in_dir):
+        """在没有脚手架入口的目录中，失败且不留下游离文件或目录."""
+        before = _snapshot(in_dir)
+        result = CliRunner().invoke(zfc, ["--worker", "orphan"])
+        after = _snapshot(in_dir)
+
+        assert result.exit_code != 0, "项目外调用被静默报告为成功"
+        assert before == after, f"失败调用留下了产出：{set(after) - set(before)}"
+        assert "src/main.py" in result.output
+        assert "zfc --create" in result.output
 
 
 # =============================================================================

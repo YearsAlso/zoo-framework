@@ -107,6 +107,12 @@
 
 ### Fixed
 
+- **`zfc --worker` 在项目外从静默成功改为明确失败**（BREAKING，变更
+  `fix-zfc-worker-project-root` / #131）：先前在任意目录执行会返回 0 并留下一个
+  无入口导入的游离 `workers/` 目录——文件永远不会被加载或调度，调用方却无从得知。
+  现在从当前目录向父目录查找最近含 `src/main.py` 的脚手架项目；找不到时在写入前
+  以非 0 退出码失败并给出下一步，不产生任何文件或目录。此前依赖在项目外直接生成
+  `./workers/` 的调用需先运行 `zfc --create <name>` 或切换到项目目录。
 - 状态机读盘恢复不再为空操作（变更 `fix-state-restore` / #72）：`ThreadSafeDict` 非
   `dict` 子类，旧守卫对框架自家落盘文件恒假——状态从未恢复、`have_loaded()` 却声称
   已加载并挡死重试（含备份恢复路径）。现按真实类型分派：ThreadSafeDict 原样恢复、

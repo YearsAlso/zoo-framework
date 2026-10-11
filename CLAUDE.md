@@ -49,7 +49,7 @@ pre-commit run --all-files
 
 # CLI scaffolding (entry point zfc / zoo)
 zfc --create <app_name>     # scaffold a project dir with src/, config.json, templates
-zfc --worker <name>         # add <name>_worker.py to ./workers or ./src/workers
+zfc --worker <name>         # add <name>_worker.py to a scaffolded project's src/workers
 
 # Build / release
 python -m build

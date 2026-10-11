@@ -44,29 +44,49 @@ DEMO_WORKER_NAME = "sample"
 
 
 def resolve_worker_dir(cwd: str | None = None) -> str:
-    """Locate the output directory for a new Worker.
+    """Locate the nearest scaffolded project and return the Worker directory.
 
-    Decided from the **actual structure** of the current working directory,
-    not guessed from the process start path (``sys.argv[0]``): a console
-    script is an ``.exe`` path on Windows and an extension-less file under
-    ``bin`` on POSIX - neither relates to the source tree layout, so deciding
-    from the executable path fails on every platform.
+    Decided from the **actual structure** of the working directory and its
+    parents, not guessed from the process start path (``sys.argv[0]``): a
+    console script is an ``.exe`` path on Windows and an extension-less file
+    under ``bin`` on POSIX - neither relates to the source tree layout, so
+    deciding from the executable path fails on every platform.
 
-    ``create_func`` produces the layout ``<project>/src/workers/``; therefore
-    running at the project root lands in ``./src/workers``, while running
-    inside ``src/`` - where ``./src`` does not exist - naturally falls back to
-    ``./workers``.
+    The entry point ``src/main.py`` identifies a project root: a Worker is only
+    reachable when that entry imports it, and a bare ``src/`` or ``config.json``
+    does not prove the directory is a scaffold. The search walks from the
+    working directory towards the root, so the command also works from ``src/``
+    or any subdirectory of a project.
 
     Args:
         cwd: The working directory; None means the current working directory.
 
     Returns:
-        The output directory path.
+        The Worker output directory, relative to the working directory.
+
+    Raises:
+        click.ClickException: No ``src/main.py`` exists in the working directory
+            or any of its parents. Nothing is written before this raises.
     """
-    base = cwd or os.getcwd()
-    if os.path.isdir(os.path.join(base, SRC_DIR_NAME)):
-        return os.path.join(".", SRC_DIR_NAME, WORKER_DIR_NAME)
-    return os.path.join(".", WORKER_DIR_NAME)
+    base = os.path.abspath(cwd or os.getcwd())
+    current = base
+
+    while True:
+        main_path = os.path.join(current, SRC_DIR_NAME, "main.py")
+        if os.path.isfile(main_path):
+            worker_dir = os.path.join(current, SRC_DIR_NAME, WORKER_DIR_NAME)
+            return os.path.relpath(worker_dir, start=base)
+
+        parent = os.path.dirname(current)
+        if parent == current:
+            break
+        current = parent
+
+    raise click.ClickException(
+        "No scaffolded project found: 'src/main.py' does not exist in the current "
+        "directory or any of its parents; nothing was written. Run "
+        "'zfc --create <name>' first, or change into a scaffolded project and retry."
+    )
 
 
 def create_func(object_name):
@@ -287,6 +307,6 @@ def worker_func(worker_name, project_dir: str | None = None):
 
     # Wire the new Worker into the entry point - only when an entry point
     # exists (a non-scaffold directory has none).
-    main_path = os.path.join(os.path.dirname(src_dir), "main.py")
+    main_path = os.path.join(os.path.dirname(os.path.abspath(src_dir)), "main.py")
     if os.path.exists(main_path):
         _wire_worker_into_main(main_path, worker_name, class_name)

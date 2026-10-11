@@ -298,24 +298,64 @@ class TestCliWorkerDirResolution:
         os.chdir(original)
 
     def test_resolves_into_src_when_present(self, tmp_path, in_dir):
-        """Scenario: 工作目录下存在源码目录时产出到其中."""
+        """Scenario: 项目入口在当前目录时，产出位于项目的 src/workers."""
         from zoo_framework.cli import resolve_worker_dir
 
         project = tmp_path / "demo"
         (project / "src").mkdir(parents=True)
+        (project / "src" / "main.py").write_text("", encoding="utf-8")
         in_dir(str(project))
 
         assert os.path.normpath(resolve_worker_dir()) == os.path.normpath("src/workers")
 
-    def test_resolves_to_workers_when_src_absent(self, tmp_path, in_dir):
-        """Scenario: 工作目录下不存在源码目录时产出到当前目录."""
+    def test_rejects_directory_without_scaffold_entry(self, tmp_path, in_dir):
+        """Scenario: 当前目录及父目录都没有项目入口时拒绝生成."""
+        import click
+
         from zoo_framework.cli import resolve_worker_dir
 
         plain = tmp_path / "plain"
         plain.mkdir()
         in_dir(str(plain))
 
-        assert os.path.normpath(resolve_worker_dir()) == os.path.normpath("workers")
+        with pytest.raises(click.ClickException, match=r"src/main\.py"):
+            resolve_worker_dir()
+        assert not (plain / "workers").exists()
+
+    def test_resolves_to_nearest_parent_project(self, tmp_path, in_dir):
+        """Scenario: 子目录调用会定位最近父目录中的项目入口."""
+        from zoo_framework.cli import resolve_worker_dir
+
+        outer = tmp_path / "outer"
+        (outer / "src").mkdir(parents=True)
+        (outer / "src" / "main.py").write_text("", encoding="utf-8")
+        project = outer / "nested"
+        (project / "src").mkdir(parents=True)
+        (project / "src" / "main.py").write_text("", encoding="utf-8")
+        child = project / "scripts"
+        child.mkdir()
+        in_dir(str(child))
+
+        assert os.path.normpath(resolve_worker_dir()) == os.path.normpath("../src/workers")
+
+    def test_worker_func_from_child_writes_and_wires_to_nearest_project(self, tmp_path, in_dir):
+        """子目录调用仍写入最近项目并更新该项目入口."""
+        from zoo_framework.cli import create_func, worker_func
+
+        in_dir(str(tmp_path))
+        project = tmp_path / "demo6"
+        create_func(str(project))
+        child = project / "scripts"
+        child.mkdir()
+        in_dir(str(child))
+
+        worker_func("nested_task")
+
+        module = project / "src" / "workers" / "nested_task_worker.py"
+        main = (project / "src" / "main.py").read_text(encoding="utf-8")
+        assert module.exists()
+        assert "from workers.nested_task_worker import Nested_TaskWorker" in main
+        assert not (child / "workers").exists()
 
     def test_resolution_does_not_depend_on_argv0(self, tmp_path, in_dir, monkeypatch):
         """Scenario: 判定不依赖进程启动方式.
@@ -327,6 +367,7 @@ class TestCliWorkerDirResolution:
 
         project = tmp_path / "demo2"
         (project / "src").mkdir(parents=True)
+        (project / "src" / "main.py").write_text("", encoding="utf-8")
         in_dir(str(project))
 
         results = []
@@ -347,12 +388,19 @@ class TestCliWorkerDirResolution:
 
         project = tmp_path / "demo3"
         project.mkdir()
+        src = project / "src"
+        src.mkdir()
+        from zoo_framework.templates import WORKER_IMPORT_MARKER, WORKER_REGISTRATION_MARKER
+
+        (src / "main.py").write_text(
+            f"{WORKER_IMPORT_MARKER}\n{WORKER_REGISTRATION_MARKER}\n", encoding="utf-8"
+        )
         in_dir(str(project))
 
         worker_func("my_task")
 
-        assert (project / "workers" / "my_task_worker.py").exists()
-        assert (project / "workers" / "__init__.py").exists()
+        assert (src / "workers" / "my_task_worker.py").exists()
+        assert (src / "workers" / "__init__.py").exists()
 
     def test_worker_func_targets_src_inside_scaffolded_project(self, tmp_path, in_dir):
         """脚手架项目内新增 Worker 落在 src/workers 下."""
