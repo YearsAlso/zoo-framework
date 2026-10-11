@@ -1,7 +1,4 @@
 {
-  "_exports": [
-    "redis"
-  ],
   "log": {
     "path": "./logs",
     "level": "info"

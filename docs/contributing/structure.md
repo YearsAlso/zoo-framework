@@ -15,27 +15,27 @@
 ```
 zoo-framework/
 ├── zoo_framework/       the package (the only thing shipped in the wheel)
-├── tests/               the live test suite — 367 cases, 23 files
+├── tests/               the live test suite — see the Tests badge for scale
 ├── docs/                deep-dive documentation
-├── example/             usage examples (see the caveat below)
+├── example/             runnable examples (see example/README.md)
 ├── bench/               Rust feasibility measurement & decision — NOT product code
 ├── openspec/            specs + in-flight changes (spec-first workflow)
 ├── .github/workflows/   build / tests / quality / docs / release
 ├── pyproject.toml       metadata, dependencies, and all tool config
-└── .env                 VERSION (one of the three places the version lives)
+├── CITATION.cff         citation metadata (one of the four places the version lives)
+└── .env                 VERSION (one of the four places the version lives)
 ```
 
 Three caveats about the tree:
 
 - `test/` (singular) at the root contains only stale `__pycache__` artifacts, not sources.
   The live suite is `tests/`.
-- `example/main.py` and `example/event/demo_event.py` are **stale against the current
-  API** — `main.py` calls `Master(1)`, and `demo_event.py` imports from
-  `build.lib.zoo_framework`. `example/threads/demo_thread.py` is the example that reflects
-  current usage.
+- `example/` is the runnable-examples area — each entry is documented in
+  `example/README.md` (what it demonstrates, how to run it, expected output).
 - The legacy `setup.py` + `script/pro.{sh,bat}` release path was **removed**: `setup.py`
-  imported `distutils`, which left the standard library in Python 3.12, so it could not run
-  on any Python this project supports (`>= 3.13`). Releases go through `python -m build`
+  imported `distutils`, which the standard library dropped in Python 3.12 — so on the
+  interpreters this project shipped on back then (the floor was 3.13) it could never have
+  worked. Releases go through `python -m build`
   (hatchling) and the release workflow.
 
 ### `zoo_framework/` by concern
@@ -165,24 +165,24 @@ Each has a test guarding it, so breaking one fails rather than silently sharing 
 ```
 zoo-framework/
 ├── zoo_framework/       包本体（wheel 里唯一发布的东西）
-├── tests/               生效的测试套件 —— 367 条用例，23 个文件
+├── tests/               生效的测试套件 —— 规模以 README 顶部的 Tests 徽章为准
 ├── docs/                深入文档
-├── example/             使用示例（注意下面的例外）
+├── example/             可运行示例（见 example/README.md）
 ├── bench/               Rust 可行性测量与决策 —— 不属于产品代码
 ├── openspec/            规范 + 在途变更（规范先行工作流）
 ├── .github/workflows/   build / tests / quality / docs / release
 ├── pyproject.toml       元数据、依赖，以及全部工具配置
-└── .env                 VERSION（版本号所在的三处之一）
+├── CITATION.cff         规范化引用信息（版本号所在的四处之一）
+└── .env                 VERSION（版本号所在的四处之一）
 ```
 
 三个需要注意的地方：
 
 - 根目录的 `test/`（单数）里只有过期的 `__pycache__` 产物，不是源码。生效的套件是 `tests/`。
-- `example/main.py` 与 `example/event/demo_event.py` **已过期，与当前 API 不符** ——
-  `main.py` 调用的是 `Master(1)`，`demo_event.py` 从 `build.lib.zoo_framework` 导入。
-  反映当前用法的是 `example/threads/demo_thread.py`。
+- `example/` 是可运行示例区 —— 每个条目在 `example/README.md` 里说明（演示什么、
+  怎么跑、期望输出）。
 - 遗留的 `setup.py` + `script/pro.{sh,bat}` 发布路径**已删除**：`setup.py` 导入 `distutils`，
-  而它在 Python 3.12 已从标准库移除，因此在本项目支持的 Python 版本（`>= 3.13`）上根本
+  而它在 Python 3.12 已从标准库移除 —— 因此在当时的支持版本（下界曾是 3.13）上根本
   跑不起来。发布走 `python -m build`（hatchling）与发布工作流。
 
 ### `zoo_framework/` 按关注点划分

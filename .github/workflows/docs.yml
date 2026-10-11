@@ -7,6 +7,10 @@
 # 触发条件：
 # - main 分支的 docs/ 目录有变更
 # - 手动触发
+#
+# `.well-known/**` 与 `llms.txt` 必须列入触发路径：这两个文件被 mkdocs 构建钩子复制进
+# 站点产物（见 mkdocs.yml 的 hooks），若只改它们的内容（例如续期 Expires、
+# 更新 llms.txt 的链接）却不触发本工作流，已发布的站点会一直带着旧文件。
 
 name: 📚 Deploy Documentation
 
@@ -15,7 +19,10 @@ on:
     branches: [main]
     paths:
       - 'docs/**'
+      - '.well-known/**'
+      - 'llms.txt'
       - 'README.md'
+      - 'scripts/mkdocs_hooks.py'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 

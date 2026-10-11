@@ -1,5 +1,12 @@
 # Zoo Framework 商业计划书 (Business Plan)
 
+> **内部材料（2024-02 初稿）**：本文是维护者当初的商业可行性思考，**不进入文档站构建**，
+> 也不作为对外材料。文中对能力现状的描述可能与实现不同步——**现状一律以
+> [README](../../README.md)、[迁移指南](../MIGRATION.md) 与
+> [路线图](../contributing/roadmap.md) 为准**。已知的过时表述已在原处标注。
+>
+> 内部待办另见 [维护者待办台账](../contributing/maintainer-backlog.md)。
+
 ## 📋 执行摘要
 
 Zoo Framework 是一个基于动物园隐喻的 Python 并发框架，旨在让并发编程变得直观、简单。本计划书阐述项目的商业价值、市场策略和发展规划。
@@ -38,7 +45,7 @@ Zoo Framework 是一个基于动物园隐喻的 Python 并发框架，旨在让�
 
 ### 2.1 产品概述
 
-**Zoo Framework = 直观的隐喻 + 强大的功能 + 生产就绪**
+**Zoo Framework = 直观的隐喻 + 强大的功能 + 维护者内部实测（非公开证据）**
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -56,12 +63,12 @@ Zoo Framework 是一个基于动物园隐喻的 Python 并发框架，旨在让�
 │     ├── 状态机持久化管理                                      │
 │     ├── 事件驱动架构                                          │
 │     ├── 插件扩展系统                                          │
-│     └── 健康监控告警                                          │
+│     └── 健康监控骨架（指标链路未接通，见 README 限制表）      │
 ├─────────────────────────────────────────────────────────────┤
-│  🚀 生产就绪                                                  │
-│     ├── 已在 ELS 项目实际应用验证                            │
-│     ├── 自动故障检测与恢复                                    │
-│     ├── 完善的日志和监控                                      │
+│  🚀 维护者内部实测（非公开证据）                              │
+│     ├── 内部项目实测经历（细节不公开，公开证据见 zoo-bench）  │
+│     ├── 故障恢复：状态机持久化 + 滚动备份（自动故障判定未生效）│
+│     ├── 结构化日志（默认阈值经 quiet-default-logs 降噪）      │
 │     └── 活跃的开发维护                                        │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -384,7 +391,7 @@ Year 3 (目标)
 - [GitHub Repository](https://github.com/YearsAlso/zoo-framework)
 - [PyPI Package](https://pypi.org/project/zoo-framework/)
 - [Documentation](https://yearsalso.github.io/zoo-framework/)
-- [Roadmap](ROADMAP.md)
+- [Roadmap](../contributing/roadmap.md)
 
 ### B. 联系方式
 

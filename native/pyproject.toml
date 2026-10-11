@@ -8,5 +8,12 @@ version = "0.1.0"
 description = "zoo-framework 原生任务执行扩展（可选安装；未安装时框架一切如旧）"
 requires-python = ">=3.13"
 
+# 下界**独立于主包**：主包（zoo-framework）的下界已降到 3.11，本扩展保持 3.13+
+# （见 docs/install.md 与 docs/contributing/development.md 的「Python 下界的依据」）。
+# 为什么不下调：本目录没有 CI 覆盖（没有任何 workflow 构建它），本机也没有"在 3.11 上
+# 编译 PyO3 扩展"的验证路径——跟降等于写一条无法证实的声明。两个下界不一致本身是可接受
+# 的：可选扩展 MUST NOT 抬高主包门槛，而 3.11／3.12 上装它会以显式错误结束
+# （pip 的 "requires a different Python"），不会产生"装上但不可用"的状态。
+
 # 独立 pyproject：主包（zoo-framework）的构建完全不读本文件；
 # wheel 产物是单一 cdylib 扩展模块 zoo_framework_native，安装即得。

@@ -8,11 +8,11 @@
 
 Python 声明式多任务编排框架，一站式支撑下一代 Agent 与工作流
 
-[![Python](https://img.shields.io/badge/Python-3.13%2B-blue)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/zoo-framework)](https://pypi.org/project/zoo-framework/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 [![Tests](https://github.com/YearsAlso/zoo-framework/workflows/Tests/badge.svg)](https://github.com/YearsAlso/zoo-framework/actions/workflows/tests.yml)
-[![Quality Check](https://github.com/YearsAlso/zoo-framework/workflows/Quality%20Check/badge.svg)](https://github.com/YearsAlso/zoo-framework/actions/workflows/quality.yml)
+[![Quality Check](https://img.shields.io/github/actions/workflow/status/YearsAlso/zoo-framework/quality.yml?label=Quality%20Check)](https://github.com/YearsAlso/zoo-framework/actions/workflows/quality.yml)
 [![CodeQL](https://github.com/YearsAlso/zoo-framework/workflows/CodeQL/badge.svg)](https://github.com/YearsAlso/zoo-framework/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/YearsAlso/zoo-framework/badge)](https://scorecard.dev/viewer/?uri=github.com/YearsAlso/zoo-framework)
 [![Benchmark](https://img.shields.io/badge/benchmark-zoo--bench-blue)](https://yearsalso.github.io/zoo-bench/)
@@ -23,14 +23,14 @@ Python 声明式多任务编排框架，一站式支撑下一代 Agent 与工作
 
 ---
 
-## 这是什么
+**Zoo Framework 在进程内运行长期存活的后台任务** —— 无 broker（不需要 Redis / RabbitMQ）、
+无分布式部署，并且**专为 AI 生成的代码而设计**：扩展面刻意收窄、错误大声失败、带一份
+Agent 跑一遍测试就能验证的规范基线。
 
-Zoo Framework 用来运行**长期存活的后台任务**。你声明任务单元（Worker）并注册它们，
-框架负责让它们持续跑下去：决定每一个何时被派发、避免并发实例互相干扰、观测它们跑了
-多久、并在停机时把状态干净地落盘。
+它面向需要在**自己的进程之内**做调度、可观测、可持久化的后台任务的开发者 ——
+这是 Celery 的进程内替代选项，而不是它的分布式替身。
 
-它**不是** Web 框架，也**不是**任务队列 —— 没有 HTTP 层、没有 broker、没有分布式调度。
-它是进程内的等价物：一个可以嵌进服务里的调度器 + 事件管道 + 状态存储。
+<!-- TODO(demo): docs/assets/demo.gif -->
 
 ### 解决什么问题
 
@@ -48,6 +48,51 @@ Zoo Framework 把这些决定从你的代码里拿走：
   全部 Worker —— 状态机的最后一次落盘就发生在这条链路的末尾。
 - **状态** —— 周期落盘 + 停机落盘，原子替换，滚动备份。
 - **错误** —— 不受支持的输入抛异常，而不是静默降级。
+
+### 30 秒看完整个东西
+
+存成 `main.py`，用 Python 3.11+ 运行：
+
+```python
+from zoo_framework.core import Master
+from zoo_framework.workers import BaseWorker
+
+
+class MyWorker(BaseWorker):
+    """一个循环执行的任务单元。"""
+
+    def __init__(self):
+        super().__init__(
+            {
+                "is_loop": True,  # 跨调度轮次持续执行
+                "delay_time": 1.0,  # 单次执行结束后的等待秒数
+                "name": "MyWorker",
+                # "run_timeout": 30,  # 可选：超过 30 秒则熔断
+            }
+        )
+        self.counter = 0
+
+    def _execute(self):
+        self.counter += 1
+        print(f"Hello from MyWorker! 计数: {self.counter}")
+
+
+if __name__ == "__main__":
+    master = Master()
+    # 注册后的 Worker 才会进入调度。只 Master() 的话只会跑内置的两个
+    # 系统 Worker（EventWorker / StateMachineWorker）。
+    master.register_worker("MyWorker", MyWorker)
+    master.run()
+```
+
+预期输出：每秒一行 `Hello from MyWorker! 计数: N`。（如果把标准输出重定向到文件，
+CPython 默认的块缓冲会推迟这些行 —— 在终端里运行、或用 `python -u`，就能即时看到。）
+
+你声明任务单元（Worker）并注册它们，框架负责让它们持续跑下去：决定每一个何时被派发、
+避免并发实例互相干扰、观测它们跑了多久、并在停机时把状态干净地落盘。
+
+它**不是** Web 框架，也**不是**任务队列 —— 没有 HTTP 层、没有 broker、没有分布式调度。
+它是进程内的等价物：一个可以嵌进服务里的调度器 + 事件管道 + 状态存储。
 
 ### 同类方案对比
 
@@ -71,57 +116,80 @@ APScheduler 就是正确答案。Zoo Framework 主动放弃了这两项，它赢
 无 broker、无 cron 守护进程 —— 但依然有调度、有观测、有持久化」。表中对比基于各项目公开
 的通用定位，**未做过跨项目压测**。
 
+### 面向 AI Agent 的代码生成
+
+框架的扩展面被刻意收窄，使生成的代码短、可校验，而且 —— 出错时**出错得很大声**。
+
+**三步接入，没有胶水代码**
+
+```python
+class OrderSyncWorker(BaseWorker):  # 1. 继承
+    def __init__(self):
+        super().__init__({"is_loop": True, "delay_time": 5, "name": "OrderSync"})
+
+    def _execute(self):  # 2. 只写业务逻辑
+        sync_orders()
+
+
+master.register_worker("OrderSync", OrderSyncWorker)  # 3. 注册
+```
+
+线程管理、并发上限、在飞去重、超时熔断、优雅停机、状态落盘全部由框架承担。
+Agent 不需要生成这些代码，也就不会把它们生成错。
+
+**配置与实现分离**
+
+Worker 只依赖传给 `__init__` 的 props 字典，不感知框架内部结构。生成一个 Worker
+不需要读框架源码，也不需要理解 `Waiter` / `WorkerRegistry` / `EventReactor` 之间的关系。
+
+**失败是显式的，不会被静默吞掉**
+
+| 输入 | 行为 |
+|---|---|
+| 请求未实现的调度模式（如 `process`） | 抛 `NotImplementedError` |
+| 配置里写了无法识别的运行策略名 | 抛 `ValueError` |
+| 导入不存在的公开名称 | `ImportError` |
+| 文本文件编码与预期不符 | 输出告警并指明文件 |
+
+这一点对生成式代码比对人工代码更重要：**Agent 无法从「静默降级」中察觉自己写错了**，
+而明确的报错正是它自我修正所需的信号。
+
+**改动可被自动校验**
+
+框架带 spec 基线与持续通过的回归套件，核心契约都有对应用例守护 —— Agent 生成的改动
+可以靠 `pytest` 判断对错，而不必靠人逐行读。当前套件状态见顶部的 Tests 徽章。
+
 ### 安装
 
 ```bash
 pip install zoo-framework
 ```
 
-需要 Python 3.13+。
+需要 Python 3.11+（下界由实测证据支撑，见[开发指南的「Python 下界的依据」一节](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/contributing/development.md)）。
 
 ### 快速开始
 
-一个最小可运行的 Worker。存成 `main.py` 直接运行：
-
-```python
-from zoo_framework.core import Master
-from zoo_framework.workers import BaseWorker
-
-class MyWorker(BaseWorker):
-    """一个循环执行的任务单元。"""
-
-    def __init__(self):
-        super().__init__(
-            {
-                "is_loop": True,  # 跨调度轮次持续执行
-                "delay_time": 1.0,  # 单次执行结束后的等待秒数
-                "name": "MyWorker",
-                # "run_timeout": 30,  # 可选：超过 30 秒则熔断
-            }
-        )
-        self.counter = 0
-
-    def _execute(self):
-        self.counter += 1
-        print(f"Hello from MyWorker! 计数: {self.counter}")
-
-if __name__ == "__main__":
-    master = Master()
-    # 注册后的 Worker 才会进入调度。只 Master() 的话只会跑内置的两个
-    # 系统 Worker（EventWorker / StateMachineWorker）。
-    master.register_worker("MyWorker", MyWorker)
-    master.run()
-```
-
-不需要单独写配置文件 —— `Master()` 默认读工作目录下的 `./config.json`，上面这个例子没有
-配置文件也能跑。想要带配置和目录结构的脚手架，用 CLI：
+上面首屏的 30 秒示例就是快速开始 —— 同一段代码也已入库为
+[`example/minimal.py`](example/minimal.py)（复制 → `python example/minimal.py`）。
+想要带配置、目录结构**且已预置一个示例 Worker**
+的脚手架，用 CLI：
 
 ```bash
-zfc --create myapp      # -> myapp/src/{main.py,workers,conf,params,events}
+zfc --create myapp
 cd myapp
-zfc --worker my_task    # 写入 src/workers/my_task_worker.py 并自动注册
 python src/main.py
 ```
+
+脚手架产出的项目开箱即有一个 demo Worker —— 每 10 秒一行 `[sample_worker] tick #N`。
+那是你的代码在跑；框架自己的系统日志长得不一样（走的是日志通道）。新增自己的
+Worker 是可选的：
+
+```bash
+zfc --worker my_task
+```
+
+不需要单独写配置文件 —— `Master()` 默认读工作目录下的 `./config.json`，上面首屏的
+示例没有配置文件也能跑。
 
 > **Worker 必须以「类」的形式注册。** `WorkerRegistry` 用 `issubclass` 校验契约，传函数或
 > 实例会被拒绝并抛 `TypeError: issubclass() arg 1 must be a class`。这条约束**与 `@cage`
@@ -194,6 +262,7 @@ flowchart TB
 ```python
 from zoo_framework.core.aop import event
 
+
 @event(topic="order.created", channel="business")
 def on_order_created(req):
     print(req.topic, req.content)
@@ -229,10 +298,11 @@ sm.unobserve_state("order", "status", observer)
 #### CLI 工具
 
 ```bash
-# 生成一个脚手架项目（产出 <name>/src/{main.py,workers,conf,params,events}）
+# 生成一个脚手架项目（产出 <name>/src/{main.py,workers,conf,params,events}，
+# 内含一个开箱即跑的示例 Worker）
 zfc --create myapp
 
-# 在项目里新增一个 Worker（写入 src/workers/，并接入 src/main.py 的注册表）
+# 再新增一个自己的 Worker（写入 src/workers/，并接入 src/main.py 的注册表）
 cd myapp
 zfc --worker my_task
 
@@ -280,48 +350,6 @@ Windows / Python 3.13 实测，负载为代表性任务（JSON 编解码 + 字�
 > [线上报告](https://yearsalso.github.io/zoo-bench/)。它跑在原生 Linux CI 上，与手写基线及
 > 标准库并发模型横向对照，公开原始数据，并且**如实列出本框架输掉的档位**。
 
-### 面向 AI Agent 的代码生成
-
-框架的扩展面被刻意收窄，使生成的代码短、可校验，而且 —— 出错时**出错得很大声**。
-
-**三步接入，没有胶水代码**
-
-```python
-class OrderSyncWorker(BaseWorker):  # 1. 继承
-    def __init__(self):
-        super().__init__({"is_loop": True, "delay_time": 5, "name": "OrderSync"})
-
-    def _execute(self):  # 2. 只写业务逻辑
-        sync_orders()
-
-master.register_worker("OrderSync", OrderSyncWorker)  # 3. 注册
-```
-
-线程管理、并发上限、在飞去重、超时熔断、优雅停机、状态落盘全部由框架承担。
-Agent 不需要生成这些代码，也就不会把它们生成错。
-
-**配置与实现分离**
-
-Worker 只依赖传给 `__init__` 的 props 字典，不感知框架内部结构。生成一个 Worker
-不需要读框架源码，也不需要理解 `Waiter` / `WorkerRegistry` / `EventReactor` 之间的关系。
-
-**失败是显式的，不会被静默吞掉**
-
-| 输入 | 行为 |
-|---|---|
-| 请求未实现的调度模式（如 `process`） | 抛 `NotImplementedError` |
-| 配置里写了无法识别的运行策略名 | 抛 `ValueError` |
-| 导入不存在的公开名称 | `ImportError` |
-| 文本文件编码与预期不符 | 输出告警并指明文件 |
-
-这一点对生成式代码比对人工代码更重要：**Agent 无法从「静默降级」中察觉自己写错了**，
-而明确的报错正是它自我修正所需的信号。
-
-**改动可被自动校验**
-
-框架带 spec 基线与 367 条回归用例，核心契约都有对应用例守护 —— Agent 生成的改动
-可以靠 `pytest` 判断对错，而不必靠人逐行读。
-
 ### 文档
 
 **用户文档 → <https://yearsalso.github.io/zoo-framework-doc/>**（中英双语）—— 安装、教程、核心概念、API 参考。
@@ -342,25 +370,109 @@ Worker 只依赖传给 `__init__` 的 props 字典，不感知框架内部结构
 - **安全漏洞** —— **不要**开公开 issue，请见 [SECURITY.md](SECURITY.md) 的私密上报途径。
 - **行为准则** —— [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)。
 
-项目由一个人维护，issue 按尽力而为的原则响应。附带最小复现、Python 版本和操作系统的
-报告，会比其他报告快得多。
+项目由一个人维护。[MAINTAINERS.md](MAINTAINERS.md) 把这句话落成可以对照的数字：小的 PR
+或清晰的报告，**7 天内**得到首次回应。附带最小复现、Python 版本和操作系统的报告，会比
+其他报告快得多。每一个把工作合进来的人都记在 [CONTRIBUTORS.md](CONTRIBUTORS.md)。
+
+### 治理与规范
+
+谁决策、谁负责什么、出问题时预期多久能收到回应：
+
+- [GOVERNANCE.md](GOVERNANCE.md) —— 决策方式，以及怎么成为维护者
+- [MAINTAINERS.md](MAINTAINERS.md) —— 职责分区与可预期的响应时间
+- [ADOPTERS.md](ADOPTERS.md) —— 谁在使用本框架，逐条标注可核实与否
+- [SECURITY.md](SECURITY.md) —— 漏洞报送与信任模型
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) —— 行为期待与举报方式
+- [CONTRIBUTING.md](CONTRIBUTING.md) —— 贡献者入口（一页纸）
+- [`.well-known/security.txt`](.well-known/security.txt) —— 安全联系方式的机器可读版本（RFC 9116）
+
+本项目由一个人维护；[GOVERNANCE.md](GOVERNANCE.md) 直接把这一点写出来，而不是描述一个
+并不存在的委员会。
 
 ### 贡献代码
 
-欢迎贡献，完整流程见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+欢迎贡献。[CONTRIBUTING.md](CONTRIBUTING.md) 是**一页纸**的入口，完整规范在
+[docs/CONTRIBUTING_MAINTAINER.md](docs/CONTRIBUTING_MAINTAINER.md)，分支模型见
+[docs/BRANCHING.md](docs/BRANCHING.md)。想找一件能立马上手的小活看
+[docs/GOOD_FIRST_ISSUES.md](docs/GOOD_FIRST_ISSUES.md)；贡献者名单在
+[CONTRIBUTORS.md](CONTRIBUTORS.md)。
 
 ```bash
-git clone https://github.com/YearsAlso/zoo-framework.git
+git clone --recursive https://github.com/YearsAlso/zoo-framework.git
+# （不需要 example/agent 就可以省略 --recursive —— 见 example/README.md）
 cd zoo-framework
-pip install -e ".[dev]"       # 请勿使用 `uv sync` —— uv.lock 陈旧，见 CONTRIBUTING.md
+pip install -e ".[dev]"       # 或：uv sync --extra dev（uv.lock 保持同步）
 pre-commit install
-pytest                        # 662 条用例
+pytest                        # 套件当前状态见 Tests 徽章
 ```
 
-注意使用明确的 Python 3.13 解释器（Windows 上是 `.venv/Scripts/python.exe`；
-偏好 uv 的话用 `uv run --no-sync`，裸 `uv run` 会从陈旧的 `uv.lock` 重新解析）。
+pip 读 `pyproject.toml` 与 `uv sync` 读已入库的 `uv.lock`，两者解析出同一套依赖，皆可用。
 CI 中 `ruff check`、`ruff format`、`pytest`、`mypy` 与
 `bandit` 都是硬性门禁。
+
+### 常见问题
+
+以下是本项目最常被问到的问题；每条短答都给出详版回答的入口
+（[`docs/FAQ.md`](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)）。
+
+#### 不装 Redis / RabbitMQ，能跑后台定时任务吗？
+
+能 —— 这正是本框架的核心场景。`pip install zoo-framework`，写一个 `BaseWorker` 子类并注册，
+调度就发生在你自己的进程里：不需要 broker，也不需要 cron 守护进程。
+完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
+#### 它和 Celery 有什么区别？该选哪个？
+
+Celery 用 broker 协调独立的 worker 进程，任务因此可以跨机器 —— 而这正是本框架主动放弃的
+部分。任务一旦需要离开当前进程，就用 Celery；任务长期存活、在进程内、且不值得为它引入
+broker，就用本框架。完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
+#### 它和 APScheduler 有什么区别？
+
+两者都嵌进你的进程、都不需要 broker。APScheduler 赢在 cron 表达式与 job store；
+本框架提供事件管道（优先级、重试、死信）、在飞去重、超时熔断与原子状态持久化。
+需要 cron 表达式就用 APScheduler。完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
+#### 支持多进程吗？能跨机器吗？
+
+不支持。多进程执行**未实现** —— 模式常量是占位，请求它会被显式拒绝；也没有跨机器调度。
+任务必须离开当前进程时，请用 Celery。完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
+#### 能用 cron 表达式吗？
+
+不能。只有固定 `delay_time` 的轮询间隔。需要 cron 表达式请用 APScheduler。
+完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
+#### 任务卡住了会怎样？会被强杀吗？
+
+不会被强杀。`run_timeout` 的行为是**观测 + 熔断**：记录超时、把该 Worker 标记为不健康并
+不再派发，而已经在执行的那次仍会继续 —— CPython 无法安全地中断一个正在运行的线程。
+完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
+#### 重启之后状态会恢复吗？
+
+会，前提是你用了状态机（`StateMachineManager`）。状态按周期与停机时落盘 —— 先写临时文件
+再 `os.replace` 原子替换，最多保留 5 份滚动备份 —— 下次启动时重新载入。
+完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
+#### 为什么叫 Zoo？这些名字都是什么意思？
+
+框架以动物园命名：Worker（任务执行单元）、Master（生命周期入口）、Waiter（调度器）、
+Cage（按作用域注册的共享实例容器）。**隐喻只影响命名，不影响语义** ——
+「核心概念」那张表把每个名字对应到它实际做的事。
+完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
+#### 它和 AI Agent 有什么关系？
+
+扩展面被刻意收窄 —— 继承、实现 `_execute()`、注册这个类 —— 错误是显式抛出而非静默吞掉，
+改动可以靠跑一遍 `pytest` 判断对错。因此生成的代码短，而且出错时能自我修正。
+完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
+#### 生产环境有人用吗？
+
+目前没有可核实的第三方使用者。维护者自己的项目在用，但那无法被外部核实，
+[`ADOPTERS.md`](ADOPTERS.md) 对每一条都如实标注，而不是暗示并不存在的采用量。
+完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
 
 ### 许可证
 

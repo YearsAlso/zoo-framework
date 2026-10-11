@@ -62,7 +62,11 @@ def _import_generated_main(source_dir):
 
 
 class TestGeneratedEntrypoint:
-    """project-scaffolding: 脚手架产出的项目 MUST 可被启动."""
+    """project-scaffolding: 脚手架产出的项目 MUST 可被启动.
+
+    行为意图变更（#112）：类名从 title() 产物 `My_TaskWorker` 翻转为
+    PascalCase 规则产物 `MyTaskWorker`。
+    """
 
     def test_entry_compiles(self, scaffold):
         """Scenario: 生成的入口可被导入."""
@@ -73,12 +77,20 @@ class TestGeneratedEntrypoint:
         compile(source, str(source_dir / "main.py"), "exec")
 
     def test_entry_imports(self, scaffold):
-        """Scenario: 生成的入口可被导入."""
+        """Scenario: 生成的入口可被导入.
+
+        行为意图变更（#110）：默认产物从空注册表变为预置 demo Worker——
+        `WORKERS == []` 翻转为非空断言，并非放宽。
+
+        Scenario: 示例 Worker 已被入口预注册（scaffold-demo-worker）.
+        """
         _, source_dir = scaffold
 
         module = _import_generated_main(source_dir)
         assert hasattr(module, "main")
-        assert module.WORKERS == []
+        assert module.WORKERS, "默认产物应预置示例 Worker，而非空注册表"
+        names = [name for name, _ in module.WORKERS]
+        assert names == ["SampleWorker"], f"预置注册应为且仅为示例 Worker：{names}"
 
     def test_entry_uses_current_construction_api(self, scaffold):
         """Scenario: 生成的入口使用当前公开的构造方式.
@@ -121,7 +133,7 @@ class TestGeneratedEntrypoint:
             Master.run = original_run  # type: ignore[method-assign]
 
         master = captured["master"]
-        assert "My_TaskWorker" in master.worker_registry.get_all_workers()
+        assert "MyTaskWorker" in master.worker_registry.get_all_workers()
 
 
 # =============================================================================
@@ -130,7 +142,11 @@ class TestGeneratedEntrypoint:
 
 
 class TestGeneratedWorker:
-    """project-scaffolding: 产出的 Worker MUST 可被导入并被调度."""
+    """project-scaffolding: 产出的 Worker MUST 可被导入并被调度.
+
+    行为意图变更（#112）：类名从 title() 产物 `My_TaskWorker` 翻转为
+    PascalCase 规则产物 `MyTaskWorker`。
+    """
 
     def test_worker_module_imports(self, scaffold):
         """Scenario: 生成的 Worker 模块可被导入."""
@@ -139,7 +155,7 @@ class TestGeneratedWorker:
 
         sys.path.insert(0, str(source_dir / "workers"))
         module = importlib.import_module("my_task_worker")
-        assert hasattr(module, "My_TaskWorker")
+        assert hasattr(module, "MyTaskWorker")
 
     def test_every_referenced_public_name_exists(self, scaffold):
         """Scenario: 生成的 Worker 不依赖不存在的公开名称.
@@ -163,7 +179,7 @@ class TestGeneratedWorker:
 
         sys.path.insert(0, str(source_dir / "workers"))
         module = importlib.import_module("my_task_worker")
-        assert isinstance(module.My_TaskWorker(), BaseWorker)
+        assert isinstance(module.MyTaskWorker(), BaseWorker)
 
     def test_registered_worker_is_scheduled_and_executed(self, scaffold):
         """Scenario: 注册后 Worker 被调度执行."""
@@ -177,7 +193,7 @@ class TestGeneratedWorker:
         for name, worker_class in module.WORKERS:
             master.register_worker(name, worker_class)
 
-        instance = master.worker_registry.get_worker("My_TaskWorker")
+        instance = master.worker_registry.get_worker("MyTaskWorker")
         assert instance in master.waiter.workers, "生成的 Worker 未进入调度列表"
 
         executed = []
@@ -199,7 +215,7 @@ class TestGeneratedWorker:
         _add_worker("my_task")
 
         source = (source_dir / "main.py").read_text(encoding="utf-8")
-        assert "from workers.my_task_worker import My_TaskWorker" in source, (
+        assert "from workers.my_task_worker import MyTaskWorker" in source, (
             "入口没有指向该 Worker 模块的显式导入"
         )
 
@@ -250,6 +266,58 @@ class TestGeneratedConfig:
         # 脚手架声明的每个 worker 配置键，框架都能沿对应路径取到
         assert "worker" in declared
         assert set(declared["worker"]) <= {"runPolicy", "pool"}
+
+
+# =============================================================================
+# 2.5 开箱即跑的示例 Worker（scaffold-demo-worker #110）
+# =============================================================================
+
+
+class TestDemoWorkerPreset:
+    """project-scaffolding: 产出项目 MUST 开箱即含已注册示例 Worker 且产生可见输出."""
+
+    def test_sample_worker_file_is_generated_by_create(self, scaffold):
+        """Scenario: 示例 Worker 文件由 --create 直接产出（无需 --worker）."""
+        _, source_dir = scaffold
+        assert (source_dir / "workers" / "sample_worker.py").exists()
+
+    def test_sample_worker_imports_and_instantiable(self, scaffold):
+        """Scenario: 预置的示例 Worker 与 --worker 产物走同一模板."""
+        _, source_dir = scaffold
+
+        sys.path.insert(0, str(source_dir / "workers"))
+        module = importlib.import_module("sample_worker")
+        assert isinstance(module.SampleWorker(), BaseWorker)
+
+    def test_sample_worker_registered_without_extra_commands(self, scaffold):
+        """Scenario: 不执行任何额外命令，示例 Worker 已在入口注册表内."""
+        _, source_dir = scaffold
+        module = _import_generated_main(source_dir)
+
+        from zoo_framework.core import Master
+
+        master = Master()
+        for name, worker_class in module.WORKERS:
+            master.register_worker(name, worker_class)
+
+        assert "SampleWorker" in master.worker_registry.get_all_workers()
+        master.shutdown()
+
+    def test_sample_worker_output_has_name_and_counter(self, scaffold, capsys):
+        """Scenario: 示例输出含 Worker 名；计数单调递增."""
+        _, source_dir = scaffold
+
+        sys.path.insert(0, str(source_dir / "workers"))
+        worker_module = importlib.import_module("sample_worker")
+        instance = worker_module.SampleWorker()
+        instance._execute()
+        instance._execute()
+
+        captured = capsys.readouterr().out
+        # 计数单调递增：先断言两行都存在，再依序比对计数（空列表上的否定断言恒真）
+        lines = [line for line in captured.splitlines() if "[sample_worker] tick #" in line]
+        assert len(lines) == 2, f"应恰好捕获两次输出：{captured!r}"
+        assert lines[0].endswith("#1") and lines[1].endswith("#2")
 
 
 # =============================================================================

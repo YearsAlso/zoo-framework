@@ -148,14 +148,56 @@ class TestWorkerNameValidation:
         for path in (module, monkeypatch_dir / "src" / "main.py"):
             ast.parse(path.read_text(encoding="utf-8"))
 
-    @pytest.mark.parametrize("name", ["my_task", "task2", "_private", "a"])
-    def test_legal_name_yields_legal_class_name(self, in_dir, name):
-        """合法名称推导出的类名也必须是合法标识符（否则又产出不可解析的文件）."""
+    @pytest.mark.parametrize(
+        "name, expected",
+        [
+            ("my_task", "MyTaskWorker"),
+            ("task2", "Task2Worker"),
+            ("_private", "PrivateWorker"),
+            ("a", "AWorker"),
+            ("x__y", "XYWorker"),  # 连续下划线：空段跳过
+            ("v2e", "V2eWorker"),  # 段内仅首字母大写（title() 会给出 V2E）
+        ],
+    )
+    def test_legal_name_yields_legal_class_name(self, in_dir, name, expected):
+        """Scenario: 蛇形名转 PascalCase 类名（行为意图变更：#112）.
+
+        断言升级为「PascalCase(输入) + Worker 逐字相等」——不是宽松的
+        `isidentifier()`：宽松断言对 `My_TaskWorker` 这类历史产物也放行。
+        """
         from zoo_framework.cli.scaffold import _worker_names
 
         _, class_name = _worker_names(name)
 
-        assert class_name.isidentifier(), f"{name!r} 推导出非法类名 {class_name!r}"
+        assert class_name == expected, f"{name!r} 应推导出 {expected!r}，实际 {class_name!r}"
+
+    @pytest.mark.parametrize(
+        "name, expected",
+        [("order_sync", "OrderSyncWorker"), ("sample_worker", "SampleWorkerWorker")],
+    )
+    def test_worker_output_class_name_end_to_end(self, in_dir, name, expected):
+        """Scenario: 端到端——文件名 / 类名 / 入口注册名三处一致（#112）.
+
+        `sample_worker`（输入已含 worker 后缀）不剥离：类名为 `SampleWorkerWorker`。
+        """
+        runner = CliRunner()
+        runner.invoke(zfc, ["--create", "proj"])
+        os.chdir(in_dir / "proj")
+
+        result = runner.invoke(zfc, ["--worker", name])
+
+        assert result.exit_code == 0, result.output
+        module = in_dir / "proj" / "src" / "workers" / f"{name}_worker.py"
+        assert module.exists()
+
+        source = module.read_text(encoding="utf-8")
+        assert f"class {expected}(BaseWorker):" in source, (
+            f"文件 class 名与预期 {expected} 不一致：{source}"
+        )
+
+        main_source = (in_dir / "proj" / "src" / "main.py").read_text(encoding="utf-8")
+        assert f"from workers.{name}_worker import {expected}" in main_source
+        assert f'("{expected}", {expected}),' in main_source
 
 
 # =============================================================================
@@ -201,6 +243,35 @@ class TestCreateFailure:
 
         assert result.exit_code == 0, result.output
         assert "Traceback" not in result.output
+
+
+# =============================================================================
+# 2.5 --create 成功摘要与失败摘要抑制（scaffold-demo-worker #110）
+# =============================================================================
+
+
+class TestCreateSummary:
+    """project-scaffolding: --create 成功时 MUST 报告结果与下一步命令."""
+
+    def test_success_summary_contains_location_count_and_next_command(self, in_dir):
+        """Scenario: 成功摘要含下一步命令."""
+        result = CliRunner().invoke(zfc, ["--create", "proj"])
+
+        assert result.exit_code == 0
+        out = result.output
+        # 三要素：创建位置 / 生成文件量 / 完整可复制的下一步命令
+        assert "proj" in out, f"摘要应含创建位置：{out!r}"
+        assert re.search(r"\d+", out), f"摘要应含生成文件量：{out!r}"
+        assert "cd proj" in out and "python src/main.py" in out, f"摘要应含完整下一步命令：{out!r}"
+
+    def test_failure_suppresses_summary(self, in_dir):
+        """Scenario: 失败路径契约不变——成功摘要 MUST NOT 被打印."""
+        (in_dir / "proj").mkdir()
+
+        result = CliRunner().invoke(zfc, ["--create", "proj"])
+
+        assert result.exit_code != 0
+        assert "cd proj" not in result.output, "失败路径不应打印下一步命令摘要"
 
 
 # =============================================================================

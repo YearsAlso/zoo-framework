@@ -4,12 +4,18 @@
 
 | 项 | 值 |
 |---|---|
-| Python | **3.13 及以上**（`requires-python = ">=3.13"`） |
+| Python | **3.11 及以上**（`requires-python = ">=3.11"`） |
 | 操作系统 | Windows / macOS / Linux |
-| 运行时依赖 | `click`、`pyyaml`、`python-dotenv`、`typing-extensions` |
+| 运行时依赖 | `click`、`pyyaml`、`python-dotenv` |
 
-**这是本框架当前的硬门槛。** 若你的环境仍在 3.10–3.12，需要等门槛下调
-（见 issue #124），或使用更高版本的解释器。
+**这是本框架当前的硬门槛**，由扫描证据加"在下界解释器上实跑全量测试"共同支撑——
+见[开发指南的「Python 下界的依据」一节](contributing/development.md)。若要提高门槛，
+请先把依据写进那一节（门槛的改动不只改 `pyproject.toml`：工具链 target、`uv.lock`、
+CI 矩阵与文档中的门槛声明都要同改，`tests/test_doc_consistency.py` 会检查这一致性）。
+
+> **可选的原生执行扩展另有自己的下界（Python 3.13+）。** 它是可选编译扩展、尚未发布，
+> 其下界不抬高主包的门槛；在 3.11／3.12 上尝试安装它会在安装期以显式错误结束，而不是
+> "装上但不可用"。
 
 ## 安装
 
@@ -32,15 +38,14 @@ python -c "import zoo_framework; print(zoo_framework.__version__)"
 
 ## 使用 uv 的注意事项
 
-仓库里提交了 `uv.lock`，但**它当前与 `pyproject.toml` 不一致**（实测 `uv lock --check` 报
-`The lockfile needs to be updated`）。因此：
+仓库里提交了 `uv.lock`，它与 `pyproject.toml` 同源（`uv lock --check` 通过）。安装仍推荐：
 
 ```bash
 pip install -e ".[dev]"     # 推荐
 ```
 
-若你偏好 uv，使用 `uv run --no-sync`；**不要**直接 `uv sync`，它会从这个陈旧状态重新解析
-并可能改动你的依赖集合。此问题在 issue #115 中跟踪。
+若你偏好 uv，`uv sync --extra dev` 会按同一份锁文件解析依赖。改动依赖后请跑 `uv lock`
+重锁，并用 `uv lock --check` 复核。
 
 ## 卸载
 

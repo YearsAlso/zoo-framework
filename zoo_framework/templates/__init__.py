@@ -33,9 +33,12 @@ class $class_name(BaseWorker):
             "delay_time": 10,
             "name": "${worker_name}_worker",
         })
+        self._tick = 0
 
     def _execute(self):
         \"\"\"Run the business logic.\"\"\"
+        self._tick += 1
+        print(f"[${worker_name}_worker] tick #{self._tick}")
 
     def _destroy(self, result):
         \"\"\"Called when the Worker is unregistered (the shutdown path triggers this).\"\"\"
@@ -130,6 +133,7 @@ def on_demo(req):
 '''
 
 main_template = f"""from zoo_framework.core import Master
+from workers.sample_worker import SampleWorker
 
 # Demonstration of import-time wiring and the ordering constraints:
 #   conf   - registers the config hook; MUST come before Master(), the hook
@@ -140,6 +144,8 @@ import conf.demo_conf  # noqa: F401
 {WORKER_IMPORT_MARKER}
 
 WORKERS = [
+    # 开箱即跑的示例；确认业务后连同上方导入行一起删除
+    ("SampleWorker", SampleWorker),
     {WORKER_REGISTRATION_MARKER}
 ]
 

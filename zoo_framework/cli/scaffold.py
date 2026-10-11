@@ -27,7 +27,8 @@ from zoo_framework.utils import FileUtils
 
 DEFAULT_CONF = {
     "_exports": [],
-    "log": {"path": "./logs", "level": "debug"},
+    # 默认最静：框架心跳与启动横幅不输出；诊断时把 level 改回 debug/info
+    "log": {"path": "./logs", "level": "warning"},
     "worker": {"runPolicy": "simple", "pool": {"size": 5, "enabled": False}},
     # Read by the params example module; the path is demo:greeting
     "demo": {"greeting": "hello from config.json"},
@@ -37,6 +38,9 @@ DEFAULT_CONF = {
 SRC_DIR_NAME = "src"
 # Subdirectory that hosts Workers
 WORKER_DIR_NAME = "workers"
+
+# 开箱即跑的示例 Worker：经 _worker_names 推导为模块 sample_worker / 类 SampleWorker
+DEMO_WORKER_NAME = "sample"
 
 
 def resolve_worker_dir(cwd: str | None = None) -> str:
@@ -130,12 +134,40 @@ def create_func(object_name):
     ):
         FileUtils.write_text(module_file, module_template)
 
+    # 开箱即跑的示例 Worker：与 --worker 走同一模板，入口已静态预置其注册条目
+    demo_module_name, demo_class_name = _worker_names(DEMO_WORKER_NAME)
+    demo_worker_file = os.path.join(workers_dir, f"{demo_module_name}.py")
+    FileUtils.write_text(
+        demo_worker_file,
+        Template(worker_template).substitute(
+            worker_name=DEMO_WORKER_NAME, class_name=demo_class_name
+        ),
+    )
+
     with open(main_file, "w", encoding=FileUtils.DEFAULT_ENCODING) as fp:
         fp.write(main_template)
+
+    # 成功摘要：让下一步动作成为 stdout 的一部分，而不是要用户自己拼出来
+    written = [
+        config_file,
+        main_file,
+        demo_worker_file,
+        os.path.join(conf_dir, "demo_conf.py"),
+        os.path.join(params_dir, "demo_params.py"),
+        os.path.join(events_dir, "demo_event.py"),
+    ]
+    print(f"已创建脚手架项目：{os.path.abspath(object_name)}")
+    print(f"生成文件 {len(written)} 个（另含 5 个 __init__.py）")
+    print(f"下一步：cd {object_name} && python src/main.py")
 
 
 def _worker_names(worker_name: str) -> tuple[str, str]:
     """Derive (module name, class name) from the user-supplied Worker name.
+
+    类名遵循 PascalCase 规则：按下划线分段，空段跳过（前导/连续/尾随下划线不产生
+    空段首字母），每段仅首字母大写、其余原样保留（``v2e`` → ``V2e``，不用
+    ``title()``——它会把数字后的字母也大写成 ``V2E``），拼接 ``Worker`` 后缀。
+    输入已含 ``worker`` 后缀时不剥离——名字是使用者语义的一部分。
 
     Args:
         worker_name: The user-supplied Worker name.
@@ -143,7 +175,10 @@ def _worker_names(worker_name: str) -> tuple[str, str]:
     Returns:
         (module name, class name)
     """
-    return f"{worker_name}_worker", f"{worker_name.title()}Worker"
+    class_name = (
+        "".join(segment.capitalize() for segment in worker_name.split("_") if segment) + "Worker"
+    )
+    return f"{worker_name}_worker", class_name
 
 
 def _wire_worker_into_main(main_path: str, worker_name: str, class_name: str) -> None:

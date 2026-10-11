@@ -8,11 +8,11 @@
 
 Python declarative multi-task orchestration framework powering next-gen Agents and workflows
 
-[![Python](https://img.shields.io/badge/Python-3.13%2B-blue)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/)
 [![PyPI](https://img.shields.io/pypi/v/zoo-framework)](https://pypi.org/project/zoo-framework/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 [![Tests](https://github.com/YearsAlso/zoo-framework/workflows/Tests/badge.svg)](https://github.com/YearsAlso/zoo-framework/actions/workflows/tests.yml)
-[![Quality Check](https://github.com/YearsAlso/zoo-framework/workflows/Quality%20Check/badge.svg)](https://github.com/YearsAlso/zoo-framework/actions/workflows/quality.yml)
+[![Quality Check](https://img.shields.io/github/actions/workflow/status/YearsAlso/zoo-framework/quality.yml?label=Quality%20Check)](https://github.com/YearsAlso/zoo-framework/actions/workflows/quality.yml)
 [![CodeQL](https://github.com/YearsAlso/zoo-framework/workflows/CodeQL/badge.svg)](https://github.com/YearsAlso/zoo-framework/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/YearsAlso/zoo-framework/badge)](https://scorecard.dev/viewer/?uri=github.com/YearsAlso/zoo-framework)
 [![Benchmark](https://img.shields.io/badge/benchmark-zoo--bench-blue)](https://yearsalso.github.io/zoo-bench/)
@@ -23,16 +23,14 @@ Python declarative multi-task orchestration framework powering next-gen Agents a
 
 ---
 
-### What it is
+**Zoo Framework runs long-lived background tasks in-process** — no broker (no Redis / RabbitMQ), no
+distributed setup, designed so that **AI-agent-generated code** can drive it: a narrow extension
+surface, loud failures, and a spec baseline an agent can verify by running tests.
 
-Zoo Framework runs **long-lived background tasks** in Python. You declare task units
-("Workers"), register them, and the framework keeps them running: it decides when each
-one is dispatched, keeps concurrent instances apart, observes how long they take, and
-shuts down cleanly with state on disk.
+It is for developers who need scheduled, observable, persistent background work
+**embedded in their own process** — the in-process alternative to Celery, not a replacement for it.
 
-It is **not** a web framework and **not** a task queue — there is no HTTP layer, no
-broker, and no distributed scheduling. It is the in-process equivalent: a scheduler, an
-event pipeline, and a state store that you embed in a service.
+<!-- TODO(demo): docs/assets/demo.gif -->
 
 ### The problem it solves
 
@@ -53,6 +51,54 @@ Zoo Framework takes those decisions out of your code:
   state machine's final save happens.
 - **State** — periodic and on-shutdown persistence, atomic replace, rolling backups.
 - **Errors** — unsupported inputs raise rather than silently degrade.
+
+### The whole thing in 30 seconds
+
+Save as `main.py` and run with Python 3.11+:
+
+```python
+from zoo_framework.core import Master
+from zoo_framework.workers import BaseWorker
+
+
+class MyWorker(BaseWorker):
+    """A task unit that runs in a loop."""
+
+    def __init__(self):
+        super().__init__(
+            {
+                "is_loop": True,  # keep running across scheduling rounds
+                "delay_time": 1.0,  # seconds to wait after each execution
+                "name": "MyWorker",
+                # "run_timeout": 30,  # optional: observe + circuit-break after 30s
+            }
+        )
+        self.counter = 0
+
+    def _execute(self):
+        self.counter += 1
+        print(f"Hello from MyWorker! Count: {self.counter}")
+
+
+if __name__ == "__main__":
+    master = Master()
+    # Registered workers join the schedule. Master() alone only runs the two
+    # built-in system workers (EventWorker / StateMachineWorker).
+    master.register_worker("MyWorker", MyWorker)
+    master.run()
+```
+
+Expected output: a `Hello from MyWorker! Count: N` line every second. (When piping
+stdout to a file, CPython's default block buffering delays the lines — run in a
+terminal, or use `python -u`, to see them as they happen.)
+
+You declare task units ("Workers"), register them, and the framework keeps them running:
+it decides when each one is dispatched, keeps concurrent instances apart, observes how
+long they take, and shuts down cleanly with state on disk.
+
+It is **not** a web framework and **not** a task queue — there is no HTTP layer, no
+broker, and no distributed scheduling. It is the in-process equivalent: a scheduler, an
+event pipeline, and a state store that you embed in a service.
 
 ### How it compares
 
@@ -78,58 +124,86 @@ no broker, no cron daemon — but still scheduled, still observable, still persi
 The comparison reflects each project's general positioning; no cross-project benchmark
 was run.
 
+### Built for AI-agent-generated code
+
+The extension surface is deliberately narrow, so generated code is short, verifiable,
+and — when it is wrong — wrong *loudly*.
+
+**Three steps, no glue code**
+
+```python
+class OrderSyncWorker(BaseWorker):  # 1. subclass
+    def __init__(self):
+        super().__init__({"is_loop": True, "delay_time": 5, "name": "OrderSync"})
+
+    def _execute(self):  # 2. write only the business logic
+        sync_orders()
+
+
+master.register_worker("OrderSync", OrderSyncWorker)  # 3. register
+```
+
+Thread management, concurrency limits, in-flight de-duplication, timeout
+circuit-breaking, graceful shutdown and state persistence are the framework's job.
+An agent does not have to generate that code — and therefore cannot get it wrong.
+
+**Configuration is separate from implementation**
+
+A Worker only depends on the `props` dict handed to `__init__`. It has no visibility
+into framework internals, so generating one does not require reading the source or
+understanding how `Waiter` / `WorkerRegistry` / `EventReactor` relate.
+
+**Failures are explicit, never silently swallowed**
+
+| Input | Behaviour |
+|---|---|
+| A scheduler mode that isn't implemented (`process`) | raises `NotImplementedError` |
+| An unrecognised run-policy name in config | raises `ValueError` |
+| Importing a public name that doesn't exist | `ImportError` |
+| A text file in an unexpected encoding | emits a warning naming the file |
+
+This matters more for generated code than for hand-written code: an agent **cannot
+detect a silent downgrade**, and a loud error is the signal it needs to self-correct.
+
+**Changes can be checked automatically**
+
+The framework carries a spec baseline and a continuously-passing regression suite
+covering the core contracts, so an agent's change can be judged by running `pytest`
+rather than by asking a human to read it. The Tests badge above reflects the current
+suite status.
+
 ### Installation
 
 ```bash
 pip install zoo-framework
 ```
 
-Requires Python 3.13+.
+Requires Python 3.11+ (the floor is backed by evidence, in the
+[「Python 下界的依据」section of the development guide](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/contributing/development.md)).
 
 ### Quick Start
 
-A minimal runnable Worker. Save as `main.py` and run it:
+The minimal example above is the quick start — the same code checked in as
+[`example/minimal.py`](example/minimal.py) (copy → `python example/minimal.py`).
+To scaffold a project with a config, a
+directory layout **and a demo Worker already registered**, use the CLI instead:
 
-```python
-from zoo_framework.core import Master
-from zoo_framework.workers import BaseWorker
+```bash
+zfc --create myapp
+cd myapp
+python src/main.py
+```
 
-class MyWorker(BaseWorker):
-    """A task unit that runs in a loop."""
+The scaffolded project has a demo Worker wired in — a `[sample_worker] tick #N` line
+every 10 seconds. That is your code running; the framework's own system logs look
+different (they go through the logger). Adding your own worker is optional:
 
-    def __init__(self):
-        super().__init__(
-            {
-                "is_loop": True,  # keep running across scheduling rounds
-                "delay_time": 1.0,  # seconds to wait after each execution
-                "name": "MyWorker",
-                # "run_timeout": 30,  # optional: observe + circuit-break after 30s
-            }
-        )
-        self.counter = 0
-
-    def _execute(self):
-        self.counter += 1
-        print(f"Hello from MyWorker! Count: {self.counter}")
-
-if __name__ == "__main__":
-    master = Master()
-    # Registered workers join the schedule. Master() alone only runs the two
-    # built-in system workers (EventWorker / StateMachineWorker).
-    master.register_worker("MyWorker", MyWorker)
-    master.run()
+```bash
+zfc --worker my_task
 ```
 
 There is no separate config file to write — `Master()` defaults to `./config.json`
-relative to the working directory, and the example above runs without one. To scaffold a
-project with a config and directory layout, use the CLI instead:
-
-```bash
-zfc --create myapp      # -> myapp/src/{main.py,workers,conf,params,events}
-cd myapp
-zfc --worker my_task    # adds src/workers/my_task_worker.py and registers it
-python src/main.py
-```
+relative to the working directory, and the minimal example above runs without one.
 
 > **A Worker must be registered as a *class*.** `WorkerRegistry` validates with
 > `issubclass`, so a function or an instance is rejected with
@@ -206,6 +280,7 @@ semantics** — if a name is unclear, read the right-hand column:
 ```python
 from zoo_framework.core.aop import event
 
+
 @event(topic="order.created", channel="business")
 def on_order_created(req):
     print(req.topic, req.content)
@@ -243,10 +318,11 @@ sibling `backups/` directory.
 #### CLI
 
 ```bash
-# Scaffold a project (produces <name>/src/{main.py,workers,conf,params,events})
+# Scaffold a project (produces <name>/src/{main.py,workers,conf,params,events},
+# including a demo Worker that runs out of the box)
 zfc --create myapp
 
-# Add a Worker to a project (writes src/workers/, and wires it into src/main.py)
+# Add another Worker of your own (writes src/workers/, and wires it into src/main.py)
 cd myapp
 zfc --worker my_task
 
@@ -300,51 +376,6 @@ report lives at [zoo-bench](https://yearsalso.github.io/zoo-bench/).*
 > against hand-written baselines and the standard-library concurrency models, publishes its
 > raw data, and reports the tiers where the framework **loses**.
 
-### Built for AI-agent-generated code
-
-The extension surface is deliberately narrow, so generated code is short, verifiable,
-and — when it is wrong — wrong *loudly*.
-
-**Three steps, no glue code**
-
-```python
-class OrderSyncWorker(BaseWorker):  # 1. subclass
-    def __init__(self):
-        super().__init__({"is_loop": True, "delay_time": 5, "name": "OrderSync"})
-
-    def _execute(self):  # 2. write only the business logic
-        sync_orders()
-
-master.register_worker("OrderSync", OrderSyncWorker)  # 3. register
-```
-
-Thread management, concurrency limits, in-flight de-duplication, timeout
-circuit-breaking, graceful shutdown and state persistence are the framework's job.
-An agent does not have to generate that code — and therefore cannot get it wrong.
-
-**Configuration is separate from implementation**
-
-A Worker only depends on the `props` dict handed to `__init__`. It has no visibility
-into framework internals, so generating one does not require reading the source or
-understanding how `Waiter` / `WorkerRegistry` / `EventReactor` relate.
-
-**Failures are explicit, never silently swallowed**
-
-| Input | Behaviour |
-|---|---|
-| A scheduler mode that isn't implemented (`process`) | raises `NotImplementedError` |
-| An unrecognised run-policy name in config | raises `ValueError` |
-| Importing a public name that doesn't exist | `ImportError` |
-| A text file in an unexpected encoding | emits a warning naming the file |
-
-This matters more for generated code than for hand-written code: an agent **cannot
-detect a silent downgrade**, and a loud error is the signal it needs to self-correct.
-
-**Changes can be checked automatically**
-
-The framework carries a spec baseline and a 367-case regression suite covering the
-core contracts, so an agent's change can be judged by running `pytest` rather than by
-asking a human to read it.
 
 ### Documentation
 
@@ -369,26 +400,120 @@ performance benchmarks). It is not aimed at people using the framework:
   [SECURITY.md](SECURITY.md) for the private reporting route.
 - **Code of Conduct** — [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
-The project is maintained by one person, so issues are answered on a best-effort basis.
-A report with a reproduction, your Python version and your OS gets a response far
-faster than one without.
+The project is maintained by one person. [MAINTAINERS.md](MAINTAINERS.md) turns that into
+numbers you can hold it to: a small pull request or a clear report gets a first reply
+**within 7 days**. A report with a reproduction, your Python version and your OS gets a
+response far faster than one without. Everyone whose work lands is listed in
+[CONTRIBUTORS.md](CONTRIBUTORS.md).
+
+### Governance
+
+Who decides what, who owns what, and how long a reply is expected to take:
+
+- [GOVERNANCE.md](GOVERNANCE.md) — how decisions are made, and how to become a maintainer
+- [MAINTAINERS.md](MAINTAINERS.md) — areas of responsibility and the expected response times
+- [ADOPTERS.md](ADOPTERS.md) — who uses the framework, each row labelled verifiable or not
+- [SECURITY.md](SECURITY.md) — vulnerability reporting and the trust model
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — expected behaviour and how to report abuse
+- [CONTRIBUTING.md](CONTRIBUTING.md) — the one-page entry point for contributors
+- [`.well-known/security.txt`](.well-known/security.txt) — the machine-readable security
+  contacts (RFC 9116)
+
+This is a one-person project, and [GOVERNANCE.md](GOVERNANCE.md) says so plainly instead of
+describing a committee that does not exist.
 
 ### Contributing
 
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the full guide.
+Contributions are welcome. [CONTRIBUTING.md](CONTRIBUTING.md) is the one-page entry point;
+the complete spec is [docs/CONTRIBUTING_MAINTAINER.md](docs/CONTRIBUTING_MAINTAINER.md), and
+the branch model is in [docs/BRANCHING.md](docs/BRANCHING.md). For a scoped first task see
+[docs/GOOD_FIRST_ISSUES.md](docs/GOOD_FIRST_ISSUES.md); contributors are listed in
+[CONTRIBUTORS.md](CONTRIBUTORS.md).
 
 ```bash
-git clone https://github.com/YearsAlso/zoo-framework.git
+git clone --recursive https://github.com/YearsAlso/zoo-framework.git
+# (omit --recursive only if you don't need example/agent — see example/README.md)
 cd zoo-framework
-pip install -e ".[dev]"       # NOT `uv sync` — uv.lock is stale, see CONTRIBUTING.md
+pip install -e ".[dev]"       # or: uv sync --extra dev (uv.lock is kept in sync)
 pre-commit install
-pytest                        # 662 cases
+pytest                        # see the Tests badge for current suite status
 ```
 
-Note: use an explicit Python 3.13 interpreter (`.venv/Scripts/python.exe` on Windows —
-if you prefer uv, `uv run --no-sync`; plain `uv run` re-locks from the stale `uv.lock`).
+pip via `pyproject.toml` and `uv sync` via the committed `uv.lock` are both supported —
+they resolve the same dependency set.
 `ruff check`, `ruff format`, `pytest`, `mypy` and `bandit` are all hard CI
 gates.
+
+### FAQ
+
+The questions this framework is asked most often. Each short answer links to the long-form
+answer in [`docs/FAQ.md`](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### Can I run scheduled background tasks without Redis or RabbitMQ?
+
+Yes — that is this framework's core scenario. `pip install zoo-framework`, subclass
+`BaseWorker`, register it, and scheduling happens inside your own process: no broker, no cron
+daemon. Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### How is it different from Celery, and which should I pick?
+
+Celery runs separate worker processes coordinated by a broker, so tasks can cross machines —
+that is exactly what Zoo Framework declines. Pick Celery the moment work must leave the
+process; pick this when the work is long-lived, in-process and not worth a broker.
+Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### How is it different from APScheduler?
+
+Both embed in your process with no broker. APScheduler wins on cron expressions and job
+stores; Zoo Framework adds an event pipeline (priority, retries, dead-letter), in-flight
+de-duplication, timeout circuit-breaking and atomic state persistence. Use APScheduler if you
+need cron. Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### Does it support multiple processes or work across machines?
+
+No. Multi-process execution is **not implemented** — the mode constants are placeholders and
+requesting one is rejected — and there is no cross-machine scheduling. If a task must leave
+the process, use Celery. Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### Can I use cron expressions?
+
+No. Only a fixed `delay_time` polling interval exists. If you need cron expressions, use
+APScheduler. Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### What happens if a task hangs — is it killed?
+
+It is not killed. A `run_timeout` observes and circuit-breaks: the timeout is recorded, the
+Worker is marked unhealthy and stops being dispatched, while the already-running execution
+keeps going — CPython cannot safely interrupt a running thread.
+Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### Is state restored after a restart?
+
+Yes, if you use the state machine (`StateMachineManager`). State is saved periodically and on
+shutdown — written to a temporary file and `os.replace`d atomically, with up to 5 rolling
+backups — and loaded again on the next start.
+Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### Why is it called Zoo, and what do the names mean?
+
+The framework is named after a zoo: Worker (task execution unit), Master (lifecycle entry
+point), Waiter (the scheduler), Cage (the scoped registry of shared instances). The metaphor
+only affects naming, not semantics — the [core concepts](#core-concepts) table maps every name
+to what it does. Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### What does it have to do with AI agents?
+
+The extension surface is deliberately narrow — subclass, implement `_execute()`, register the
+class — failures are loud instead of silent, and the suite lets a change be judged by running
+`pytest`. Generated code therefore stays short and can self-correct.
+Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
+#### Is anyone using it in production?
+
+No verifiable third-party adopter yet. The maintainer's own projects use it, but that cannot
+be checked from the outside, and [`ADOPTERS.md`](ADOPTERS.md) labels every row accordingly
+rather than implying adoption it cannot show.
+Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
 
 ### License
 

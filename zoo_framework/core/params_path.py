@@ -1,11 +1,10 @@
 from typing import TypeVar, cast
 
-# ruff's UP047 demands the PEP 695 form `def param[T](...)`, but **mypy 1.7.1
-# does not yet support PEP 695** (it reports "PEP 695 generics are not yet
-# supported") - and 1.7.1 is both the version pinned by pre-commit and the
-# one CI installs. The two tools demand opposite things, hence keep the
-# TypeVar form with a targeted noqa here, instead of letting either fail.
-# Upgrading mypy would resolve it (a dependency change, out of scope).
+# PEP 695 泛型（`def param[T](...)`）需要 Python 3.12+，而本项目的下界是 3.11
+# （`requires-python`，`[tool.ruff] target-version = "py311"` 跟随它），因此 `TypeVar`
+# 形式是**唯一合法写法**——UP047 不适用，无需抑制。若日后把门槛抬到 3.12+，ruff 会重新
+# 要求 PEP 695，而 pre-commit 钉的 mypy 1.7.1 不支持该语法，那时必须先升级 mypy
+# （见 docs/contributing/development.md 的「Python 下界的依据」）。
 _T = TypeVar("_T")
 
 
@@ -38,9 +37,7 @@ class ParamsPath:
         return list(self.aliases)
 
 
-def param(  # noqa: UP047 — 见文件头说明：mypy 1.7.1 不支持 PEP 695，两个工具要求相反
-    value: str, default: _T, aliases: list[str] | None = None
-) -> _T:
+def param(value: str, default: _T, aliases: list[str] | None = None) -> _T:
     """Declare a parameter item.
 
     `@params` **rewrites the class attribute into the resolved literal** at

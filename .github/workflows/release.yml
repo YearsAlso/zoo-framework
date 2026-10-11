@@ -212,18 +212,22 @@ jobs:
         env:
           NEW_VERSION: ${{ steps.calc_version.outputs.new_version }}
         run: |
-          # 三处版本声明必须一起改；少改一处就会出现"发出的包对自己的版本撒谎"
+          # 四处版本声明必须一起改；少改一处就会出现"发出的包对自己的版本撒谎"
+          # （CITATION.cff 的 version 是第四处，自 packaging-standards / #119 起纳入）
           sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" pyproject.toml
           sed -i "s/^VERSION=.*/VERSION=$NEW_VERSION/" .env
           sed -i "s/^\([[:space:]]*\)__version__ = \".*\"/\1__version__ = \"$NEW_VERSION\"/" zoo_framework/__init__.py
+          # CFF 的 `version:` 字段（锚定行首，不会误匹配 `cff-version:`）
+          sed -i "s/^version: \".*\"/version: \"$NEW_VERSION\"/" CITATION.cff
 
-          echo "--- 改动后核对（三处必须一致）---"
+          echo "--- 改动后核对（四处必须一致）---"
           grep -n '^version = ' pyproject.toml
           grep -n '^VERSION=' .env
           grep -n '__version__ = ' zoo_framework/__init__.py | head -1
+          grep -n '^version: ' CITATION.cff
 
-          # 断言三处都写成了新版本号，否则就地失败——不要开出一个错的 PR
-          for f in pyproject.toml .env zoo_framework/__init__.py; do
+          # 断言四处都写成了新版本号，否则就地失败——不要开出一个错的 PR
+          for f in pyproject.toml .env zoo_framework/__init__.py CITATION.cff; do
             grep -q "$NEW_VERSION" "$f" || { echo "::error::$f 未写入新版本号 $NEW_VERSION"; exit 1; }
           done
 
@@ -357,7 +361,7 @@ jobs:
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
@@ -377,7 +381,7 @@ jobs:
     if: github.ref_type == 'tag'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
@@ -441,6 +445,18 @@ jobs:
       - name: Build package
         run: python -m build
 
+      # ── SBOM（packaging-standards / #119）──
+      # 位置刻意放在构建之后、签名之前：SBOM 描述的就是即将发布的 dist/ 产物。
+      # 刻意不加 continue-on-error —— "看起来成功但没有 SBOM"的 release 比没有更糟。
+      - name: Generate SBOM (SPDX-JSON)
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c  # v0.24.3
+        with:
+          path: dist/
+          format: spdx-json
+          output-file: dist/sbom.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
       # ── Sigstore keyless 签名（#94 / Scorecard Signed-Releases）──
       # Scorecard 按 Release 附件的**文件名**识别签名：*.sig 计为已签名（该 release 得
       # 8 分，近 5 个 release 平均）。cosign keyless 模式无密钥可保管，身份绑定
@@ -474,14 +490,23 @@ jobs:
       - name: Generate Changelog
         id: changelog
         run: |
-          LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
-          if [ -z "$LAST_TAG" ]; then
-            CHANGELOG=$(git log --pretty=format:"- %s (%h)" --no-merges | head -20)
+          # 正路（#117）：release 正文 = CHANGELOG.md 里该版本段（四段模板见
+          # docs/RELEASE_PROCESS.md）。脚本找不到该版本段时非零退出，此时回退到
+          # 提交标题列表并在正文标注「未整理」——发布不能被文档阻塞，但回退必须可见。
+          VERSION="${{ steps.version.outputs.version }}"
+          if python scripts/notes_from_changelog.py "$VERSION" > release_notes.md 2>/dev/null; then
+            echo "source=changelog" >> "$GITHUB_OUTPUT"
           else
-            CHANGELOG=$(git log "$LAST_TAG"..HEAD --pretty=format:"- %s (%h)" --no-merges | head -20)
+            echo "source=commits" >> "$GITHUB_OUTPUT"
+            LAST_TAG=$(git describe --tags --abbrev=0 HEAD~1 2>/dev/null || echo "")
+            if [ -z "$LAST_TAG" ]; then
+              git log --pretty=format:"- %s (%h)" --no-merges | head -20 > release_notes.md
+            else
+              git log "$LAST_TAG"..HEAD --pretty=format:"- %s (%h)" --no-merges | head -20 > release_notes.md
+            fi
           fi
           echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
-          echo "$CHANGELOG" >> "$GITHUB_OUTPUT"
+          cat release_notes.md >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
@@ -495,8 +520,15 @@ jobs:
             **类型:** ${{ contains(github.ref_name, '-beta') && '🧪 测试版本' || '🚀 正式版本' }}
             **版本:** `${{ steps.version.outputs.version }}`
 
-            ### 📋 变更记录
+            ${{ steps.changelog.outputs.source == 'changelog' && format('### 📋 使用者可见的变化', '') || '### 📋 变更记录（未整理 —— CHANGELOG.md 里没有该版本的条目，见 docs/RELEASE_PROCESS.md）' }}
+
             ${{ steps.changelog.outputs.changelog }}
+
+            ### ⚠️ 破坏性变更与迁移
+            （以本版本 CHANGELOG 段的 BREAKING 标注为准；无标注即无）
+
+            ### 📝 已知问题
+            （见 README「其它明确的限制」表）
 
             ### 📦 安装
 
@@ -505,13 +537,14 @@ jobs:
             ```
 
             ### 📚 文档
-            - [开发文档](https://github.com/${{ github.repository }}/blob/main/docs/README.md)
-            - [API 参考](https://github.com/${{ github.repository }}/blob/main/docs/API_REFERENCE.md)
+            - [使用者文档](https://yearsalso.github.io/zoo-framework-doc/)
+            - [维护者文档](https://github.com/${{ github.repository }}/blob/main/docs/README.md)
           files: |
             dist/*.whl
             dist/*.tar.gz
             dist/*.sig
             dist/*.pem
+            dist/*.spdx.json
           draft: false
           prerelease: ${{ contains(github.ref_name, '-beta') }}
         env:

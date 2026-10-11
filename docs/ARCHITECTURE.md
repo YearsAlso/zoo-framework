@@ -83,7 +83,7 @@ classDiagram
 
 **关键特性**：
 - Worker 自动注册和生命周期管理
-- SVM 健康监控
+- SVM 健康监控（指标链路尚未接通 —— `get_health_report()` 恒返回 `execute_count: 0`）
 - 优雅关闭
 
 ### 2.  Worker —— 任务单元

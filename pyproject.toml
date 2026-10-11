@@ -1,5 +1,8 @@
 [build-system]
-requires = ["hatchling"]
+# hatchling 下限 1.27：PEP 639 的 SPDX 许可证表达式（license = "Apache-2.0"）
+# 与 license-files 需要该版本起才支持；不设下限时旧后端会拒绝（或静默忽略）字段，
+# 产出"构建成功但元数据不合规"的包——把失败前置到构建期。
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
@@ -7,21 +10,59 @@ name = "zoo-framework"
 version = "0.10.6-beta"
 description = "Python declarative multi-task orchestration framework powering next-gen Agents and workflows"
 readme = "README.md"
-license = {text = "Apache-2.0"}
-requires-python = ">=3.13"
+# PEP 639：许可证用 SPDX 表达式声明（旧写法 license = {text = "..."} 无法被
+# PyPI / SBOM / 合规扫描器机器读取），许可证文件由 license-files 列出。
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+# 下界取 3.11：由扫描证据与"在下界解释器上实跑全量测试"共同支撑，依据与复核方式见
+# docs/contributing/development.md 的「Python 下界的依据」一节。提高门槛 MUST 先在该节
+# 写下依据。工具链 target（ruff / mypy）、uv.lock、CI 测试矩阵与文档门槛声明都跟随此值，
+# 由 tests/test_doc_consistency.py 守住"同源"。
+requires-python = ">=3.11"
 authors = [
     {name = "XiangMeng", email = "mengxiang931015@live.com"},
 ]
-keywords = ["framework", "multi-threaded", "async", "state-machine", "event-driven"]
+keywords = [
+    # 任务调度 / 后台任务
+    "task-scheduler",
+    "background-jobs",
+    "task-orchestration",
+    "orchestration",
+    "job-scheduling",
+    # 并发 / 线程
+    "multi-threaded",
+    "threading",
+    "concurrency",
+    "thread-pool",
+    "in-process",
+    # AI Agent 基础设施
+    "agent",
+    "agent-framework",
+    "llm",
+    "ai-agents",
+    "workflow-automation",
+    # 领域能力（保留原有）
+    "framework",
+    "async",
+    "state-machine",
+    "event-driven",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
+    # 许可证 classifier 已按 PEP 639 删除：SPDX 表达式与许可证 classifier 并存时
+    # 工具会报错，且前者是可机器读取的真源（docs/REPO_METADATA.md 的必须清单不含它）
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    # classifiers 列出 requires-python 覆盖的**整段区间**：这是"声明支持"，
+    # 不等同于"CI 实测过"（实测集合见 .github/workflows/tests.yml 的矩阵）。
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Distributed Computing",
 ]
 
 dependencies = [
@@ -31,7 +72,9 @@ dependencies = [
     # concurrent.futures 线程执行器；greenlet 系在 free-threaded 构建上不可用
     "pyyaml>=6.0",
     "python-dotenv>=1.0.0",
-    "typing-extensions>=4.7.0",
+    # typing-extensions 已移除（python-floor）：全仓 0 处 import，却被声明为运行依赖
+    # 并计入文档的"运行时依赖 4 个"。声明必须与实际使用一致，见
+    # openspec/specs/ci-and-packaging 的「运行时依赖 MUST 与实际使用一致」。
 ]
 
 [project.optional-dependencies]
@@ -47,8 +90,6 @@ dev = [
     # 构建工具
     "build>=1.0.0",
     "twine>=4.0.0",
-    # 版本管理
-    "bump-my-version>=0.15.0",
     "toml>=0.10.2",
 ]
 docs = [
@@ -67,6 +108,8 @@ Homepage = "https://github.com/YearsAlso/zoo-framework"
 Documentation = "https://yearsalso.github.io/zoo-framework-doc/"
 Repository = "https://github.com/YearsAlso/zoo-framework"
 Issues = "https://github.com/YearsAlso/zoo-framework/issues"
+Changelog = "https://github.com/YearsAlso/zoo-framework/blob/main/CHANGELOG.md"
+Benchmark = "https://yearsalso.github.io/zoo-bench/"
 
 [tool.hatch.build.targets.wheel]
 packages = ["zoo_framework"]
@@ -75,7 +118,7 @@ packages = ["zoo_framework"]
 # Ruff 配置 (P0: 代码质量工具)
 # ============================================
 [tool.ruff]
-target-version = "py313"  # 仅支持 Python 3.13+
+target-version = "py311"  # 跟随 requires-python：按项目声明的下界检查语法
 line-length = 100
 indent-width = 4
 
@@ -170,7 +213,8 @@ line-ending = "auto"
 # MyPy 配置 (P0: 类型安全)
 # ============================================
 [tool.mypy]
-python_version = "3.13"
+# 跟随 requires-python：按项目声明的下界决定标准库存根
+python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false  # 暂时允许，后续逐步添加类型注解
@@ -249,34 +293,3 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
-
-# ============================================
-# Bump My Version 配置 (自动版本号管理)
-# ============================================
-[tool.bumpversion]
-current_version = "0.8.0"
-parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
-serialize = ["{major}.{minor}.{patch}"]
-search = "{current_version}"
-replace = "{new_version}"
-regex = false
-ignore_missing_version = false
-ignore_missing_files = false
-tag = false
-sign_tags = false
-tag_name = "v{new_version}"
-tag_message = "Bump version: {current_version} → {new_version}"
-allow_dirty = false
-commit = false
-message = "Bump version: {current_version} → {new_version}"
-commit_args = ""
-
-[[tool.bumpversion.files]]
-filename = "pyproject.toml"
-search = 'version = "{current_version}"'
-replace = 'version = "{new_version}"'
-
-[[tool.bumpversion.files]]
-filename = "zoo_framework/__init__.py"
-search = '__version__ = "{current_version}"'
-replace = '__version__ = "{new_version}"'

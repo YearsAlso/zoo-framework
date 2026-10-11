@@ -70,7 +70,8 @@ class EventChannel:
             timeout: 兜底超时（秒）；超时后调用方恢复扫描（防生产者漏 notify）
 
         Returns:
-            True 表示被 notify 唤醒（队列可能非空）；False 表示超时或未启用
+            True 表示本次调用观察到队列非空（进入时已非空，或被 notify 唤醒）；
+            False 表示等满兜底超时后仍空，或推模型未启用
         """
         condition = self._ensure_condition()
         if condition is None:

@@ -111,10 +111,11 @@ class BaseWorker:
         """
         result = {}
         try:
-            LogUtils.info(f"{self.name} Worker is Start", self.__class__.__name__)
+            # 每轮进入/退出是框架自己的心跳，默认级别下不输出（log.level=debug 可见）
+            LogUtils.debug(f"{self.name} Worker is Start", self.__class__.__name__)
             result = self._execute()
             self._destroy_result(result)
-            LogUtils.info(f"{self.name} Worker is Stop", self.__class__.__name__)
+            LogUtils.debug(f"{self.name} Worker is Stop", self.__class__.__name__)
         except Exception as e:
             self._on_error()
             LogUtils.error(str(e), self.__class__.__name__)

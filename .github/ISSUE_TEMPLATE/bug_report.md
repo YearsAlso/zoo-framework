@@ -18,7 +18,7 @@ bad input, so the full error text is usually the fastest route to the cause. Ple
 | | |
 |---|---|
 | zoo-framework 版本 / version | <!-- `pip show zoo-framework` --> |
-| Python 版本 / version | <!-- `python -V`，需要 3.13+ --> |
+| Python 版本 / version | <!-- `python -V`，需要 3.11+ --> |
 | 操作系统 / OS | |
 | 调度模式 / scheduling mode | <!-- `worker:mode`：thread / thread_pool；`worker:pool:enable` 的值 --> |
 | 解释器 / interpreter | <!-- `python -c "import sys; print(sys.executable)"` --> |

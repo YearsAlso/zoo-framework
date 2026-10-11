@@ -85,19 +85,28 @@ APScheduler 的做法是**调度函数**；本框架管的是**任务单元的�
 这是一个诚实的空缺。如果你在生产中用上了，欢迎提 PR 加入
 [`ADOPTERS.md`](https://github.com/YearsAlso/zoo-framework/blob/dev/ADOPTERS.md)。
 
-## 为什么要求 Python 3.13+？
+## 为什么要求 Python 3.11+？
 
-因为这是当前 `pyproject.toml` 里的 `requires-python`。
+**因为 3.11 是实测支撑出来的最低可行版本**，不是历史默认值：
 
-**但这个门槛是被认为偏高的**——它把大量仍在 3.10–3.12 的环境排除在外，
-也使得本框架难以成为其他项目的可选依赖。降低门槛的工作在 issue #124 中跟踪。
+- 全仓扫描的结论是"没有 3.11 之后才有的语法或标准库用法"——唯一的 3.11 硬依赖是测试里
+  用的 `tomllib`；更早的硬性约束是注解求值（`X | None` 这类写法在 import 期求值），它把
+  下限顶到 3.10。
+- 在 3.11 上**实跑全量测试**通过；在 3.10 上测试连收集都失败（`tomllib` 缺失）。
+
+完整依据（扫描方法、实跑记录、为什么不再降到 3.10、以及"商业理由"）写在
+[开发指南的「Python 下界的依据」一节](contributing/development.md)。
+
+下界决定本框架能被哪些上游写进依赖，所以规则是：**降低它是兼容的，提高它必须先写下依据**
+（见[版本政策](VERSION_POLICY.md)）。
 
 ## 装不上 / 版本不对怎么办？
 
 见[安装](install.md)。最常见的两个坑：
 
-- Python 版本低于 3.13 → 先升级解释器
-- 用了 `uv sync` → 仓库的 `uv.lock` 当前与 `pyproject.toml` 不一致，请用 `pip install -e ".[dev]"`
+- Python 版本低于 3.11 → 先升级解释器
+- 报 `ModuleNotFoundError: No module named 'zoo_framework'` 但包确实装了 → 解释器用错了
+  （裸 `python` 可能指向另一个环境），用 `python -c "import sys; print(sys.executable)"` 确认
 
 ## 我发现文档和代码不一致
 

@@ -69,6 +69,8 @@ behaviour contract, an OpenSpec delta spec is required in this same PR.
 - [ ] docstring —— Google 风格（`Args:` / `Returns:` / `Raises:`）
 - [ ] 不涉及文档 / no documentation affected
 - [ ] `openspec/` —— delta spec 已提交 / delta spec included
+- [ ] `openspec/` —— **不适用**（拼写 / 文档 / 示例 / 注释类改动无需提案）/ **not applicable**
+      (spelling, docs, examples, comments need no proposal)
 
 ## 自检 / Self-review checklist
 

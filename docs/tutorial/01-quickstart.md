@@ -8,7 +8,7 @@
 pip install zoo-framework
 ```
 
-需要 **Python 3.13+**。验证：
+需要 **Python 3.11+**（下界依据见[开发指南](../contributing/development.md)）。验证：
 
 ```bash
 python -c "import zoo_framework; print(zoo_framework.__version__)"
@@ -38,11 +38,13 @@ from zoo_framework.workers import BaseWorker
 
 class MyWorker(BaseWorker):
     def __init__(self):
-        super().__init__({
-            "is_loop": True,      # 跨调度轮次持续运行
-            "delay_time": 1.0,    # 每轮执行后等待的秒数
-            "name": "MyWorker",
-        })
+        super().__init__(
+            {
+                "is_loop": True,  # 跨调度轮次持续运行
+                "delay_time": 1.0,  # 每轮执行后等待的秒数
+                "name": "MyWorker",
+            }
+        )
         self.counter = 0
 
     def _execute(self):
@@ -92,7 +94,7 @@ python -u main.py
 ### `TypeError: issubclass() arg 1 must be a class`
 
 ```python
-master.register_worker("MyWorker", MyWorker())     # ❌ 传了实例
+master.register_worker("MyWorker", MyWorker())  # ❌ 传了实例
 master.register_worker("MyWorker", lambda: MyWorker())  # ❌ 传了工厂函数
 ```
 
@@ -106,7 +108,7 @@ master.register_worker("MyWorker", lambda: MyWorker())  # ❌ 传了工厂函数
 ```python
 def __init__(self):
     super().__init__({...})
-    self.is_loop = True     # ❌
+    self.is_loop = True  # ❌
 ```
 
 **原因**：`is_loop` 是只读属性，唯一真源是构造时传入的 `_props`。

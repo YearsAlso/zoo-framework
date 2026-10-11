@@ -21,7 +21,7 @@ tools: Read, Grep, Glob, Bash, Edit, Write
 
 - **命名**：模块/函数/变量 snake_case，类 PascalCase，常量 UPPER_SNAKE；私有成员 `_leading`；与周围代码习惯一致
 - **风格**：ruff 门禁（pycodestyle/isort/pydocstyle-google/bugbear/simplify/RUF 等 select 集），`line-length = 100`，双引号；中文注释与 docstring
-- **类型**：公开 API 必须有类型注解，用 `X | None` 现代语法（项目要求 Python 3.13+）；mypy 持续收敛（establish-type-gate 变更目标）
+- **类型**：公开 API 必须有类型注解，用 `X | None` 现代语法（项目要求 Python 3.11+）；mypy 持续收敛（establish-type-gate 变更目标）
 - **并发/异步**：区分 threading / asyncio / gevent 三条路径，不跨模型混用阻塞调用；线程必须 daemon 化或显式 join；禁止新增模块级可变全局（`@cage` 单例状态已进程共享）
 - **异常**：禁止裸 `except:` 静默吞异常；错误日志必须携带 topic/worker 上下文；启动期配置缺失 fail-fast
 - **配置/参数**：新配置键必须走 `ParamsPath(value, default, aliases)`，注意 falsy 值语义（`False`/`0`/`""` 是有效值）；保持 params 模块惰性导入时序
