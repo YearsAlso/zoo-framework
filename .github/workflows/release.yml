@@ -110,27 +110,33 @@ jobs:
               done < /tmp/changed.txt
 
               if [ "$RELEVANT" = "1" ]; then
-                # 判定是否"只改了三处版本声明"——那正是 bump PR 刚被合并的样子。
+                # 判定是否"只改了版本声明"——那正是 bump PR 刚被合并的样子。
                 # 这个判定同时是自环防护：bump 合并后不会再开出一个新的 bump PR。
+                # 清单 MUST 与 "Update version declarations" 的四处**逐项一致**：
+                # 漏一处（CITATION.cff 曾被漏在这里）→ 每次 bump 合并都被判成内容推送，
+                # 于是又开一个 bump PR，版本号只涨不发（0.11.3-beta → 0.11.11-beta，
+                # v0.11.2-beta 之后一个 tag 都没有）。
+                # tests/test_doc_consistency.py::test_release_tag_decision_covers_every_version_place
+                # 按本文件机械核对这份清单与版本声明处一致。
                 ACTION="bump"
                 ONLY_VERSION=1
                 while IFS= read -r f; do
                   case "$f" in
-                    pyproject.toml|.env|zoo_framework/__init__.py) ;;
+                    pyproject.toml|.env|zoo_framework/__init__.py|CITATION.cff) ;;
                     *) ONLY_VERSION=0 ;;
                   esac
                 done < /tmp/changed.txt
                 if [ "$ONLY_VERSION" = "1" ]; then ACTION="tag"; fi
 
-                # 声明回声检测（#82 路径 2 例外）：dev 推送只改了三处声明、且改完与
+                # 声明回声检测（#82 路径 2 例外）：dev 推送只改了版本声明、且改完与
                 # origin/main 完全一致——那是 back-merge PR 入 dev 的回声，不是 dev 自己
                 # 的 bump。不打 tag：同版本号 tag 已存在于 main，撞上 tag-release 的
                 # "已存在则中止"守卫只会留下红色失败。正常 dev bump 后声明必领先 main，
-                # 此规则不误杀。
+                # 此规则不误杀。比较的清单同上，与四处版本声明逐项一致。
                 if [ "$ACTION" = "tag" ] && [ "$BRANCH" = "dev" ] \
-                   && [ -z "$(git diff origin/main HEAD -- pyproject.toml .env zoo_framework/__init__.py)" ]; then
+                   && [ -z "$(git diff origin/main HEAD -- pyproject.toml .env zoo_framework/__init__.py CITATION.cff)" ]; then
                   ACTION="none"
-                  echo "dev 三处声明与 origin/main 一致：back-merge 回声，不打 tag"
+                  echo "dev 四处声明与 origin/main 一致：back-merge 回声，不打 tag"
                 fi
               else
                 echo "本次推送未触及发布相关路径，不动作"
