@@ -846,3 +846,88 @@ def test_version_place_scanner_has_teeth():
     assert _release_add_paths(
         "        with:\n          add-paths: |\n            pyproject.toml\n            .env\n"
     ) == {"pyproject.toml", ".env"}
+
+
+# ---------------------------------------------------------------- 打 tag 判定的版本声明清单
+
+# decide 里"仅版本声明改动 → 打 tag"的 case 分支（自环防护的白名单）
+_RELEASE_ONLY_VERSION_RE = re.compile(
+    r"""^[ \t]*ONLY_VERSION=1[ \t]*\n(?:.*\n)*?[ \t]*case "\$f" in[ \t]*\n"""
+    r"""[ \t]*(?P<files>[^)\n]+)\)[ \t]*;;""",
+    re.MULTILINE,
+)
+
+# decide 里"声明回声检测"的 git diff 比较清单（清单后面紧跟 shell 的 ``)`` 与 ``"``）
+_RELEASE_ECHO_COMPARE_RE = re.compile(r"""git diff origin/main HEAD -- (?P<files>[^)"\n]+)""")
+
+
+def _release_only_version_files(workflow_text: str) -> set[str]:
+    """取 ``ONLY_VERSION`` 白名单的文件集合；非 case 分支写法返回空集，由调用方报错。"""
+    match = _RELEASE_ONLY_VERSION_RE.search(workflow_text)
+    if match is None:
+        return set()
+    return {name.strip() for name in match.group("files").split("|") if name.strip()}
+
+
+def _release_echo_compare_files(workflow_text: str) -> set[str]:
+    """取声明回声检测的比较清单；解析不到返回空集，由调用方报错。"""
+    match = _RELEASE_ECHO_COMPARE_RE.search(workflow_text)
+    if match is None:
+        return set()
+    return set(match.group("files").split())
+
+
+def test_release_tag_decision_covers_every_version_place():
+    """打 tag 判定列出的文件，MUST 与版本声明处逐项一致。
+
+    牙齿：从白名单里删掉 ``CITATION.cff`` 即红——那正是真实状态：bump 提交带四处声明
+    （``add-paths`` 修好之后带全了），自环防护却只认三处，于是**每次 bump 合并都被判成
+    内容推送**，又开出一个新的 bump PR。dev 上 0.11.3-beta 一路涨到 0.11.11-beta，
+    v0.11.2-beta 之后一个 tag 都没有——打 tag 正是由本判定触发，判成 bump 就永远走不到。
+
+    回声检测的比较清单同样按此处核对：漏一处就可能把"只有第四处不同"的推送误判成
+    back-merge 回声，静默不打 tag（静默少发一版，同样不报错）。
+    """
+    workflow = (REPO_ROOT / _RELEASE_WORKFLOW).read_text(encoding="utf-8")
+    places = set(_release_version_places(workflow))
+    assert places, f"从 {_RELEASE_WORKFLOW} 未解析出任何版本声明处，无从核对"
+
+    whitelist = _release_only_version_files(workflow)
+    assert whitelist, f"{_RELEASE_WORKFLOW} 的 ONLY_VERSION 白名单不是 case 分支写法，无法机械核对"
+    assert whitelist == places, (
+        f"自环防护清单与版本声明处不一致：应为 {sorted(places)}，实际白名单 "
+        f"{sorted(whitelist)}——漏一处就让 bump 自环（版本号只涨不发）"
+    )
+
+    echo_files = _release_echo_compare_files(workflow)
+    assert echo_files, f"{_RELEASE_WORKFLOW} 的声明回声检测没有可比对的文件清单"
+    assert echo_files == places, (
+        f"回声检测的比较清单与版本声明处不一致：应为 {sorted(places)}，"
+        f"实际 {sorted(echo_files)}——漏一处可能误判成回声、静默不打 tag"
+    )
+
+
+def test_tag_decision_scanner_has_teeth():
+    """打 tag 判定扫描器的正反样本自检（防空跑，与版本声明扫描器同形）。
+
+    牙齿：把白名单或回声清单的解析改坏后本断言立刻变红，而不是让
+    ``test_release_tag_decision_covers_every_version_place`` 静默退化成空跑。
+    """
+    synthetic = "\n".join(
+        [
+            "                ONLY_VERSION=1",
+            "                while IFS= read -r f; do",
+            '                  case "$f" in',
+            "                    pyproject.toml|.env|zoo_framework/__init__.py|CITATION.cff) ;;",
+            "                    *) ONLY_VERSION=0 ;;",
+            "                  esac",
+            "                done < /tmp/changed.txt",
+            '                   && [ -z "$(git diff origin/main HEAD -- pyproject.toml .env'
+            ' zoo_framework/__init__.py CITATION.cff)" ]; then',
+        ]
+    )
+    expected = {"pyproject.toml", ".env", "zoo_framework/__init__.py", "CITATION.cff"}
+    assert _release_only_version_files(synthetic) == expected, (
+        "自环防护白名单解析已漂移——test_release_tag_decision_covers_every_version_place 会静默退化"
+    )
+    assert _release_echo_compare_files(synthetic) == expected, "回声清单解析已漂移"
