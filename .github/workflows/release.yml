@@ -531,6 +531,14 @@ jobs:
               git log "$LAST_TAG"..HEAD --pretty=format:"- %s (%h)" --no-merges | head -20 > release_notes.md
             fi
           fi
+          # $GITHUB_OUTPUT 的多行语法要求定界符独占一行，而回退路径的正文来自
+          # `git log --pretty=format:` —— 该格式**不带尾换行**（`head -20` 只在真的
+          # 截断时才顺带补上换行，故提交数 < 21 的区间必现）。末字节不是换行时 `cat`
+          # 会让 `EOF` 粘在末行上，GitHub 报
+          # `Invalid value. Matching delimiter not found 'EOF'`，本步失败、其后的
+          # `Create GitHub Release` 被跳过（v0.12.0 实测：PyPI 已上传，GitHub Releases
+          # 里没有 v0.12.0）。这里统一补齐尾换行，不依赖上游各自的换行习惯。
+          printf '\n' >> release_notes.md
           echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
           cat release_notes.md >> "$GITHUB_OUTPUT"
           echo "EOF" >> "$GITHUB_OUTPUT"
