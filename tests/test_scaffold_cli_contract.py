@@ -72,12 +72,16 @@ def in_dir(tmp_path, monkeypatch):
 
 
 def _snapshot(root: Path) -> dict:
-    """记录目录下每个文件的字节内容，用于比对"现场未被改动"."""
-    return {
-        str(path.relative_to(root)): path.read_bytes()
-        for path in sorted(root.rglob("*"))
-        if path.is_file()
-    }
+    """记录目录下每个文件与目录，用于比对"现场未被改动".
+
+    目录也必须入账，只记录文件时"失败调用留下了一个空 workers/ 目录"这类改动在
+    快照里不可见——断言恒真，而被测契约恰恰是"不得创建文件或目录"。
+    """
+    snapshot: dict[str, bytes | None] = {}
+    for path in sorted(root.rglob("*")):
+        key = str(path.relative_to(root))
+        snapshot[key] = path.read_bytes() if path.is_file() else None
+    return snapshot
 
 
 # =============================================================================

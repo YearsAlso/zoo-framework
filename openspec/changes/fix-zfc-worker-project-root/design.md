@@ -12,10 +12,15 @@
 
 ## Error
 
-找不到入口时提示缺少 `src/main.py`，并给出 `zfc --create <name>` 或切换到现有项目目录的下一步。测试验证非零退出、错误提示以及目录快照完全不变。
+找不到入口时提示缺少 `src/main.py`，并给出 `zfc --create <name>` 或切换到现有项目目录的下一步。测试验证非零退出、错误提示以及目录快照完全不变（快照同时登记文件与目录——只记文件时"留下一个空 `workers/` 目录"不可见）。
+
+## Language
+
+用户可见文案遵循变更 `api-docstring-english`（`cross-platform-io` 的 SHALL：框架自身的用户可见控制台输出 MUST 为英文）。因此本变更新增的报错消息为英文，`resolve_worker_dir` 的 docstring 保持该变更已完成的英文化——它在 `zoo_framework.cli.__all__` 导出面内，`help()` / IDE 悬浮可见。OpenSpec 正文与测试文件维持中文。
 
 ## Non-goals
 
 - 不校验 `config.json` 的内容或要求该文件存在。
 - 不让 `--worker` 自动创建新项目，也不添加 CLI 选项。
 - 不改变已存在脚手架项目的 Worker 命名、模板或接线行为。
+- 不修 `--create` 的同类问题（issue #131 第 4 点）：目标路径不可创建时它抛裸异常栈（实测 `zfc --create ''` → `FileNotFoundError`、`zfc --create 'a<b'` → `OSError`）。该缺陷违反 `cli-scaffolding` 既有的「MUST NOT 向调用方暴露未捕获的异常栈」，是存量问题，与「Worker 必须落在脚手架项目内」这条不变量无关，另立变更处理。

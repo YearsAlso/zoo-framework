@@ -40,20 +40,29 @@ WORKER_DIR_NAME = "workers"
 
 
 def resolve_worker_dir(cwd: str | None = None) -> str:
-    """定位最近的脚手架项目，并返回其 Worker 目录（相对于工作目录）。
+    """Locate the nearest scaffolded project and return the Worker directory.
 
-    项目入口 ``src/main.py`` 是项目根目录的判据：Worker 必须能从该入口
-    注册，单独存在的 ``src/`` 或 ``config.json`` 不足以确认它是脚手架项目。
-    从当前目录逐级向父目录查找，因此可在项目根目录、``src/`` 或其子目录中调用。
+    Decided from the **actual structure** of the working directory and its
+    parents, not guessed from the process start path (``sys.argv[0]``): a
+    console script is an ``.exe`` path on Windows and an extension-less file
+    under ``bin`` on POSIX - neither relates to the source tree layout, so
+    deciding from the executable path fails on every platform.
+
+    The entry point ``src/main.py`` identifies a project root: a Worker is only
+    reachable when that entry imports it, and a bare ``src/`` or ``config.json``
+    does not prove the directory is a scaffold. The search walks from the
+    working directory towards the root, so the command also works from ``src/``
+    or any subdirectory of a project.
 
     Args:
-        cwd: 工作目录；None 表示当前工作目录。
+        cwd: The working directory; None means the current working directory.
 
     Returns:
-        相对于工作目录的 Worker 输出目录。
+        The Worker output directory, relative to the working directory.
 
     Raises:
-        click.ClickException: 当前目录及其父目录均没有 ``src/main.py``。
+        click.ClickException: No ``src/main.py`` exists in the working directory
+            or any of its parents. Nothing is written before this raises.
     """
     base = os.path.abspath(cwd or os.getcwd())
     current = base
@@ -70,8 +79,9 @@ def resolve_worker_dir(cwd: str | None = None) -> str:
         current = parent
 
     raise click.ClickException(
-        "未找到脚手架项目入口 'src/main.py'（当前目录或其父目录中均不存在）。"
-        "请先运行 'zfc --create <name>'，或切换到已有脚手架项目目录后重试。"
+        "No scaffolded project found: 'src/main.py' does not exist in the current "
+        "directory or any of its parents; nothing was written. Run "
+        "'zfc --create <name>' first, or change into a scaffolded project and retry."
     )
 
 
