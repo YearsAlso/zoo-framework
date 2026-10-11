@@ -45,7 +45,7 @@ jobs:
         run: pytest --cov=zoo_framework --cov-report=term-missing --cov-report=html --cov-report=xml --cov-fail-under=30
 
       - name: Upload coverage report
-        uses: codecov/codecov-action@ab904c41d6ece82784817410c45d8b8c02684457  # v3
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5  # v7.1.1
         # codecov v3 经 GITHUB_TOKEN 上传；若以后升级 v4+ 需补 CODECOV_TOKEN
         with:
           files: ./coverage.xml
