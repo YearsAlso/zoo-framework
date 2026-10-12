@@ -478,6 +478,13 @@ Cage（按作用域注册的共享实例容器）。**隐喻只影响命名，�
 [`ADOPTERS.md`](ADOPTERS.md) 对每一条都如实标注，而不是暗示并不存在的采用量。
 完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
 
+#### 任务失败会自动重试吗？
+
+不会。一次执行失败只走错误路径并结束本轮；同一个 Worker 在它下一个排期轮次仍会被派发，
+但**失败的那次工作不会被重试**。框架里唯一的自动重试在**事件**上（响应器带重试策略、
+事件节点带重试次数），不在 Worker 执行上。
+完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
 ### 许可证
 
 Apache License 2.0 © [XiangMeng](https://github.com/YearsAlso)
