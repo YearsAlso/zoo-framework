@@ -1,2 +1,4 @@
 # Rust 构建产物不入库（同 bench/pyo3_probe 的纪律）
 /target/
+# maturin 的 wheel 产物同样不入库（CI 与 release 工作流各自构建）
+/dist/

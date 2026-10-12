@@ -209,12 +209,34 @@ P4 =  2.945 + 0.046479·F   (R² = 0.999919)
 | 平台 | 状态 | 数据 |
 |---|---|---|
 | Windows 11 Pro for Workstations（10.0.26200，Ryzen 9 5900X 12C/24T，CPython 3.13.14） | 已测 | 本附录 + `stage2_acceptance.json` |
-| Linux | 待 CI 原生构建补齐 | — |
-| macOS | 待 CI 原生构建补齐 | — |
+| Linux | CI 原生构建已接入（`.github/workflows/native.yml`），数值待首次运行回填 | — |
+| macOS | CI 原生构建已接入（同上），数值待首次运行回填 | — |
 
-CI（GitHub Actions）当前无 maturin/cargo，真扩展用例在 CI 中显式 skip，故
-Linux/macOS 数字待原生构建流水线落地后补测；WSL2 hypervisor 失真问题不适用
+2026-10-12 之前 CI（GitHub Actions）无 maturin/cargo，真扩展用例在 CI 中显式 skip；该缺口
+由 issue #129 / 变更 `native-distribution` 补上：`native.yml` 现在在三平台跑 `cargo test`、
+构建 abi3 wheel、安装后执行原生 pytest 路径。故 Linux/macOS 的数字**待该工作流首次运行后
+回填**，不再依赖「本机无验证路径」这一历史状态。WSL2 hypervisor 失真问题不适用
 （本机为 Windows 原生测量）。
+
+## 发行（issue #129，2026-10-12；变更 `native-distribution`）
+
+在本次之前，go 结论**只存在于测量报告里**：`native/` 无任何 CI、无 wheel、PyPI 404。
+本次把它变成可安装、可验证的交付物：
+
+| 项 | 变更前 | 变更后 |
+|---|---|---|
+| CI 覆盖 | 无（8 个 workflow 全是 Python 侧） | `.github/workflows/native.yml`：三平台 `cargo test` + 构建 + 原生 pytest |
+| abi3 | 未启用 | `abi3-py311`——一份 wheel 覆盖 3.11+（本机产物名含 `cp311-abi3`） |
+| 扩展下界 | `requires-python >=3.13` | `>=3.11`（与 abi3 覆盖范围一致，否则收益被自己挡住） |
+| 发布流水线 | 无 | `.github/workflows/native-release.yml`：manylinux + macOS + Windows，OIDC，TestPyPI 演练，版本已发布时幂等跳过 |
+| 安装入口 | 无 | `pip install zoo-framework[native]`（形态 B：独立发行物 + 一条发现路径） |
+
+**发行形态决策**（design D1）：选 B（可选附加）——对用户只多一个方括号、对分发只多一条
+构建矩阵，同时保住「不装即纯 Python」。C（默认捆绑）会毁掉零依赖卖点；A（只有独立包名）
+则让用户看不出它与框架的关系。
+
+**未验证项（如实说明）**：`native-release.yml` 的发布链路**无法在本变更内验证**——真实
+证据只在第一个 tag 或一次 TestPyPI 演练之后才存在；在那之前不得声称发布成功。
 
 ## 对 tasks 的指向
 

@@ -194,7 +194,7 @@ class TestDualArmWorkerConvergence:
         key = 类名（同名类共享统计，这正是逐类学习语义）；大帧 / 小帧分属
         两个 worker 子类，各得独立类目。
         """
-        from zoo_framework.core.adaptive import ARM_NATIVE
+        from zoo_framework.core.adaptive import ARM_NATIVE, ARM_PYTHON
         from zoo_framework.workers import DualArmWorker
 
         class BigFrameWorker(DualArmWorker):
@@ -224,9 +224,26 @@ class TestDualArmWorkerConvergence:
                 return reference.parse_response(self._props["input"])
 
         big, small = BigFrameWorker(), SmallFrameWorker()
-        for _ in range(runs):
+        # 前置条件不能建立在概率上：ε-greedy 的探索是随机的（每次决策新建 RNG，
+        # ε=0.5 时每次摸到 native 臂的概率是 0.25），跑 runs 轮漏掉 native 臂的概率
+        # 约 0.75^20 ≈ 0.3%。**这个断言从没在 CI 上跑过**（native/ 此前零 CI），
+        # 第一次运行就在 ubuntu 上随机变红（同一 commit 在 macOS/Windows 通过）。
+        # 故：至少跑 runs 轮，之后继续到两类都摸到目标臂为止，并设一个足以让漏掉
+        # 概率可忽略的上限；达不到即显式失败并打印统计，而不是让断言随机爆炸。
+        budget = max(runs, 1) * 50
+        for _ in range(budget):
             big._execute()
             small._execute()
+            snap = policy.snapshot()
+            if _ >= runs - 1 and (
+                snap["BigFrameWorker"][ARM_NATIVE]["n"] > 0
+                and snap["SmallFrameWorker"][ARM_PYTHON]["n"] > 0
+            ):
+                break
+        else:
+            pytest.fail(
+                f"混合执行 {budget} 轮后仍有类目没摸到目标臂，探索没有发生：{policy.snapshot()}"
+            )
         big_snap = policy.snapshot()["BigFrameWorker"]
         small_snap = policy.snapshot()["SmallFrameWorker"]
         # 两类都被结构喂到了 python 臂之外（等价前置：双臂输出一致由本文件已有用例保证）

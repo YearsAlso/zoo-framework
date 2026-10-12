@@ -1,0 +1,156 @@
+# Native extension wheel release -- issue #129
+#
+# Separate from release.yml on purpose: release.yml owns the main package's
+# bump/decide/tag logic and is coupled to the three version declarations. The
+# native wheel is a second distribution with its own version (native/pyproject.toml),
+# so it gets its own tag-driven workflow instead of another branch inside that one.
+#
+# Triggers:
+#   - push of a v* tag (the same tags release.yml pushes) -> publish to PyPI
+#   - manual dispatch -> dry run against TestPyPI by default
+#
+# Idempotence: the native version only moves when someone bumps native/pyproject.toml.
+# Every framework tag after that would otherwise re-publish the same version and fail,
+# so the publish step checks PyPI first and skips when the version already exists.
+#
+# NOT VERIFIED YET, and it cannot be: this workflow's real evidence only exists after
+# the first tag (or a manual TestPyPI dry run). Do not claim the publish path works
+# until one of those has actually happened.
+name: Native Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Publish target'
+        type: choice
+        options:
+          - testpypi
+          - pypi
+        default: testpypi
+
+permissions:
+  contents: read
+
+jobs:
+  build-linux:
+    name: build wheel (manylinux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: '3.13'
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249  # stable
+        with:
+          toolchain: stable
+
+      - name: Build the extension (abi3, manylinux)
+        # manylinux: auto -- a plain linux_x86_64 wheel is not accepted by PyPI
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b  # v1
+        with:
+          working-directory: native
+          command: build
+          args: --release --out dist
+          manylinux: auto
+
+      - name: Upload the wheel
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: native-wheels
+          path: native/dist/*.whl
+
+  build-cross:
+    name: build wheel (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: '3.13'
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249  # stable
+        with:
+          toolchain: stable
+
+      - name: Build the extension (abi3)
+        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b  # v1
+        with:
+          working-directory: native
+          command: build
+          args: --release --out dist
+
+      - name: Upload the wheel
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: native-wheels
+          path: native/dist/*.whl
+
+  publish:
+    name: publish to ${{ github.event_name == 'workflow_dispatch' && inputs.target || 'pypi' }}
+    needs: [build-linux, build-cross]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      # OIDC trusted publishing; no long-lived token
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Download all wheels
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131  # v7
+        with:
+          name: native-wheels
+          path: dist
+
+      - name: Read the native version and check whether it is already published
+        id: check
+        run: |
+          VERSION=$(python - <<'PY'
+          import tomllib
+          from pathlib import Path
+          print(tomllib.loads(Path("native/pyproject.toml").read_text(encoding="utf-8"))["project"]["version"])
+          PY
+          )
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          CODE=$(curl -s -o /dev/null -w "%{http_code}" "https://pypi.org/pypi/zoo-framework-native/$VERSION/json")
+          echo "pypi_status=$CODE" >> "$GITHUB_OUTPUT"
+          if [ "$CODE" = "200" ]; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "zoo-framework-native $VERSION is already on PyPI -- skipping publish"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: List the wheels that would be published
+        run: ls -l dist
+
+      - name: Publish to TestPyPI
+        if: ${{ steps.check.outputs.exists == 'false' && github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi' }}
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          packages-dir: dist
+
+      - name: Publish to PyPI
+        if: ${{ steps.check.outputs.exists == 'false' && (github.event_name == 'push' || inputs.target == 'pypi') }}
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # release/v1
+        with:
+          packages-dir: dist
