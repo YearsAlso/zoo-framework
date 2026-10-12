@@ -48,7 +48,13 @@ submodule —— 它是**可运行的最小 coding agent 消费方**，也是框
 git submodule update --init example/agent
 cd example/agent
 pip install -e ".[dev]"
-pytest                       # 74 条用例，不需要任何模型 API 密钥
+pytest                       # 86 条用例，不需要任何模型 API 密钥
+```
+
+它同时带命令行入口，零密钥就能跑一条会话：
+
+```bash
+zca -p "看看目录" --script examples/smoke.json --allow list_dir
 ```
 
 **实测数字**：同一批脚本化会话，开启事件推模型（`event:pushModelEnabled`）后单次会话端到端

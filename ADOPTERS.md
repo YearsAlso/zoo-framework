@@ -28,7 +28,7 @@ still useful context — it just is not evidence, and this file does not pretend
 
 | Project or organisation | How it uses Zoo Framework | Verifiable? |
 |---|---|---|
-| [`YearsAlso/zoo-code-agent`](https://github.com/YearsAlso/zoo-code-agent) — the maintainer's own repository, vendored into this tree at [`example/agent`](example/agent) | A minimal coding-agent consumer, also used to validate framework requirements: tool calls go through the event pipeline, session state is persisted so a session resumes after a process restart, and every write/exec call passes a fail-closed permission gate. Pins `zoo-framework>=0.12,<0.13` in its `pyproject.toml`, deliberately tracking a released version rather than the `dev` branch. Its findings are issues [#72](https://github.com/YearsAlso/zoo-framework/issues/72) / [#73](https://github.com/YearsAlso/zoo-framework/issues/73) / [#74](https://github.com/YearsAlso/zoo-framework/issues/74) | ✅ **Verifiable** — the dependency declaration and the 74-case suite are in that repository. It is **not** a third party and **not** production evidence |
+| [`YearsAlso/zoo-code-agent`](https://github.com/YearsAlso/zoo-code-agent) — the maintainer's own repository, vendored into this tree at [`example/agent`](example/agent) | A minimal coding-agent consumer, also used to validate framework requirements: tool calls go through the event pipeline, session state is persisted so a session resumes after a process restart, and every write/exec call passes a fail-closed permission gate. It ships a CLI (`zca`) plus a task-level benchmark, and pins `zoo-framework>=0.12,<0.13` in its `pyproject.toml`, deliberately tracking a released version rather than the `dev` branch. Its findings are issues [#72](https://github.com/YearsAlso/zoo-framework/issues/72) / [#73](https://github.com/YearsAlso/zoo-framework/issues/73) / [#74](https://github.com/YearsAlso/zoo-framework/issues/74) | ✅ **Verifiable** — the dependency declaration and the 86-case suite are in that repository. It is **not** a third party and **not** production evidence |
 | The maintainer's private project | Uses the framework in production | ❌ **Not verifiable** — readers cannot check it, so it is listed as a disclosure, **not** as evidence |
 
 ### The honest gap
@@ -63,7 +63,7 @@ welcome.
 
 | 项目或组织 | 怎么用的 | 可核实？ |
 |---|---|---|
-| [`YearsAlso/zoo-code-agent`](https://github.com/YearsAlso/zoo-code-agent)——维护者自己的仓库，以 [`example/agent`](example/agent) 形式固定在本仓库内 | 最小的 coding agent 消费方，同时用于验证框架需求：工具调用经事件管道派发，会话状态落盘后可跨进程重启续跑，写与执行调用每次都要过失败关闭的权限门。其 `pyproject.toml` 里钉住 `zoo-framework>=0.12,<0.13`，有意消费已发布版本而不跟随 `dev` 主干。它跑出的缺口登记为 [#72](https://github.com/YearsAlso/zoo-framework/issues/72) / [#73](https://github.com/YearsAlso/zoo-framework/issues/73) / [#74](https://github.com/YearsAlso/zoo-framework/issues/74) | ✅ **可核实**——依赖声明与 74 条用例就在该仓库里。它**不是**第三方，也**不是**生产使用证据 |
+| [`YearsAlso/zoo-code-agent`](https://github.com/YearsAlso/zoo-code-agent)——维护者自己的仓库，以 [`example/agent`](example/agent) 形式固定在本仓库内 | 最小的 coding agent 消费方，同时用于验证框架需求：工具调用经事件管道派发，会话状态落盘后可跨进程重启续跑，写与执行调用每次都要过失败关闭的权限门。它带命令行入口（`zca`）与任务级基准，其 `pyproject.toml` 里钉住 `zoo-framework>=0.12,<0.13`，有意消费已发布版本而不跟随 `dev` 主干。它跑出的缺口登记为 [#72](https://github.com/YearsAlso/zoo-framework/issues/72) / [#73](https://github.com/YearsAlso/zoo-framework/issues/73) / [#74](https://github.com/YearsAlso/zoo-framework/issues/74) | ✅ **可核实**——依赖声明与 86 条用例就在该仓库里。它**不是**第三方，也**不是**生产使用证据 |
 | 维护者自己的私有项目 | 在生产环境使用本框架 | ❌ **不可核实**——读者无法核对，因此仅作披露，**不**作为证据 |
 
 ### 这个诚实的空缺
