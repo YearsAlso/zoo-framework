@@ -48,13 +48,15 @@ submodule —— 它是**可运行的最小 coding agent 消费方**，也是框
 git submodule update --init example/agent
 cd example/agent
 pip install -e ".[dev]"
-pytest                       # 100 条用例，不需要任何模型 API 密钥
+pytest                       # 101 条用例，不需要任何模型 API 密钥
+python src/main.py           # 起调度器，跑示例 Worker
 ```
 
-它同时带命令行入口，零密钥就能跑一条会话：
+它的布局就是**标准脚手架形态**（`src/main.py` + `workers/conf/params/events`），所以
+`zfc --worker` 在那个仓库里可以直接用。零密钥跑一条会话：
 
 ```bash
-zca -p "看看目录" --script examples/smoke.json --allow list_dir
+python src/main.py -p "看看目录" --script examples/smoke.json --allow list_dir
 ```
 
 它还会把工作目录里的 `AGENTS.md` / `CLAUDE.md` 注入系统提示，并在历史变长时把中间那段折叠成
