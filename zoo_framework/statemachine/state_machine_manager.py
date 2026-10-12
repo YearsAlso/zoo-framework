@@ -2,6 +2,7 @@ from collections.abc import Callable
 from typing import Any
 
 from zoo_framework.core.container import ThreadSafety, process_scoped
+from zoo_framework.core.run_identity import RunIdentity
 from zoo_framework.statemachine.state_scope import StateScope
 from zoo_framework.utils.thread_safe_dict import ThreadSafeDict
 
@@ -28,7 +29,7 @@ class StateMachineManager:
         """Whether it has been loaded."""
         return self._local_store_loaded
 
-    def load_state_machines(self, state_machine=None):
+    def load_state_machines(self, state_machine: ThreadSafeDict | dict | None = None) -> None:
         """Load the state machines.
 
         Restore semantics (adjudicated in change fix-state-restore / #72):
@@ -85,7 +86,7 @@ class StateMachineManager:
             return
         self._state_scope_map[scope] = StateScope()
 
-    def get_scope_identity(self, scope: str):
+    def get_scope_identity(self, scope: str) -> RunIdentity | None:
         """Query the owning run identity of a state scope.
 
         Ownership is determined by the run that **first wrote** the scope

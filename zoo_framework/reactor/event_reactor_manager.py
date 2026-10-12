@@ -65,7 +65,13 @@ class EventReactorManager(metaclass=_ReactorMapProxyMeta):
                 reactor.set_event_timeout(EventParams.EVENT_JOIN_TIMEOUT)
 
     @classmethod
-    def dispatch(cls, topic, content, reactor_name=None, channel: str = ChannelType.DEFAULT.value):
+    def dispatch(
+        cls,
+        topic: str,
+        content: Any,
+        reactor_name: str | None = None,
+        channel: str = ChannelType.DEFAULT.value,
+    ):
         """Dispatch an event.
 
         Executes each reactor under the topic that passes the channel
@@ -82,7 +88,11 @@ class EventReactorManager(metaclass=_ReactorMapProxyMeta):
                 (filtering a reactor named default can never match anything)
             channel: the channel name
         """
-        name_filter = None if reactor_name in (None, "default") else [reactor_name]
+        # 显式收窄而非 `in (None, "default")` 三元式：语义完全相同，但后者在 mypy 1.7.1
+        # （pre-commit 钉版）下推断为 list[str | None]，与 get_reactor 的 list[str] 不符。
+        name_filter: list[str] | None = None
+        if reactor_name is not None and reactor_name != "default":
+            name_filter = [reactor_name]
 
         for reactor in cls.get_reactor(topic, name_filter, channel):
             try:
@@ -92,7 +102,7 @@ class EventReactorManager(metaclass=_ReactorMapProxyMeta):
 
     @classmethod
     def get_reactor(
-        cls, topic, reactor_names: list[str] | None = None, channel: str | None = None
+        cls, topic: str, reactor_names: list[str] | None = None, channel: str | None = None
     ) -> list[Any]:
         """Get the event reactors.
 

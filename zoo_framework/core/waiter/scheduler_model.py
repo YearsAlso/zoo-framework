@@ -32,6 +32,7 @@ from abc import ABC, abstractmethod
 
 from zoo_framework.constant import WorkerConstant
 from zoo_framework.utils import LogUtils
+from zoo_framework.workers import BaseWorker
 
 from ..run_identity import carry_context
 
@@ -270,7 +271,7 @@ class ThreadPoolModel(SchedulerModel):
         self._tasks: queue.Queue | None = None
         self._threads: list[threading.Thread] = []
 
-    def prepare_workers(self, workers) -> int:
+    def prepare_workers(self, workers: list[BaseWorker | None]) -> int:
         """Handle "worker count exceeds the pool size" according to the backpressure policy.
 
         Must be called **before** the pool is created - ``expand`` semantics

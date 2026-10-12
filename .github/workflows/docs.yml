@@ -5,8 +5,12 @@
 # 2. 部署到 GitHub Pages
 #
 # 触发条件：
-# - main 分支的 docs/ 目录有变更
+# - main / dev 分支的文档相关路径有变更
+# - 面向 dev 的 PR 有文档相关路径变更（只构建、不部署——构建即 --strict 门禁）
 # - 手动触发
+#
+# 构建与部署分离：`build` 在任何触发上都跑（--strict，告警即失败），`deploy` 只在
+# main 上执行。dev / PR 因此能拦住文档告警，而 GitHub Pages 仍只发布 main 的内容。
 #
 # `.well-known/**` 与 `llms.txt` 必须列入触发路径：这两个文件被 mkdocs 构建钩子复制进
 # 站点产物（见 mkdocs.yml 的 hooks），若只改它们的内容（例如续期 Expires、
@@ -16,12 +20,22 @@ name: 📚 Deploy Documentation
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - 'docs/**'
       - '.well-known/**'
       - 'llms.txt'
       - 'README.md'
+      - 'mkdocs.yml'
+      - 'scripts/mkdocs_hooks.py'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - '.well-known/**'
+      - 'llms.txt'
+      - 'README.md'
+      - 'mkdocs.yml'
       - 'scripts/mkdocs_hooks.py'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
@@ -61,7 +75,8 @@ jobs:
         run: |
           # mkdocstrings 用于从 docstring 生成 API 参考（见 mkdocs.yml 的 plugins）
           pip install mkdocs mkdocs-material 'mkdocstrings[python]>=0.25'
-          mkdocs build
+          # --strict：链接告警与 griffe 签名告警一律失败（issue #141）
+          mkdocs build --strict
         if: hashFiles('mkdocs.yml') != ''
 
       # 如果使用 VitePress（文档项目）
@@ -78,6 +93,8 @@ jobs:
 
   deploy:
     name: 部署到 GitHub Pages
+    # 只从 main 发布：dev / PR 的构建是门禁，产物不上站点
+    if: github.ref == 'refs/heads/main'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

@@ -159,7 +159,7 @@ class EventChannel:
             # Replace the event
             self._event_fifo.replace(event)
 
-    def push_dead_letter(self, event, reason: str = "") -> None:
+    def push_dead_letter(self, event: EventNode, reason: str = "") -> None:
         """Record an event that cannot be delivered.
 
         An event taken from the queue MUST have a settled destination:

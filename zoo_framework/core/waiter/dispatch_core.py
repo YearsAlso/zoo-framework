@@ -32,10 +32,12 @@ and MUST NOT mix in wall-clock time.
 
 import threading
 import time
+from typing import Any
 
 from zoo_framework.reactor.event_reactor_manager import EventReactorManager
 from zoo_framework.utils import LogUtils
 from zoo_framework.workers import BaseWorker
+from zoo_framework.workers.worker_result import WorkerResult
 
 from ..run_identity import RunIdentity, current_identity
 
@@ -171,7 +173,7 @@ class WorkerDispatchCore:
         for k in stale:
             del self._policy_cache[k]
 
-    def resolve_period(self, worker):
+    def resolve_period(self, worker: BaseWorker) -> float | None:
         """Resolve the Worker's period: self-report -> per-name override -> global default.
 
         The result is cached per worker name (#47 P1) while the three-stage
@@ -183,7 +185,8 @@ class WorkerDispatchCore:
             The period in seconds; None when undeclared (callers then treat the
             Worker as event-driven)
         """
-        return self._policy(worker, "period", self._compute_period)
+        period: float | None = self._policy(worker, "period", self._compute_period)
+        return period
 
     @staticmethod
     def _compute_period(worker):
@@ -203,7 +206,7 @@ class WorkerDispatchCore:
 
         return WorkerParams.WORKER_PERIOD or None
 
-    def resolve_phase(self, worker):
+    def resolve_phase(self, worker: BaseWorker) -> float:
         """Resolve the Worker's phase offset: self-report -> per-name override -> global default.
 
         The result is cached per worker name (#47 P1). Phase is the classic
@@ -213,7 +216,8 @@ class WorkerDispatchCore:
         Returns:
             The phase offset in seconds; 0.0 when undeclared
         """
-        return self._policy(worker, "phase", self._compute_phase)
+        phase: float = self._policy(worker, "phase", self._compute_phase)
+        return phase
 
     @staticmethod
     def _compute_phase(worker):
@@ -233,7 +237,7 @@ class WorkerDispatchCore:
 
         return WorkerParams.WORKER_PHASE or 0.0
 
-    def is_due(self, worker, now: float | None = None) -> bool:
+    def is_due(self, worker: BaseWorker, now: float | None = None) -> bool:
         """Whether the Worker is due at this moment.
 
         Periodic scheduling computes trigger times from a **monotonic-clock
@@ -326,7 +330,9 @@ class WorkerDispatchCore:
 
     # ---------------------------------------------------------------- 派发登记
 
-    def begin(self, worker, timeout, deadline: float | None = None) -> dict | None:
+    def begin(
+        self, worker: BaseWorker, timeout: float | None, deadline: float | None = None
+    ) -> dict | None:
         """Register a Worker that is about to be dispatched.
 
         **Registration MUST precede dispatch**: if the task were submitted
@@ -374,7 +380,9 @@ class WorkerDispatchCore:
 
     # ---------------------------------------------------------------- 结算收口
 
-    def settle(self, worker, result=None, error=None) -> None:
+    def settle(
+        self, worker: BaseWorker, result: Any = None, error: BaseException | None = None
+    ) -> None:
         """The single completion settlement: deregister in-flight state and report the result on success.
 
         Deregistration MUST happen regardless of success; an exception raised by
@@ -419,7 +427,7 @@ class WorkerDispatchCore:
                 f"Worker {worker.name} result reporting failed: {e}", self.__class__.__name__
             )
 
-    def run_and_settle(self, worker) -> None:
+    def run_and_settle(self, worker: BaseWorker) -> None:
         """Execute once on a worker thread and settle.
 
         This is the model- and primitive-independent execution unit: the
@@ -439,7 +447,7 @@ class WorkerDispatchCore:
 
     # ---------------------------------------------------------------- 超时熔断
 
-    def resolve_run_timeout(self, worker):
+    def resolve_run_timeout(self, worker: BaseWorker) -> float | None:
         """Resolve the Worker's run timeout: self-report -> per-name override -> global default.
 
         The result is cached per worker name (#47 P1); the global default comes
@@ -450,7 +458,8 @@ class WorkerDispatchCore:
         Returns:
             The timeout in seconds; None when undeclared
         """
-        return self._policy(worker, "run_timeout", self._compute_run_timeout)
+        timeout: float | None = self._policy(worker, "run_timeout", self._compute_run_timeout)
+        return timeout
 
     def _compute_run_timeout(self, worker):
         from zoo_framework.core.params_factory import ParamsFactory
@@ -518,7 +527,7 @@ class WorkerDispatchCore:
     # ---------------------------------------------------------------- 执行入口
 
     @staticmethod
-    def run_worker(worker):
+    def run_worker(worker: Any) -> WorkerResult | None:
         """Execute one Worker.
 
         Returns:
