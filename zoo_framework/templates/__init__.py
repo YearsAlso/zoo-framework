@@ -39,6 +39,11 @@ class $class_name(BaseWorker):
         \"\"\"Run the business logic.\"\"\"
         self._tick += 1
         print(f"[${worker_name}_worker] tick #{self._tick}")
+        if self._tick == 1:
+            # 只在首轮提示一次「下一步改哪里」，后续轮次不重复刷屏。路径取自本文件的
+            # 实际位置而不是写死的目录名——--create 的目标目录可以是任意路径，本文件
+            # 也可能被 --worker 生成到既有项目的别处。
+            print(f"  ← 改这个文件开始你的第一个 Worker：{__file__}")
 
     def _destroy(self, result):
         \"\"\"Called when the Worker is unregistered (the shutdown path triggers this).\"\"\"

@@ -319,6 +319,25 @@ class TestDemoWorkerPreset:
         assert len(lines) == 2, f"应恰好捕获两次输出：{captured!r}"
         assert lines[0].endswith("#1") and lines[1].endswith("#2")
 
+    def test_sample_worker_first_round_hints_at_its_own_file(self, scaffold, capsys):
+        """Scenario: 首轮输出给出「下一步改哪个文件」；路径真实存在且只提示一次（#152）."""
+        _, source_dir = scaffold
+
+        sys.path.insert(0, str(source_dir / "workers"))
+        worker_module = importlib.import_module("sample_worker")
+        instance = worker_module.SampleWorker()
+        instance._execute()
+        instance._execute()
+
+        captured = capsys.readouterr().out
+        hints = [line for line in captured.splitlines() if "改这个文件" in line]
+        assert len(hints) == 1, f"提示应只在首轮出现一次，实际 {len(hints)} 次：{captured!r}"
+
+        # 提示里的路径必须**真实存在**，且就是本模块自己的文件——不是写死的目录名
+        target = hints[0].rsplit("：", 1)[-1].strip()
+        assert os.path.isfile(target), f"提示里的路径不存在：{target!r}"
+        assert os.path.samefile(target, source_dir / "workers" / "sample_worker.py"), target
+
 
 # =============================================================================
 # 4 · CLI 选项具备真实语义
