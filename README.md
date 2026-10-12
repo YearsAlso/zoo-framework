@@ -178,7 +178,8 @@ suite status.
 package (currently `>=0.12,<0.13`): a prompt goes in, tool calls are dispatched through the
 event pipeline, and session state is persisted by the framework's state machine — so a
 session resumes after a process restart, and a replayed tool call does not fire its side
-effect twice. It is the consumer that turned this section's statements into measurements:
+effect twice. Write and exec calls pass a fail-closed permission gate on every call, and
+code evaluation is never exposed. It is the consumer that turned this section's statements into measurements:
 the gaps it found are issues
 [#72](https://github.com/YearsAlso/zoo-framework/issues/72) /
 [#73](https://github.com/YearsAlso/zoo-framework/issues/73) /
