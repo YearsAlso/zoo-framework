@@ -59,10 +59,19 @@ def _crate_name(crate_dir: Path) -> str:
 def _build_and_import(crate_dir: Path):
     """Cargo build --release，把产物放到临时目录并按模块名导入."""
     module_name = _crate_name(crate_dir)
-    subprocess.run(
+    # 捕获输出：构建失败时把 cargo 自己的报错原样打出来。否则失败只剩一句
+    # "returned non-zero exit status"——首轮 CI 上 macOS 的 release 构建失败就是这样
+    # 变成了一次没有诊断信息的排查。
+    built = subprocess.run(
         ["cargo", "build", "--release", "--manifest-path", str(crate_dir / "Cargo.toml")],
-        check=True,
+        capture_output=True,
+        text=True,
     )
+    if built.returncode != 0:
+        print("[环境] cargo build --release 失败，cargo 的输出如下：", file=sys.stderr)
+        print(built.stdout, file=sys.stderr)
+        print(built.stderr, file=sys.stderr)
+        raise SystemExit(2)
     # cargo 的 cdylib 产物后缀随平台不同：Windows 是 .dll、Linux 是 .so、macOS 是 .dylib；
     # 而 Python 只按 .pyd / .so 找扩展模块，故下面统一改名后再导入。
     import_suffix = ".pyd" if os.name == "nt" else ".so"
