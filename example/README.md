@@ -10,6 +10,7 @@
 | [`main.py`](main.py) | Worker + **状态机**组合：DemoThread 每一轮读、写、观察一个状态键 | `python main.py` | `Test get i:[N], self.i:[N]` 逐秒递增；首轮从 `.pic` 存档加载（没有则提示创建） |
 | [`threads/demo_thread.py`](threads/demo_thread.py) | `main.py` 的那个 Worker 单独运行（同一个类，带 `__main__` 入口） | `python threads/demo_thread.py` | 同 `main.py`（`Test get i:[N], …`） |
 | [`event/demo_event.py`](event/demo_event.py) | 最小**事件管道**闭环：`@event` 注册 reactor → 后台线程投递 → reactor 被响应 | `python event/demo_event.py` | 3 行 `pushed event #N`，随后 3 行 `on_change_test_number:…`（reactor 收到） |
+| [`fastapi/app.py`](fastapi/app.py) | 把 Worker **嵌进 Web 服务**：lifespan 启动 Master，`POST /tick` 投递事件、`GET /state` 观察闭环 | `pip install fastapi uvicorn`，再 `cd fastapi && uvicorn app:app --port 8000` | 终端 `[heartbeat_worker] round #N` 递增；`curl -X POST localhost:8000/tick` 后出现 `[on_tick] handled 'tick-…'`，`curl localhost:8000/state` 返回两个计数 |
 
 按 `Ctrl-C` 停止所有示例（`Master.run()` 阻塞在调度循环上）。
 
@@ -34,3 +35,6 @@ submodule —— 那是框架 Agent 线的消费者验证仓库，不是示例�
 `main.py` 用 `from threads import DemoThread` —— 请在 `example/` 目录下运行它；
 `threads/demo_thread.py`、`event/demo_event.py`、`minimal.py` 在各自目录运行即可。
 `Master()` 默认读当前工作目录的 `./config.json`，没有也能跑。
+
+`fastapi/app.py` 需要先 `pip install fastapi uvicorn`（**不是**本框架的依赖，故不写进
+`pyproject.toml`）：在该文件所在目录运行 `uvicorn app:app --port 8000`。
