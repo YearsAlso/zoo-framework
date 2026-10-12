@@ -98,6 +98,14 @@ docs = [
     # API 参考由 docstring 自动生成（mkdocs.yml 的 mkdocstrings 插件）
     "mkdocstrings[python]>=0.25",
 ]
+# 可选的原生执行扩展（issue #129 / 变更 native-distribution，形态 B）。
+# 它是**独立发行物**（PyPI 上的 zoo-framework-native，自己的版本与发布流水线），
+# 这里只提供一条发现路径：`pip install zoo-framework[native]`。
+# 不装它时框架一切如旧；请求原生能力时显式报错，不静默回退。
+# 用范围而不是等号：扩展的二进制契约与框架语义版本是两条曲线（design D5）。
+native = [
+    "zoo-framework-native>=0.1,<0.2",
+]
 
 [project.scripts]
 zfc = "zoo_framework.cli:zfc"
