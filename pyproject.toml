@@ -254,6 +254,16 @@ exclude = [
 module = ["zoo_framework.utils.*"]
 disallow_untyped_defs = true
 
+# 逐模块收紧（issue #141 / 变更 type-annotation-gate）：只对**已具备完整注解**的模块
+# 开启，不一次性全局打开——全局打开会牵出大量本变更范围外的改动。新增模块注解补齐后，
+# 按同样方式逐条加入本列表。
+[[tool.mypy.overrides]]
+module = [
+    "zoo_framework.core.params_path",
+    "zoo_framework.statemachine.state_effect_scheduler",
+]
+disallow_untyped_defs = true
+
 # ============================================
 # Pytest 配置 (P1: 测试覆盖)
 # ============================================

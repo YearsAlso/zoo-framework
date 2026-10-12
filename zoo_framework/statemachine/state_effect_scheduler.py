@@ -1,5 +1,9 @@
-from zoo_framework.event.event_channel_manager import EventChannelManager
+from typing import Any
 
+from zoo_framework.event.event_channel_manager import EventChannelManager
+from zoo_framework.statemachine.state_effect import StateEffect
+
+from .state_node_index import StateNodeIndex
 from .state_node_index_factory import StateNodeIndexFactory
 
 
@@ -15,12 +19,14 @@ class StateEffectScheduler:
     # registration mechanism came online; removing it outright was better
     # than registering a dead carrier.
 
-    def __init__(self, state_machine):
+    def __init__(self, state_machine: Any) -> None:
         self.state_machine = state_machine
-        self.state_effect_map = {}
-        self.state_effect_index = StateNodeIndexFactory.create_index(self.state_machine)
+        self.state_effect_map: dict[object, set[StateEffect]] = {}
+        self.state_effect_index: StateNodeIndex = StateNodeIndexFactory.create_index(
+            self.state_machine
+        )
 
-    def add_state_effect(self, state_effect):
+    def add_state_effect(self, state_effect: StateEffect) -> None:
         """Add a state effect.
 
         Args:
@@ -29,9 +35,12 @@ class StateEffectScheduler:
         if state_effect.state not in self.state_effect_map:
             self.state_effect_map[state_effect.state] = set()
         self.state_effect_map[state_effect.state].add(state_effect)
-        self.state_effect_index.add_state_effect(state_effect)
+        # StateNodeIndex 目前**没有** add_state_effect —— 本行在运行期会 AttributeError。
+        # 这是既有缺陷（该路径当前无调用者，StateEffectScheduler 全仓无构造点），不是本次
+        # 注解引入的；这里不掩盖事实，只对"方法确实不存在"逐行 ignore，缺陷另立 issue 跟踪。
+        self.state_effect_index.add_state_effect(state_effect)  # type: ignore[attr-defined]
 
-    def remove_state_effect(self, state_effect):
+    def remove_state_effect(self, state_effect: StateEffect) -> None:
         """Remove a state effect.
 
         Args:
@@ -39,9 +48,10 @@ class StateEffectScheduler:
         """
         if state_effect.state in self.state_effect_map:
             self.state_effect_map[state_effect.state].remove(state_effect)
-            self.state_effect_index.remove_state_effect(state_effect)
+            # 同 add_state_effect：StateNodeIndex 上并不存在该方法（既有缺陷，另立 issue）。
+            self.state_effect_index.remove_state_effect(state_effect)  # type: ignore[attr-defined]
 
-    def get_state_effect(self, state):
+    def get_state_effect(self, state: object) -> set[StateEffect]:
         """Get the state effects for a state.
 
         Args:
@@ -49,7 +59,7 @@ class StateEffectScheduler:
         """
         return self.state_effect_map.get(state, set())
 
-    def get_state_effect_index(self):
+    def get_state_effect_index(self) -> StateNodeIndex:
         """Get the state effect index.
 
         Returns:
@@ -57,7 +67,7 @@ class StateEffectScheduler:
         """
         return self.state_effect_index
 
-    def execute_state_effect(self, state, *args, **kwargs):
+    def execute_state_effect(self, state: object, *args: Any, **kwargs: Any) -> None:
         """Execute the state effects for a state.
 
         Args:

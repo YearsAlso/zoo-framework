@@ -1,3 +1,5 @@
+from typing import Any
+
 from zoo_framework.core.container import ThreadSafety, process_scoped
 
 from .event_reactor import EventReactor
@@ -37,7 +39,7 @@ class WaiterResultReactor(EventReactor):
         self.on_result = None
         self.set_event_callback(self._on_result)
 
-    def accepts(self, result) -> bool:
+    def accepts(self, result: Any) -> bool:
         """Decide whether this result should be accepted by the reactor.
 
         Args:
