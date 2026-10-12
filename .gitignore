@@ -55,3 +55,6 @@ backups/
 # 虚拟环境
 venv/
 .venv/
+
+# 推广/商业化内部文档 —— 仅本地保留，不提交到仓库
+/docs/internal/marketing/
