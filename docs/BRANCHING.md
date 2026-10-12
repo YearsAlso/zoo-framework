@@ -1,7 +1,8 @@
 # 分支模型与访客可见性 (Branching)
 
 > 本文定义 `main` / `dev` 双分支的职责分工，以及一类特殊的承诺：**访客可见面**（visitor-visible
-> surface）。分支操作规范（怎么切分支、PR 指向哪）见 [CONTRIBUTING.md](../CONTRIBUTING.md)
+> surface）。分支操作规范（怎么切分支、PR 指向哪）见
+> [CONTRIBUTING.md](https://github.com/YearsAlso/zoo-framework/blob/dev/CONTRIBUTING.md)
 > 的「分支规范」一节，本文不重复。
 
 ## 双分支职责
