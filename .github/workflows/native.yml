@@ -80,8 +80,14 @@ jobs:
         run: cargo test
 
       - name: 契约校验器对模板的机械校验（issue #139）
-        # 只跑正例：负例演示需要另建一个 crate 与独立 target（CI 上等于重编一遍 pyo3），
-        # 故负例作为文档里的可复现步骤保留，不进 CI。
+        # 两个限制都写在这里，避免以后有人误以为是遗漏：
+        # 1) 只跑正例——负例演示要另建一个 crate 与独立 target（CI 上等于重编一遍 pyo3），
+        #    故负例作为文档里的可复现步骤保留。
+        # 2) 只在 ubuntu 上跑——校验器用裸 `cargo build --release` 构建扩展模块，而 macOS
+        #    arm64 上这一步链接 cdylib 会失败（`ld: symbol(s) not found for architecture
+        #    arm64`，`_Py_NoneStruct` 等未解析符号）。仓库真实的构建/发布路径是 maturin，
+        #    把校验器改成 maturin 构建是独立工作（见 issue）。
+        if: matrix.os == 'ubuntu-latest'
         run: python native/validate_contract.py native/template
 
   wheel:
