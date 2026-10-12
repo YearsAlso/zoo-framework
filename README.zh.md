@@ -358,6 +358,9 @@ Windows / Python 3.13 实测，负载为代表性任务（JSON 编解码 + 字�
 
 **用户文档 → <https://yearsalso.github.io/zoo-framework-doc/>**（中英双语）—— 安装、教程、核心概念、API 参考。
 
+写一个原生任务（可选 Rust 扩展）→ [`docs/native-tasks.md`](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/native-tasks.md)：
+契约、错误分类、演进规则、契约校验器，以及「该不该下沉」判断表。
+
 本仓库的 `docs/` 目录保留**维护者与贡献者文档**（架构、目录结构、调试、
 贡献规范、品牌规范、性能基准），**不面向使用者**：
 

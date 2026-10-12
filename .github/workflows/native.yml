@@ -75,6 +75,15 @@ jobs:
       - name: Native pytest paths
         run: pytest tests/test_native_extension.py tests/test_native_task_execution.py -q
 
+      - name: 模板 crate 的 cargo test（第三方照抄的起点必须自己就是绿的）
+        working-directory: native/template
+        run: cargo test
+
+      - name: 契约校验器对模板的机械校验（issue #139）
+        # 只跑正例：负例演示需要另建一个 crate 与独立 target（CI 上等于重编一遍 pyo3），
+        # 故负例作为文档里的可复现步骤保留，不进 CI。
+        run: python native/validate_contract.py native/template
+
   wheel:
     name: build abi3 wheel
     runs-on: ubuntu-latest
