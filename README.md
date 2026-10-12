@@ -521,6 +521,14 @@ be checked from the outside, and [`ADOPTERS.md`](ADOPTERS.md) labels every row a
 rather than implying adoption it cannot show.
 Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
 
+#### Does it retry a task that fails?
+
+No — a failed execution is reported on the error path and that round ends. The same Worker is
+still dispatched on its next scheduled round, but the work that failed is not retried. The
+only automatic retries here are for **events** (a reactor carries a retry strategy and a node
+carries a retry count), not for Worker executions.
+Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
+
 ### License
 
 Apache License 2.0 © [XiangMeng](https://github.com/YearsAlso)
