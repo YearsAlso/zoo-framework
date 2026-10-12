@@ -48,7 +48,7 @@ submodule —— 它是**可运行的最小 coding agent 消费方**，也是框
 git submodule update --init example/agent
 cd example/agent
 pip install -e ".[dev]"
-pytest                       # 86 条用例，不需要任何模型 API 密钥
+pytest                       # 100 条用例，不需要任何模型 API 密钥
 ```
 
 它同时带命令行入口，零密钥就能跑一条会话：
@@ -56,6 +56,9 @@ pytest                       # 86 条用例，不需要任何模型 API 密钥
 ```bash
 zca -p "看看目录" --script examples/smoke.json --allow list_dir
 ```
+
+它还会把工作目录里的 `AGENTS.md` / `CLAUDE.md` 注入系统提示，并在历史变长时把中间那段折叠成
+一条摘要观察（**只改模型可见视图，存档保持完整**）——项目约定因此不必每次复述。
 
 **实测数字**：同一批脚本化会话，开启事件推模型（`event:pushModelEnabled`）后单次会话端到端
 由 5205 ms 降到 207 ms（25.3×）；对照脚本在
