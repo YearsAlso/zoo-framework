@@ -15,8 +15,10 @@
 3. `tasks()` 的每个值都是框架侧 `NativeTaskContract` 的真实实例，且字段非空
 4. `execute()` 存在且可调用
 
-构建方式：`cargo build --release`，把产物复制成 `<模块名>.pyd|.so` 后导入——
-刻意不依赖 maturin，让校验器在只有 Rust 工具链的环境里也能跑。
+构建方式：`maturin build --release`，再从**生成的 wheel** 里取出扩展模块导入。
+为什么不是裸 `cargo build`：macOS arm64 上用裸 cargo 链接 cdylib 会失败
+（`ld: symbol(s) not found for architecture arm64`，`_Py_NoneStruct` 等未解析符号）——
+而本仓库真实的构建与发布路径本来就是 maturin（见 issue #220）。
 
 退出码：0 通过；1 有违规；2 用法/环境错误。
 """
@@ -32,6 +34,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import zipfile
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -57,41 +60,50 @@ def _crate_name(crate_dir: Path) -> str:
 
 
 def _build_and_import(crate_dir: Path):
-    """Cargo build --release，把产物放到临时目录并按模块名导入."""
+    """Maturin build --release，从 wheel 里取出模块并按名导入."""
     module_name = _crate_name(crate_dir)
-    # 捕获输出：构建失败时把 cargo 自己的报错原样打出来。否则失败只剩一句
-    # "returned non-zero exit status"——首轮 CI 上 macOS 的 release 构建失败就是这样
-    # 变成了一次没有诊断信息的排查。
+    staging = Path(tempfile.mkdtemp(prefix="native-contract-"))
+    dist = staging / "dist"
+    # 捕获输出：构建失败时把构建器自己的报错原样打出来。否则失败只剩一句
+    # "returned non-zero exit status"——首轮 CI 上 macOS 的失败就是这样变成了一次
+    # 没有诊断信息的排查（补上回显后才看到是 ld 的未解析符号）。
     built = subprocess.run(
-        ["cargo", "build", "--release", "--manifest-path", str(crate_dir / "Cargo.toml")],
+        [
+            "maturin",
+            "build",
+            "--release",
+            "--manifest-path",
+            str(crate_dir / "Cargo.toml"),
+            "--out",
+            str(dist),
+        ],
         capture_output=True,
         text=True,
-        # 显式 UTF-8 + 兜底：cargo 的输出带颜色控制符与 UTF-8 字符，用本地编码解码会抛
+        # 显式 UTF-8 + 兜底：构建输出的颜色控制符与 UTF-8 字符用本地编码解码会抛
         # UnicodeDecodeError（本机 GBK 控制台实测），那会把"构建失败"变成"解码失败"。
         encoding="utf-8",
         errors="replace",
     )
     if built.returncode != 0:
-        print("[环境] cargo build --release 失败，cargo 的输出如下：", file=sys.stderr)
+        print("[环境] maturin build --release 失败，输出如下：", file=sys.stderr)
         print(built.stdout, file=sys.stderr)
         print(built.stderr, file=sys.stderr)
         raise SystemExit(2)
-    # cargo 的 cdylib 产物后缀随平台不同：Windows 是 .dll、Linux 是 .so、macOS 是 .dylib；
-    # 而 Python 只按 .pyd / .so 找扩展模块，故下面统一改名后再导入。
+    # wheel 就是 zip：扩展模块的**成员路径**形如 `<包>/<模块名>.pyd|.so`，故按 basename
+    # 比对（按全路径比对取不到——本机实测踩过一次）。
     import_suffix = ".pyd" if os.name == "nt" else ".so"
-    built_suffixes = (".dll", ".so", ".dylib", ".pyd")
-    release_dir = crate_dir / "target" / "release"
-    candidates = [
-        p
-        for p in release_dir.glob(f"*{module_name}*")
-        if p.is_file() and p.suffix in built_suffixes and "deps" not in p.parts
-    ]
-    if not candidates:
-        raise SystemExit(
-            f"[环境] {release_dir} 里找不到 {module_name} 的动态库，检查 crate-type 是否 cdylib"
-        )
-    staging = Path(tempfile.mkdtemp(prefix="native-contract-"))
-    shutil.copyfile(candidates[0], staging / (module_name + import_suffix))
+    wheels = sorted(dist.glob("*.whl"))
+    if not wheels:
+        raise SystemExit(f"[环境] {dist} 里没有 wheel，检查 crate-type 是否 cdylib")
+    target_name = module_name + import_suffix
+    with zipfile.ZipFile(wheels[0]) as wheel:
+        members = [n for n in wheel.namelist() if Path(n).name == target_name]
+        if not members:
+            raise SystemExit(
+                f"[环境] {wheels[0].name} 里没有 {target_name}，成员为 {wheel.namelist()}"
+            )
+        with wheel.open(members[0]) as src, open(staging / target_name, "wb") as dst:
+            shutil.copyfileobj(src, dst)
     sys.path.insert(0, str(staging))
     importlib.invalidate_caches()
     return importlib.import_module(module_name)
