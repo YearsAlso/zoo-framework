@@ -134,6 +134,13 @@ def check(crate_dir: Path) -> list[str]:
 
 
 def main() -> int:
+    # 跨平台：Windows 与部分 CI runner 的控制台编码是 cp1252/cp936，直接 print 中文会抛
+    # UnicodeEncodeError（本脚本在 macOS/Windows 的 CI 上就是这样红的）。显式把输出流设为
+    # UTF-8 并给一个兜底，保证"能读出结论"而不是让编码问题伪装成契约违规。
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="backslashreplace")
+
     parser = argparse.ArgumentParser(description="校验原生任务 crate 是否满足契约")
     parser.add_argument("crate_dir", type=Path, help="含 Cargo.toml 的 crate 目录")
     parser.add_argument(
