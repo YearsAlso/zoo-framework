@@ -66,6 +66,10 @@ def _build_and_import(crate_dir: Path):
         ["cargo", "build", "--release", "--manifest-path", str(crate_dir / "Cargo.toml")],
         capture_output=True,
         text=True,
+        # 显式 UTF-8 + 兜底：cargo 的输出带颜色控制符与 UTF-8 字符，用本地编码解码会抛
+        # UnicodeDecodeError（本机 GBK 控制台实测），那会把"构建失败"变成"解码失败"。
+        encoding="utf-8",
+        errors="replace",
     )
     if built.returncode != 0:
         print("[环境] cargo build --release 失败，cargo 的输出如下：", file=sys.stderr)
