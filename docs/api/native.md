@@ -5,6 +5,9 @@
 
 契约：Python 保留编排与生命周期；扩展只承载**任务执行体**，执行期间释放 GIL。
 
+要往扩展里加自己的任务，见 [`docs/native-tasks.md`](../native-tasks.md)——契约四条纪律、
+三族错误分类、演进规则、契约校验器与「该不该下沉」判断表。
+
 ::: zoo_framework.native.adapter.NativeAdapter
 ::: zoo_framework.native.adapter.get_native_adapter
 ::: zoo_framework.native.adapter.reset_native_adapter

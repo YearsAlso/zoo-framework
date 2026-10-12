@@ -402,6 +402,9 @@ report lives at [zoo-bench](https://yearsalso.github.io/zoo-bench/).*
 **User documentation → <https://yearsalso.github.io/zoo-framework-doc/>** (bilingual: 中文 / English) —
 installation, tutorials, core concepts, API reference.
 
+Writing a native task (the optional Rust extension) → [`docs/native-tasks.md`](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/native-tasks.md):
+contract, error families, evolution rules, the contract validator, and a "should this go native?" table.
+
 The `docs/` directory in this repository keeps **maintainer and contributor** documentation
 (architecture, repository layout, debugging, contribution rules, brand guidelines,
 performance benchmarks). It is not aimed at people using the framework:
