@@ -13,10 +13,12 @@ crate-type = ["cdylib"]
 # （issue #129）。不启用 abi3 时 7 平台 × N 个 Python 版本逐版本重发，且用户 Python
 # 比 wheel 新就装不上。
 #
-# 版本带：0.23（probe 当初验证的是这一带的 GIL 释放与 panic=unwind 边界兜底；
-# 升级须重测边界行为——见 native/DECISION.md 读数边界与 #205）。
-# 注意 bench/pyo3_probe 已独立升到 0.29，两者**不在**同一版本带（旧注释称"同带"有误）。
-pyo3 = { version = "0.23", features = ["extension-module", "abi3-py311"] }
+# 版本带：0.29（issue #205 由 0.23 升级而来，与 bench/pyo3_probe 对齐）。升级动因是
+# 0.23 有 3 条已公开漏洞（high/medium 修于 0.29.0、low 修于 0.24.1），Dependabot
+# 全部命中在 native/Cargo.lock 上。边界行为（GIL 释放、panic=unwind 兜底）已按
+# native/DECISION.md 的读数边界逐条重测——见「pyo3 0.23 → 0.29 升级」一节。
+# 下次升级同样 MUST 重测这三条边界行为。
+pyo3 = { version = "0.29", features = ["extension-module", "abi3-py311"] }
 
 [profile.release]
 # 与 probe 同纪律：panic MUST NOT 导致 Python 进程 abort。

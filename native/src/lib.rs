@@ -2,7 +2,8 @@
 //!
 //! 形状（add-native-task-execution design D2/D3）：
 //! - Python 保留编排与生命周期；本扩展只承载**任务执行体**，执行期间用
-//!   `py.allow_threads` 释放 GIL（真多核伸缩的机制前提，实测见 native/DECISION.md）。
+//!   `py.detach`（PyO3 0.25 起 `allow_threads` 的新名字）释放 GIL（真多核伸缩的
+//!   机制前提，实测见 native/DECISION.md）。
 //! - 执行体不回调 Python：粗粒度原生任务，一次跨界完成全部工作（跨界成本
 //!   28.9ns，可忽略；收益稀释主因是任务边界而非 GIL 往返）。
 //! - panic = unwind：PyO3 在 FFI 边界把 panic 转为 PanicException，适配器兜底
@@ -60,7 +61,8 @@ fn tasks(py: Python<'_>) -> PyResult<Bound<'_, PyDict>> {
 fn execute(py: Python<'_>, task: &str, payload: &[u8]) -> PyResult<Vec<u8>> {
     match task {
         TASK_MODBUS_RTU_PARSE_RESPONSE => {
-            let result = py.allow_threads(|| modbus::parse_response(payload));
+            // pyo3 0.29：离开 Python 解释器的入口是 `detach`（0.25 起从 `allow_threads` 改名）
+            let result = py.detach(|| modbus::parse_response(payload));
             match result {
                 Ok(parsed) => Ok(parsed.to_json()),
                 Err(err) => Err(into_py_err(py, err)),

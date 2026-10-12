@@ -238,6 +238,52 @@ P4 =  2.945 + 0.046479·F   (R² = 0.999919)
 **未验证项（如实说明）**：`native-release.yml` 的发布链路**无法在本变更内验证**——真实
 证据只在第一个 tag 或一次 TestPyPI 演练之后才存在；在那之前不得声称发布成功。
 
+## pyo3 0.23 → 0.29 升级（issue #205，2026-10-12）
+
+**动因**：Dependabot 的 3 条 open 告警**全部**命中 `native/Cargo.lock` 的 pyo3 0.23.5
+（high：`PyList`/`PyTuple` 迭代器 `nth`/`nth_back` 越界读，0.29.0 修；medium：
+`PyCFunction::new_closure` 缺 `Sync` bound，0.29.0 修；low：`PyString::from_object`
+缓冲区溢出，0.24.1 修）。#93 曾把 Scorecard 的 Vulnerabilities 归因于 `uv.lock`，实测
+不成立——Python 侧重锁后依赖版本零变化，真正的落点在这里。
+
+**迁移点只有两处**（编译器逐条指出）：
+
+| 0.23 | 0.29 | 位置 |
+|---|---|---|
+| `py.allow_threads(..)` | `py.detach(..)`（0.25 起改名） | `src/lib.rs` 的 `execute` |
+| `Bound::downcast_into::<T>()` | `Bound::cast_into::<T>()` | `src/contract.rs` 的异常类解析 |
+
+升级后与 `bench/pyo3_probe` **重新对齐**到同一版本带（探针独立升到 0.29 时本 crate 还停在
+0.23，旧注释"同带"因此曾是错的）。
+
+**边界行为逐条重测**（升级的义务写在「读数边界」里：升级 MUST 重测）：
+
+1. **GIL 释放** —— `native/stage2_acceptance.py` 的 12 线程饱和形状：
+   **8.43x**（升级前 7.49x）。多核伸缩只有在执行期间真的离开解释器时才可能出现，
+   故这是 GIL 释放仍然成立、且更好的直接证据。
+2. **panic 映射** —— **如实记为缺口**：`native/` 自身没有「跨 FFI 边界的 panic →
+   PanicException」的直接测试。现状证据是两条间接的：
+   (a) `tests/test_native_task_execution.py` 覆盖**适配器侧**映射（注入非三族异常 →
+   `NativePanic`）；(b) pyo3 的边界转换是**版本带属性**，已由同版本带（0.29）的
+   `bench/pyo3_probe` 三条 panic 路径验证（`panics()` / `catches_panic()` /
+   `panics_holding_python_ref(f)`，见 docs/benchmark.md）。
+   要把它变成直接证据，需要给扩展加一条自检入口或把探针的 panic 用例纳入 native 的 CI；
+   本次**未做**，不声称已直接验证。
+3. **既有测试全绿** —— `cargo test` 11 passed；安装升级后的 abi3 wheel 后
+   `pytest tests/test_native_extension.py tests/test_native_task_execution.py` 44 passed。
+
+**性能未退化**（四形状对照，升级前 → 升级后）：
+
+| 形状 | 0.23 | 0.29 |
+|---|---|---|
+| single（125reg，K=1） | 9.87x | **9.78x** |
+| batch_small（1reg，K=8） | 1.07x | **1.09x** |
+| batch_large（125reg，K=64） | 10.22x | **10.34x** |
+| saturate（125reg，12 线程） | 7.49x | **8.43x** |
+
+**锁文件**：`native/Cargo.lock` 的 pyo3 已为 **0.29.3**；GitHub 重扫后 3 条
+Dependabot 告警应随之关闭。
+
 ## 对 tasks 的指向
 
 - [x] 1.1 首个真实任务 = Modbus RTU 响应帧解析（维护者 2026-10-09 选定，zoo-code-agent 已被维护者排除）
