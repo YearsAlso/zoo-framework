@@ -20,7 +20,16 @@
 
 `agent/` 是指向姊妹仓库
 [`zoo-code-agent`](https://github.com/YearsAlso/zoo-code-agent) 的 git
-submodule —— 那是框架 Agent 线的消费者验证仓库，不是示例。
+submodule —— 它是**可运行的最小 coding agent 消费方**，也是框架 Agent 线需求的实测来源，
+不是随附示例。
+
+**它做了什么**：一个 prompt 进入，经模型产出工具调用、执行工具、把观察回灌，直到命中预算或
+截止期。工具调用**经框架事件管道派发**（不是在 Worker 体内直调）；会话记录与幂等账本经框架
+状态机落盘，因此**进程重启后可续跑**，而被重放的付费工具调用不会产生第二次副作用。
+
+**为什么它挂在这里**：README 的「面向 AI Agent 的代码生成」在此之前只有声明、没有凭据。这个
+仓库把推断变成可证伪的实测——它跑出的三个框架缺口已登记为 issue #72 / #73 / #74，其中 #72、
+#73 已修复并随 0.12.0 发布。
 
 - 普通 `git clone` 后这里是**空目录**——这不是坏了， submodule 没被拉取而已。
 - 补全它：
@@ -28,6 +37,20 @@ submodule —— 那是框架 Agent 线的消费者验证仓库，不是示例�
   git submodule update --init example/agent
   ```
   （或者干脆不带它：克隆时省掉 `--recursive` 也完全不影响其它示例。）
+
+**怎么跑**（它只消费**已发布**的框架版本，当前 `>=0.12,<0.13`，刻意不跟 `dev` 主干——
+消费方跟着主干跑，就失去了「发布版能不能用」这一层验证）：
+
+```bash
+git submodule update --init example/agent
+cd example/agent
+pip install -e ".[dev]"
+pytest                       # 49 条用例，不需要任何模型 API 密钥
+```
+
+**实测数字**：同一批脚本化会话，开启事件推模型（`event:pushModelEnabled`）后单次会话端到端
+由 5205 ms 降到 207 ms（25.3×）；对照脚本在
+[`example/agent/bench/measure_session_latency.py`](agent/bench/measure_session_latency.py)。
 
 ## 运行位置说明
 
