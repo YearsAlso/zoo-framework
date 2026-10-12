@@ -38,7 +38,8 @@ pub fn into_py_err(py: Python<'_>, err: TaskError) -> PyErr {
         .import("zoo_framework.native.contract")
         .ok()
         .and_then(|m| m.getattr(class_name).ok())
-        .and_then(|c| c.downcast_into::<PyType>().ok());
+        // pyo3 0.29：`downcast_into` 更名为 `cast_into`
+        .and_then(|c| c.cast_into::<PyType>().ok());
     if let Some(exc_class) = resolved {
         PyErr::from_type(exc_class, (message,))
     } else {

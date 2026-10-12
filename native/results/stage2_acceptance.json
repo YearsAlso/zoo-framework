@@ -1,6 +1,6 @@
 {
   "meta": {
-    "captured_at": "2026-10-10T01:33:24+00:00",
+    "captured_at": "2026-10-12T07:29:52+00:00",
     "platform": "Windows-11-10.0.26200-SP0",
     "python": "3.13.14",
     "cpus": 24,
@@ -13,73 +13,73 @@
       "frames_per_op": 1,
       "frame": "125reg(255B)",
       "adapter": {
-        "p50": 14.7,
-        "p95": 16.0,
-        "p99": 29.101,
-        "mean": 15.218,
-        "ops_per_sec": 65710
+        "p50": 14.6,
+        "p95": 22.2,
+        "p99": 31.71,
+        "mean": 15.9,
+        "ops_per_sec": 62894
       },
       "reference": {
-        "p50": 145.1,
-        "p95": 187.205,
-        "p99": 243.208,
-        "mean": 152.059,
-        "ops_per_sec": 6576
+        "p50": 142.8,
+        "p95": 170.4,
+        "p99": 218.102,
+        "mean": 146.843,
+        "ops_per_sec": 6810
       },
       "bare_ext": {
-        "p50": 5.0,
-        "p95": 5.1,
-        "p99": 8.7,
-        "mean": 5.125
+        "p50": 5.1,
+        "p95": 5.2,
+        "p99": 8.9,
+        "mean": 5.202
       },
-      "speedup_p50": 9.87,
-      "conversion_share": 0.66
+      "speedup_p50": 9.78,
+      "conversion_share": 0.651
     },
     "batch_small": {
       "frames_per_op": 8,
       "frame": "1reg(7B)",
       "adapter": {
-        "p50": 24.3,
-        "p95": 30.72,
-        "p99": 46.419,
-        "mean": 25.378,
-        "ops_per_sec": 315232
+        "p50": 24.4,
+        "p95": 40.6,
+        "p99": 62.905,
+        "mean": 26.914,
+        "ops_per_sec": 297247
       },
       "reference": {
-        "p50": 25.9,
-        "p95": 30.725,
-        "p99": 42.807,
-        "mean": 26.687,
-        "ops_per_sec": 299768
+        "p50": 26.65,
+        "p95": 29.105,
+        "p99": 44.627,
+        "mean": 27.259,
+        "ops_per_sec": 293477
       },
-      "speedup_p50": 1.07
+      "speedup_p50": 1.09
     },
     "batch_large": {
       "frames_per_op": 64,
       "frame": "125reg(255B)",
       "adapter": {
-        "p50": 938.75,
-        "p95": 1085.73,
-        "p99": 1468.423,
-        "mean": 966.73,
-        "ops_per_sec": 66203
+        "p50": 925.6,
+        "p95": 1012.68,
+        "p99": 1219.599,
+        "mean": 937.576,
+        "ops_per_sec": 68261
       },
       "reference": {
-        "p50": 9597.1,
-        "p95": 10254.645,
-        "p99": 11328.891,
-        "mean": 9663.419,
-        "ops_per_sec": 6623
+        "p50": 9566.45,
+        "p95": 10455.605,
+        "p99": 12222.866,
+        "mean": 9691.69,
+        "ops_per_sec": 6604
       },
-      "speedup_p50": 10.22
+      "speedup_p50": 10.34
     },
     "saturate": {
       "threads": 12,
       "ops_per_thread": 2000,
       "frame": "125reg(255B)",
-      "adapter_frames_per_sec": 48543,
-      "reference_frames_per_sec": 6481,
-      "speedup_throughput": 7.49
+      "adapter_frames_per_sec": 54745,
+      "reference_frames_per_sec": 6496,
+      "speedup_throughput": 8.43
     }
   }
 }
