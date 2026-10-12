@@ -172,6 +172,20 @@ covering the core contracts, so an agent's change can be judged by running `pyte
 rather than by asking a human to read it. The Tests badge above reflects the current
 suite status.
 
+**There is a working consumer, not only a claim**
+
+[`example/agent`](example/agent) is a minimal coding-agent loop built on the *released*
+package (currently `>=0.12,<0.13`): a prompt goes in, tool calls are dispatched through the
+event pipeline, and session state is persisted by the framework's state machine — so a
+session resumes after a process restart, and a replayed tool call does not fire its side
+effect twice. Write and exec calls pass a fail-closed permission gate on every call, and
+code evaluation is never exposed. It is the consumer that turned this section's statements into measurements:
+the gaps it found are issues
+[#72](https://github.com/YearsAlso/zoo-framework/issues/72) /
+[#73](https://github.com/YearsAlso/zoo-framework/issues/73) /
+[#74](https://github.com/YearsAlso/zoo-framework/issues/74), and #72 / #73 are fixed in
+0.12.0.
+
 ### Installation
 
 ```bash
@@ -511,7 +525,8 @@ to what it does. Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-fra
 
 The extension surface is deliberately narrow — subclass, implement `_execute()`, register the
 class — failures are loud instead of silent, and the suite lets a change be judged by running
-`pytest`. Generated code therefore stays short and can self-correct.
+`pytest`. Generated code therefore stays short and can self-correct. A working consumer —
+a minimal coding agent with restart-resume — lives in [`example/agent`](example/agent).
 Full answer: [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md).
 
 #### Is anyone using it in production?
