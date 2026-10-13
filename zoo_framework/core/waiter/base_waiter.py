@@ -232,9 +232,25 @@ class BaseWaiter:
         The scheduling list is owned by the scheduler; being listed in a
         registry alone is not enough for the Worker to be dispatched.
 
+        Runtime admission goes through the **same capacity admission** as the
+        startup muster (``call_workers`` -> ``model.prepare_workers``): the
+        prospective scheduling list is handed to the model first, so the
+        backpressure policy governs runtime registration too (issue #233). A
+        rejected Worker - the ``reject`` policy with an over-capacity count -
+        MUST raise and MUST NOT be silently added to the scheduling list.
+
         Args:
             worker: the Worker to add to scheduling
+
+        Raises:
+            ValueError: the backpressure policy rejects the prospective worker set
         """
+        # 与 call_workers 同一套容量准入：先把**候选**调度列表交给模型裁决；被拒
+        # （reject 策略下超容量）时抛错，调度列表保持不变，MUST NOT 静默纳入。
+        candidate = list(self.core.workers)
+        if worker not in candidate:
+            candidate.append(worker)
+        self.model.prepare_workers(candidate)
         self.core.add_worker(worker)
 
     def __del__(self):

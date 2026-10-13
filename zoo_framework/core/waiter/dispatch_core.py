@@ -107,6 +107,12 @@ class WorkerDispatchCore:
 
         The scheduling list is owned by this core; being listed in a registry
         alone is not enough for the Worker to be dispatched.
+
+        This method only appends to the scheduling list and implements **no**
+        capacity admission. The backpressure policy MUST be applied by the
+        scheduler (``BaseWaiter.add_worker`` passes the prospective list through
+        ``model.prepare_workers``) **before** this is called, otherwise a
+        runtime-registered Worker would bypass the policy (issue #233).
         """
         if worker is None:
             return

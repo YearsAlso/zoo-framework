@@ -228,6 +228,77 @@ class TestPoolBackpressurePolicy:
             ThreadPoolModel(pool_size=2, backpressure_policy="nope")
 
 
+class TestRuntimeAdmission:
+    """scheduler-model: 背压容量准入 MUST 同时约束启动期与运行期注册（issue #233）.
+
+    缺陷：运行期 ``add_worker`` 不走 ``prepare_workers``，池尺寸 2 + reject 策略下
+    运行期注册 5 个不报错且全部执行。修复后运行期新增与启动期 muster 走同一套准入。
+    """
+
+    def test_reject_policy_raises_on_runtime_over_capacity(self):
+        """Scenario: reject 策略拒绝运行期超容量注册."""
+        waiter = BaseWaiter(
+            model_name=WaiterConstant.WORKER_MODE_THREAD_POOL,
+            pool_size=2,
+            backpressure_policy=BACKPRESSURE_REJECT,
+        )
+        waiter.call_workers([_ProbeWorker("A"), _ProbeWorker("B")])  # 恰好占满 2 容量
+        try:
+            extras = [_ProbeWorker(f"X{i}") for i in range(5)]
+            with pytest.raises(ValueError):
+                for worker in extras:
+                    waiter.add_worker(worker)
+            # 不得静默纳入：被拒的 Worker MUST NOT 出现在调度列表
+            assert all(worker not in waiter.workers for worker in extras)
+        finally:
+            waiter.shutdown()
+
+    def test_queue_policy_admits_runtime_over_capacity(self):
+        """Scenario: queue 策略照常接纳运行期新增（超出的排队）."""
+        waiter = BaseWaiter(
+            model_name=WaiterConstant.WORKER_MODE_THREAD_POOL,
+            pool_size=2,
+            backpressure_policy=BACKPRESSURE_QUEUE,
+        )
+        waiter.call_workers([_ProbeWorker("A"), _ProbeWorker("B")])
+        try:
+            extras = [_ProbeWorker(f"Q{i}") for i in range(3)]
+            for worker in extras:
+                waiter.add_worker(worker)
+            assert all(worker in waiter.workers for worker in extras)
+            assert waiter.model.effective_pool_size == 2, "queue 策略不应放宽生效尺寸"
+        finally:
+            waiter.shutdown()
+
+    def test_expand_policy_grows_the_running_pool(self):
+        """Scenario: expand 策略在运行期真实放宽容器（而非只改一个无效果的数字）."""
+        waiter = BaseWaiter(
+            model_name=WaiterConstant.WORKER_MODE_THREAD_POOL,
+            pool_size=1,
+            backpressure_policy=BACKPRESSURE_EXPAND,
+        )
+        waiter.call_workers([_ProbeWorker("A")])
+        try:
+            assert len(waiter.model._threads) == 1
+            waiter.add_worker(_ProbeWorker("B"))
+            # 2 个 Worker -> 生效尺寸 3；运行中的池 MUST 实际增补到该容量
+            assert waiter.model.effective_pool_size == 3
+            assert len(waiter.model._threads) == 3, "expand 放宽的容量未对运行中的池生效"
+        finally:
+            waiter.shutdown()
+
+    def test_thread_mode_admits_runtime_without_capacity(self):
+        """线程模型无容量概念：运行期注册一律接纳."""
+        waiter = BaseWaiter(model_name=WaiterConstant.WORKER_MODE_THREAD)
+        waiter.call_workers([_ProbeWorker("A")])
+        try:
+            for index in range(5):
+                waiter.add_worker(_ProbeWorker(f"T{index}"))
+            assert len(waiter.workers) == 6
+        finally:
+            waiter.shutdown()
+
+
 class TestPoolTeardown:
     """scheduler-model: 停机语义 — 回收容器且 MUST 可重复调用."""
 
