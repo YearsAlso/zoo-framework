@@ -479,16 +479,25 @@ class TestResultReporting:
         assert collector[0].worker_name == first.name
         waiter.shutdown()
 
-    def test_failed_worker_does_not_report_a_result(self, collector):
-        """执行失败的 Worker 不应上报一个空结果."""
+    def test_failed_worker_reports_a_distinguishable_result(self, collector):
+        """issue #228：失败也上报一条可区分的结果，MUST NOT 上报成功空结果.
+
+        修复前该用例断言 ``collector == []``（失败的执行什么都不投递），
+        故障症状正是「靠结果主题判断完成的消费者分不清失败与还在跑」；
+        本用例按修订后的规格改判为「恰好一条、带错误信息、非成功形态」。
+        """
         waiter = _make_waiter(WaiterConstant.WORKER_MODE_THREAD_POOL)
         worker = _FailingWorker("Failing", is_loop=False)
         waiter.call_workers([worker])
         waiter.execute_service()
 
         assert _wait_until(lambda: worker.runs == 1)
+        assert _wait_until(lambda: len(collector) == 1), "失败的执行未上报结果"
         time.sleep(0.15)
-        assert collector == [], "失败的执行上报了结果"
+        assert len(collector) == 1, f"失败结果被投递了 {len(collector)} 次"
+        failure = collector[0]
+        assert failure.error is not None, "失败结果 MUST 携带错误信息"
+        assert failure.success is False, "失败结果 MUST NOT 伪装成成功结果"
         waiter.shutdown()
 
 
