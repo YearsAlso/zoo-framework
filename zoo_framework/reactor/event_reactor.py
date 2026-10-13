@@ -21,7 +21,7 @@ class EventReactor:
         # its future and does not report it as unfinished within that bound.
         # A long wait (e.g. interactive approval) MUST NOT live inside a
         # reactor - move it out of the reactor (see zoo-code-agent#31).
-        self.event_timout = 0
+        self.event_timout: float = 0
         # Set the kernel priority (store the EventPriorities member itself,
         # not its .value)
         self.sys_priority: EventPriorities = EventPriorities.NORMAL
@@ -84,7 +84,7 @@ class EventReactor:
     def __index__(self):
         return self.get_priority()
 
-    def set_event_timeout(self, timeout):
+    def set_event_timeout(self, timeout: float | None):
         """Set the join-timeout exemption line (issue #232).
 
         A non-positive value means undeclared: the reactor follows the global
