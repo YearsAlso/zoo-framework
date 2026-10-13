@@ -35,10 +35,8 @@ class StateEffectScheduler:
         if state_effect.state not in self.state_effect_map:
             self.state_effect_map[state_effect.state] = set()
         self.state_effect_map[state_effect.state].add(state_effect)
-        # StateNodeIndex 目前**没有** add_state_effect —— 本行在运行期会 AttributeError。
-        # 这是既有缺陷（该路径当前无调用者，StateEffectScheduler 全仓无构造点），不是本次
-        # 注解引入的；这里不掩盖事实，只对"方法确实不存在"逐行 ignore，缺陷另立 issue 跟踪。
-        self.state_effect_index.add_state_effect(state_effect)  # type: ignore[attr-defined]
+        # 索引侧同步登记（issue #208 补齐 StateNodeIndex.add_state_effect）
+        self.state_effect_index.add_state_effect(state_effect)
 
     def remove_state_effect(self, state_effect: StateEffect) -> None:
         """Remove a state effect.
@@ -48,8 +46,8 @@ class StateEffectScheduler:
         """
         if state_effect.state in self.state_effect_map:
             self.state_effect_map[state_effect.state].remove(state_effect)
-            # 同 add_state_effect：StateNodeIndex 上并不存在该方法（既有缺陷，另立 issue）。
-            self.state_effect_index.remove_state_effect(state_effect)  # type: ignore[attr-defined]
+            # 索引侧同步移除（issue #208 补齐 StateNodeIndex.remove_state_effect）
+            self.state_effect_index.remove_state_effect(state_effect)
 
     def get_state_effect(self, state: object) -> set[StateEffect]:
         """Get the state effects for a state.

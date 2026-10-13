@@ -87,6 +87,19 @@ class WorkerRegistry:
         self._worker_instances: dict[str, BaseWorker] = {}
         self._worker_factories: dict[str, Callable[[], BaseWorker]] = {}
         self._worker_metadata: dict[str, dict] = {}
+        # 由工厂/类**延迟实例化**出来的缓存实例名。与 ``register_instance`` 显式登记的
+        # 实例区分开：同名重注册类/工厂时前者必须作废（issue #227），后者是调用方的
+        # 既有对象、查找优先级更高，MUST NOT 被连带丢弃。
+        self._lazy_instances: set[str] = set()
+
+    def _forget_lazy_instance(self, name: str) -> None:
+        """作废按名缓存的「延迟实例化」实例（调用方须持锁）。
+
+        只清理工厂/类实例化出来的缓存项，不影响 ``register_instance`` 显式登记的实例。
+        """
+        if name in self._lazy_instances:
+            self._lazy_instances.discard(name)
+            self._worker_instances.pop(name, None)
 
     def register_class(
         self, name: str, worker_class: type[BaseWorker], metadata: dict | None = None
@@ -94,6 +107,12 @@ class WorkerRegistry:
         """Register a Worker class (lazy instantiation).
 
         P2 optimization: support lazy instantiation to save resources.
+
+        Same-name re-registration is a **replacement**, not a silent no-op: when a
+        new class is registered under an existing name, the cached instance the old
+        class produced (if any) is dropped so the new class is actually instantiated
+        (issue #227). Re-registering the *same* class is idempotent and keeps the
+        cached instance, so repeating the default-Worker registration is cheap.
 
         Args:
             name: the Worker name
@@ -112,6 +131,10 @@ class WorkerRegistry:
             )
 
         with self._lock:
+            # 同名重注册且类定义变化：作废旧类留下的延迟实例缓存，否则 get_worker 会
+            # 继续命中旧实例、新类永不实例化，且全过程静默（issue #227）。
+            if self._worker_classes.get(name) is not worker_class:
+                self._forget_lazy_instance(name)
             self._worker_classes[name] = worker_class
             self._worker_metadata[name] = metadata or {}
         LogUtils.info(f"📦 Worker class '{name}' registered")
@@ -120,6 +143,10 @@ class WorkerRegistry:
         self, name: str, worker_instance: BaseWorker, metadata: dict | None = None
     ) -> None:
         """Register a Worker instance.
+
+        Same-name re-registration replaces the cached instance; the explicitly
+        registered object becomes the authoritative one (and no longer counts as a
+        lazily materialized cache entry).
 
         Args:
             name: the Worker name
@@ -131,6 +158,8 @@ class WorkerRegistry:
 
         with self._lock:
             self._worker_instances[name] = worker_instance
+            # 显式登记的实例是权威对象，不再属于「延迟实例化」缓存
+            self._lazy_instances.discard(name)
             self._worker_metadata[name] = metadata or {}
         LogUtils.info(f"✅ Worker instance '{name}' registered")
 
@@ -141,12 +170,18 @@ class WorkerRegistry:
 
         P2 optimization: support creating Workers via the factory pattern.
 
+        Same-name re-registration with a different factory drops the instance the
+        previous factory produced, so the new factory actually takes effect instead
+        of being shadowed by the cached instance (the factory form of issue #227).
+
         Args:
             name: the Worker name
             factory: the factory function
             metadata: metadata
         """
         with self._lock:
+            if self._worker_factories.get(name) is not factory:
+                self._forget_lazy_instance(name)
             self._worker_factories[name] = factory
             self._worker_metadata[name] = metadata or {}
         LogUtils.info(f"🏭 Worker factory '{name}' registered")
@@ -171,6 +206,7 @@ class WorkerRegistry:
             if name in self._worker_factories:
                 instance = self._worker_factories[name]()
                 self._worker_instances[name] = instance
+                self._lazy_instances.add(name)
                 return instance
 
             # 3. 检查是否有类（延迟实例化）
@@ -179,6 +215,7 @@ class WorkerRegistry:
                 # 是一条**已在注册期强制**的前提，不是未经验证的假设。
                 instance = self._worker_classes[name]()  # type: ignore[call-arg]
                 self._worker_instances[name] = instance
+                self._lazy_instances.add(name)
                 return instance
 
             return None
@@ -221,6 +258,7 @@ class WorkerRegistry:
             self._worker_instances.pop(name, None)
             self._worker_factories.pop(name, None)
             self._worker_metadata.pop(name, None)
+            self._lazy_instances.discard(name)
         LogUtils.info(f"🗑️ Worker '{name}' unregistered")
 
     def get_metadata(self, name: str) -> dict | None:

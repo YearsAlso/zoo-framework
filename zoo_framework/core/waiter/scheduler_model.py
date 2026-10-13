@@ -274,8 +274,12 @@ class ThreadPoolModel(SchedulerModel):
     def prepare_workers(self, workers: list[BaseWorker | None]) -> int:
         """Handle "worker count exceeds the pool size" according to the backpressure policy.
 
-        Must be called **before** the pool is created - ``expand`` semantics
-        require the widened size to be in effect when the pool is built.
+        Called **before** the pool is created at startup - ``expand`` semantics
+        require the widened size to be in effect when the pool is built. It is
+        also the admission entry for **runtime** registration (``BaseWaiter.add_worker``,
+        issue #233): when the pool is already running, the widened size MUST be
+        applied to the live container as well, or ``expand`` would only bump a
+        number that has no effect (a silent no-op).
 
         Args:
             workers: the Worker list about to participate in scheduling
@@ -298,32 +302,53 @@ class ThreadPoolModel(SchedulerModel):
             )
         if self.backpressure_policy == BACKPRESSURE_EXPAND:
             self.effective_pool_size = count + 1
+            # 运行期注册时容器可能已在运行：把放宽后的容量真正应用到活的池，
+            # 否则数字变了却没有效果（静默 no-op）。启动期（_tasks 为 None）由
+            # 随后的 start 建池，无需在此建。
+            if self._tasks is not None:
+                self._ensure_threads(self.effective_pool_size)
         # queue: the size stays; the excess queues inside the pool
         return self.effective_pool_size
 
     def start(self, core) -> None:
-        """Build the queue and fixed worker threads at the **current** effective size (sized by prepare_workers before start)."""
-        if self._threads:
+        """Build the queue and worker threads at the **current** effective size (sized by prepare_workers before start).
+
+        Idempotent: when the container already exists, the thread count is
+        reconciled up to the effective size (the runtime ``expand`` path widens
+        it via ``prepare_workers``) - threads are never removed here, shrinking
+        is ``teardown``'s job.
+        """
+        if self._tasks is None:
+            if self.effective_pool_size <= 0:
+                # Aligned with the old ThreadPoolExecutor(max_workers<=0) error
+                # behavior: an illegal size is refused on the spot; MUST NOT silently
+                # build a zero-thread pool so that submit never finds a "started"
+                # container
+                raise ValueError(
+                    f"pool size must be positive, got {self.effective_pool_size} (config key worker:pool:size)"
+                )
+            self._tasks = queue.Queue()
+        self._ensure_threads(self.effective_pool_size)
+
+    def _ensure_threads(self, target: int) -> None:
+        """Grow the worker-thread count up to ``target`` (``_tasks`` must exist).
+
+        New threads take indices from the current length, so names stay
+        ``zoo-worker-<n>``. Threads are only ever **added** here: shrinking is
+        ``teardown``'s responsibility (it discards queued tasks and reclaims
+        every thread).
+        """
+        tasks = self._tasks
+        if tasks is None:
             return
-        if self.effective_pool_size <= 0:
-            # Aligned with the old ThreadPoolExecutor(max_workers<=0) error
-            # behavior: an illegal size is refused on the spot; MUST NOT silently
-            # build a zero-thread pool so that submit never finds a "started"
-            # container
-            raise ValueError(
-                f"pool size must be positive, got {self.effective_pool_size} (config key worker:pool:size)"
-            )
-        self._tasks = queue.Queue()
-        self._threads = [
-            threading.Thread(
+        while len(self._threads) < target:
+            thread = threading.Thread(
                 target=self._worker_loop,
-                args=(self._tasks,),
-                name=f"zoo-worker-{index}",
+                args=(tasks,),
+                name=f"zoo-worker-{len(self._threads)}",
                 daemon=True,
             )
-            for index in range(self.effective_pool_size)
-        ]
-        for thread in self._threads:
+            self._threads.append(thread)
             thread.start()
 
     @staticmethod
