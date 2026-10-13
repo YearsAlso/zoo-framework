@@ -114,6 +114,7 @@ nav:
       - 品牌与视觉规范: contributing/brand.md
       - 路线图: contributing/roadmap.md
       - 维护者待办台账: contributing/maintainer-backlog.md
+      - 原生扩展发布验证: contributing/native-release-runbook.md
 
 plugins:
   - search:
