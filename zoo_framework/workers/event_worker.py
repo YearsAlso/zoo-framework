@@ -43,6 +43,17 @@ class EventWorker(BaseWorker):
     is reported as unfinished - a declared-slow reactor no longer triggers
     the warning every round.
 
+    Ordering (issue #230): a channel's FIFO is a **delivery** guarantee, not
+    an execution-order guarantee. This consumer pops events in queue order and
+    submits each one to the shared reactor executor, so calls to the same
+    reactor overlap and finish in whatever order they actually complete -
+    the completion order MUST NOT be assumed to follow the enqueue order, and
+    consumers that need ordered handling MUST serialize on their own side (an
+    explicit lock or queue). Enabling `event:dispatchBatchingEnabled` batches
+    the same (channel, reactor) events of one round into a single executor
+    task, which does execute them sequentially in dequeue order; it is a
+    process-wide switch, not a per-topic declaration.
+
     Note: this class MUST NOT be decorated with any class-replacing decorator
     (the historical `@cage` did exactly that and was deleted).
     `WorkerRegistry.register_class` validates the contract with `issubclass`;
@@ -175,6 +186,8 @@ class EventWorker(BaseWorker):
                     continue
                 for reactor in reactors:
                     # Run the event reactor: EventReactor's public entry is execute(topic, content).
+                    # 提交即并发执行（#230）：同一反应器的多次调用会重叠，完成顺序由各次
+                    # 实际结束时刻决定——FIFO 只保证出队/投递顺序，不保证完成顺序。
                     f = self._executor.submit(reactor.execute, event_node.topic, event_node.content)
                     dispatched.append(
                         (
