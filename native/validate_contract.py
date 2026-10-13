@@ -28,7 +28,6 @@ from __future__ import annotations
 import argparse
 import importlib
 import importlib.util
-import os
 import re
 import shutil
 import subprocess
@@ -89,20 +88,29 @@ def _build_and_import(crate_dir: Path):
         print(built.stdout, file=sys.stderr)
         print(built.stderr, file=sys.stderr)
         raise SystemExit(2)
-    # wheel 就是 zip：扩展模块的**成员路径**形如 `<包>/<模块名>.pyd|.so`，故按 basename
-    # 比对（按全路径比对取不到——本机实测踩过一次）。
-    import_suffix = ".pyd" if os.name == "nt" else ".so"
+    # wheel 就是 zip，扩展模块的成员路径形如 `<包>/<模块名><后缀>`。后缀**随平台与 ABI
+    # 变化**：Windows 是 `<模块>.pyd`，Linux/macOS 的 abi3 产物是 `<模块>.abi3.so`
+    # （本机 Windows 与 CI ubuntu 实测不同名——精确比对 `<模块>.so` 会在 Linux 上取不到）。
+    # 故按"前缀 + 扩展后缀"匹配，并按**原 basename**落盘：Python 的 EXTENSION_SUFFIXES
+    # 认识 `.so` / `.abi3.so` / `.pyd`，原样即可导入，不必改名。
+    ext_suffixes = (".so", ".pyd", ".dylib")
     wheels = sorted(dist.glob("*.whl"))
     if not wheels:
         raise SystemExit(f"[环境] {dist} 里没有 wheel，检查 crate-type 是否 cdylib")
-    target_name = module_name + import_suffix
     with zipfile.ZipFile(wheels[0]) as wheel:
-        members = [n for n in wheel.namelist() if Path(n).name == target_name]
+        members = [
+            name
+            for name in wheel.namelist()
+            if Path(name).name.startswith(module_name + ".")
+            and Path(name).name.endswith(ext_suffixes)
+        ]
         if not members:
             raise SystemExit(
-                f"[环境] {wheels[0].name} 里没有 {target_name}，成员为 {wheel.namelist()}"
+                f"[环境] {wheels[0].name} 里没有 {module_name} 的扩展模块，"
+                f"成员为 {wheel.namelist()}"
             )
-        with wheel.open(members[0]) as src, open(staging / target_name, "wb") as dst:
+        basename = Path(members[0]).name
+        with wheel.open(members[0]) as src, open(staging / basename, "wb") as dst:
             shutil.copyfileobj(src, dst)
     sys.path.insert(0, str(staging))
     importlib.invalidate_caches()

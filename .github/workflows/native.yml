@@ -80,10 +80,10 @@ jobs:
         run: cargo test
 
       - name: 契约校验器对模板的机械校验（issue #139）
-        # 只在 ubuntu 上跑：校验器已改用 maturin 构建（与发布路径一致），但 macOS 作业上这条
-        # 路径的复跑结果尚未拿到，而它不该继续挡着 #139 的主体落地——修复与证据留在 #220。
-        # 负例也不进 CI：演示要另建 crate，在 CI 上等于重编一遍 pyo3。
-        if: matrix.os == 'ubuntu-latest'
+        # 三平台都跑：校验器用 maturin 构建（与发布路径一致），且已按"前缀 + 扩展后缀"
+        # 匹配 wheel 里的模块成员——Linux 的 abi3 产物叫 `<模块>.abi3.so`，与 Windows 的
+        # `<模块>.pyd` 不同名，精确比对曾在 ubuntu 上取不到（issue #220）。
+        # 负例仍不进 CI：演示要另建 crate，在 CI 上等于重编一遍 pyo3。
         run: python native/validate_contract.py native/template
 
   wheel:
