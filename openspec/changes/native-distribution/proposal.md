@@ -36,6 +36,8 @@ abi3 的意义是「一份 wheel 覆盖 3.11+」，而下界把 3.11/3.12 用户
 - 新增 `.github/workflows/native.yml`、`.github/workflows/native-release.yml`
 - `pyproject.toml`：新增 `native` 可选附加
 
-**未完成（如实说明）**：`native-release.yml` 的发布链路**无法在本变更内验证**——它的真实
-证据只在第一个 tag（或一次 TestPyPI 演练）之后才存在。Linux/macOS 的包络数字同样要等
-CI 原生构建跑过一次才能回填。
+**发布链路（2026-10-13 首次真实运行，如实说明）**：首个 tag v0.13.1-beta（run
+38357074578）在账号侧补建 PyPI pending publisher 后跑通到索引，但**只发出三份 wheel 中的
+一份**——三个构建作业共用一个产物名，按名字取物退化为只拿到其中一个，已在同一变更内修复
+（tasks 2.7）。**仍未验证**：修复后三平台是否齐全。Linux/macOS 的包络数字同样要等 CI
+原生构建跑过一次才能回填。
