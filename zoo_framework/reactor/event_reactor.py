@@ -15,7 +15,13 @@ class EventReactor:
         # Set the reactor name
         self.reactor_name = reactor_name
 
-        self.event_timout = 1
+        # The join-timeout exemption line (issue #232): 0 means undeclared -
+        # follow the global `event:timeout`. A positive value declares the
+        # reactor legitimately slow: EventWorker waits at least this long for
+        # its future and does not report it as unfinished within that bound.
+        # A long wait (e.g. interactive approval) MUST NOT live inside a
+        # reactor - move it out of the reactor (see zoo-code-agent#31).
+        self.event_timout = 0
         # Set the kernel priority (store the EventPriorities member itself,
         # not its .value)
         self.sys_priority: EventPriorities = EventPriorities.NORMAL
@@ -79,7 +85,18 @@ class EventReactor:
         return self.get_priority()
 
     def set_event_timeout(self, timeout):
-        self.event_timout = timeout
+        """Set the join-timeout exemption line (issue #232).
+
+        A non-positive value means undeclared: the reactor follows the global
+        `event:timeout` (EVENT_JOIN_TIMEOUT). A positive value declares the
+        reactor legitimately slow and exempts it from the "results were not
+        collected" warning within that bound.
+
+        Args:
+            timeout: the effective timeout in seconds; None or <= 0
+                means follow the global default
+        """
+        self.event_timout = timeout if timeout is not None and timeout > 0 else 0
 
     def _on_error(self, topic, content, exception: Exception):
         if self.error_callback is not None:

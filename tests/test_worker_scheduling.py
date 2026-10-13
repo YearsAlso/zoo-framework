@@ -881,6 +881,11 @@ class TestEventPipelineReliability:
         assert any("still running after the join timeout" in w for w in warnings), (
             "超时未完成的响应器未被可观测上报"
         )
+        # issue #232: 超时上报 MUST 携带定位（reactor 名 + topic），否则
+        # "1 reactors" 无法解读成可行动信息
+        assert any("slow-reactor" in w and "slow.reactor.topic" in w for w in warnings), (
+            "超时上报缺少 reactor/topic 定位信息"
+        )
 
     def test_reactor_exception_is_logged(self, monkeypatch):
         """Scenario: 响应器异常被可观测上报（greenlet 时代它们静默消失）."""
@@ -912,7 +917,13 @@ class TestEventPipelineReliability:
         # 异常不传播出消费循环；本轮其余事件不受影响
         EventWorker()._execute()
 
-        assert any("a reactor raised" in w for w in warnings), "响应器异常被吞掉，未被可观测上报"
+        assert any("a reactor raised" in w or "raised and its result" in w for w in warnings), (
+            "响应器异常被吞掉，未被可观测上报"
+        )
+        # issue #232: 异常上报 MUST 携带定位（reactor 名 + topic）
+        assert any("reactor=raiser" in w and "raising.reactor.topic" in w for w in warnings), (
+            "异常上报缺少 reactor/topic 定位信息"
+        )
 
 
 class TestReactorRegistrationIdempotency:
