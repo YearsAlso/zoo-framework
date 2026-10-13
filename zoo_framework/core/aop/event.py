@@ -9,7 +9,10 @@ from zoo_framework.reactor.event_retry_strategy import EventRetryStrategy
 # 参数说明：
 #   topic: 事件的主题，用于标识事件类型
 #   channel: 事件通道名称，默认为"default"
-#   timeout: 事件超时**相对秒数**，默认为 None（不设超时）
+#   timeout: join 等待豁免线（相对秒数），默认为 None（未声明，跟随全局 event:timeout）。
+#     正值声明该反应器「合法地慢」：EventWorker 在该时限内不把它报成
+#     「results were not collected」（issue #232）；反应器 MUST 在生效超时内返回，
+#     长等待（如交互式审批）MUST NOT 放在反应器内。
 #   retry_time: 重试次数，默认为1次
 #   retry_strategy: 重试策略，默认为RetryOnce（仅重试一次）
 #   done_callback: 事件完成后的回调函数，默认为None

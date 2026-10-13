@@ -33,6 +33,16 @@ class EventWorker(BaseWorker):
     dead-letter. Silent dropping was historically this class's main source of
     event loss.
 
+    Join-timeout semantics (issue #232): the wait for a round's dispatch
+    results is bounded by the **maximum effective timeout** across that
+    round's reactors. A reactor's effective timeout is two-level: its own
+    declared `event_timout` (a positive value = legitimately slow) takes
+    precedence over the global `event:timeout`; undeclared reactors follow
+    the global default, so the merged behavior equals the pre-change one.
+    Only a future still unfinished after its own effective timeout elapses
+    is reported as unfinished - a declared-slow reactor no longer triggers
+    the warning every round.
+
     Note: this class MUST NOT be decorated with any class-replacing decorator
     (the historical `@cage` did exactly that and was deleted).
     `WorkerRegistry.register_class` validates the contract with `issubclass`;
@@ -43,6 +53,30 @@ class EventWorker(BaseWorker):
     `@process_scoped`: that would move the "one instance per Worker"
     ownership away from `WorkerRegistry`.
     """
+
+    @staticmethod
+    def _effective_timeout(reactor) -> float:
+        """Resolve a reactor's effective join timeout (two levels).
+
+        The reactor's self-declared timeout wins when positive; otherwise the
+        global `event:timeout` applies. Same shape as the worker side's
+        `resolve_run_timeout` (self-report -> global default), without a
+        config-override layer - the declaration entry point already exists
+        (`@event(timeout=...)`), a second one would only add a second source
+        of truth.
+
+        Args:
+            reactor: the reactor whose effective timeout is being resolved
+
+        Returns:
+            The effective timeout in seconds (always positive)
+        """
+        from zoo_framework.params import EventParams
+
+        declared = getattr(reactor, "event_timout", None)
+        if declared is not None and declared > 0:
+            return float(declared)
+        return float(EventParams.EVENT_JOIN_TIMEOUT)
 
     def __init__(self):
         # EventParams is imported lazily and must precede the props assembly:
@@ -100,7 +134,9 @@ class EventWorker(BaseWorker):
             return
 
         channel_names = self.eventChannelManager.get_all_channel_name()
-        dispatched: list[Future] = []
+        # 定位条目 (future, reactor_name, topic, effective_timeout)：上报时还原
+        # 是谁在慢/谁抛了异常；生效超时在提交现场解析
+        dispatched: list[tuple[Future, str, str, float]] = []
         # TODO: get all event channels except failed ones
         for channel_name in channel_names:
             # get_channel creates-and-returns in place on a miss, so it will **never** return None;
@@ -140,12 +176,22 @@ class EventWorker(BaseWorker):
                 for reactor in reactors:
                     # Run the event reactor: EventReactor's public entry is execute(topic, content).
                     f = self._executor.submit(reactor.execute, event_node.topic, event_node.content)
-                    dispatched.append(f)
+                    dispatched.append(
+                        (
+                            f,
+                            reactor.reactor_name,
+                            event_node.topic,
+                            self._effective_timeout(reactor),
+                        )
+                    )
 
         if len(dispatched) > 0:
-            # A bounded wait for this round's dispatch results; timeouts and exceptions both go to observable reporting
-            wait(dispatched, timeout=EventParams.EVENT_JOIN_TIMEOUT)
-            self._report_unfinished(dispatched)
+            # A bounded wait for this round's dispatch results; the bound is the
+            # maximum effective timeout across the round's reactors so every
+            # reactor's declared bound is honoured (issue #232).
+            wait_timeout = max(t for *_, t in dispatched)
+            wait([f for f, *_ in dispatched], timeout=wait_timeout)
+            self._report_unfinished(dispatched, wait_timeout)
 
     def _push_wait(self, timeout: float) -> None:
         """推模型挂起：在所有通道的 Condition 上等待有事件（design D3）.
@@ -177,7 +223,8 @@ class EventWorker(BaseWorker):
         from zoo_framework.params import EventParams
 
         channel_names = self.eventChannelManager.get_all_channel_name()
-        dispatched: list[Future] = []
+        # 定位条目 (future, reactor_name, topics)：批量路径以批内事件集合为定位
+        dispatched: list[tuple[Future, str, set[str], float]] = []
         batch_limit = EventParams.BATCH_MAX_SIZE
         for channel_name in channel_names:
             channel: EventChannel = self.eventChannelManager.get_channel(channel_name)
@@ -214,11 +261,18 @@ class EventWorker(BaseWorker):
             # 每批一次 submit：一个 callable 消费整批
             for reactor, items in batches.values():
                 f = self._executor.submit(self._run_batch, reactor, items)
-                dispatched.append(f)
+                topics = {topic for topic, _, _ in items}
+                # 批生效超时在提交现场解析：同批必同 reactor（聚合键 = id(reactor)），
+                # 解析值即该 reactor 的准确生效值
+                dispatched.append(
+                    (f, reactor.reactor_name, topics, self._effective_timeout(reactor))
+                )
 
         if len(dispatched) > 0:
-            wait(dispatched, timeout=EventParams.EVENT_JOIN_TIMEOUT)
-            self._report_unfinished_batched(dispatched)
+            # 与逐事件路径同一语义：等待时长取本轮生效超时的最大值（issue #232）
+            wait_timeout = max(t for *_, t in dispatched)
+            wait([f for f, _, _, _ in dispatched], timeout=wait_timeout)
+            self._report_unfinished_batched(dispatched, wait_timeout)
 
     @staticmethod
     def _run_batch(reactor, items) -> None:
@@ -238,21 +292,31 @@ class EventWorker(BaseWorker):
             raise BatchReactorError(items, failures)
 
     @staticmethod
-    def _report_unfinished_batched(dispatched: list[Future]) -> None:
-        """批级可观测（optimize-event-dispatch-batching D3）.
+    def _report_unfinished_batched(
+        dispatched: list[tuple[Future, str, set[str], float]], wait_timeout: float
+    ) -> None:
+        """批级可观测（optimize-event-dispatch-batching D3 + fix-reactor-timeout 定位）.
 
-        未完成批数量上报（channel/reactor/批内事件数尽力给出——future 未完成时
+        未完成批上报（channel/reactor/批内主题集合尽力给出——future 未完成时
         其 callable 已不可再读，故以批为单位计数）；已结束批携带的
-        BatchReactorError 展开为带批内索引与事件 topic 的定位上报。
+        BatchReactorError 展开为带 reactor 名、批内索引与事件 topic 的定位上报。
+        未完成判定与逐事件路径同一语义：等满 max(生效超时) 后仍未结束才上报
+        （issue #232——声明了合法慢的响应器不触发告警）。
+
+        Args:
+            dispatched: (future, reactor_name, topics, effective_timeout) 条目
+            wait_timeout: 本轮等待实际使用的上限
         """
-        unfinished = [f for f in dispatched if not f.done()]
+        unfinished = [(name, sorted(topics)) for f, name, topics, _ in dispatched if not f.done()]
         if unfinished:
+            summary = "; ".join(f"reactor={name} topics={topics}" for name, topics in unfinished)
             LogUtils.warning(
-                f"{len(unfinished)} 个响应器批在 join 超时后仍未结束，其结果未被回收",
+                f"{len(unfinished)} 个响应器批在 join 超时（{wait_timeout}s）后仍未结束，"
+                f"其结果未被回收: {summary}",
                 "EventWorker",
             )
 
-        for f in dispatched:
+        for f, reactor_name, _topics, _effective in dispatched:
             if not f.done():
                 continue
             exc = f.exception()
@@ -261,12 +325,16 @@ class EventWorker(BaseWorker):
             if isinstance(exc, BatchReactorError):
                 for index, node, cause in exc.failures:
                     LogUtils.warning(
-                        f"批内事件处理抛出异常 index={index} "
+                        f"批内事件处理抛出异常 reactor={reactor_name} index={index} "
                         f"topic={getattr(node, 'topic', None)}: {cause!r}",
                         "EventWorker",
                     )
             else:
-                LogUtils.warning(f"事件批执行抛出异常且结果未被回收: {exc!r}", "EventWorker")
+                LogUtils.warning(
+                    f"事件批执行抛出异常且结果未被回收 reactor={reactor_name} "
+                    f"topics={sorted(_topics)}: {exc!r}",
+                    "EventWorker",
+                )
 
     @staticmethod
     def _requeue_or_dead_letter(channel, event_node, reason: str = "") -> None:
@@ -289,7 +357,9 @@ class EventWorker(BaseWorker):
         channel.push_dead_letter(event_node, reason=reason)
 
     @staticmethod
-    def _report_unfinished(dispatched: list[Future]) -> None:
+    def _report_unfinished(
+        dispatched: list[tuple[Future, str, str, float]], wait_timeout: float
+    ) -> None:
         """Report reactors still running past the join timeout, and exceptions carried by finished reactors.
 
         The results of ones unfinished at timeout are not collected and MUST
@@ -297,22 +367,34 @@ class EventWorker(BaseWorker):
         carried by finished ones MUST NOT be swallowed (in the greenlet era
         they vanished silently).
 
+        Both reports carry locating info (reactor name + topic) - issue #232:
+        a bare count is indistinguishable between a legitimately slow reactor
+        and a real deadlock. A reactor is reported only after its own
+        effective timeout has elapsed, which the caller guarantees by waiting
+        the max effective timeout of the round.
+
         Args:
-            dispatched: all futures dispatched in this round
+            dispatched: (future, reactor_name, topic, effective_timeout) entries
+                dispatched this round
+            wait_timeout: the bound actually used for this round's wait
         """
-        unfinished = [f for f in dispatched if not f.done()]
+        unfinished = [(name, topic) for f, name, topic, _t in dispatched if not f.done()]
         if unfinished:
+            summary = "; ".join(f"reactor={name} topic={topic}" for name, topic in unfinished)
             LogUtils.warning(
-                f"{len(unfinished)} reactors were still running after the join timeout; their results were not collected",
+                f"{len(unfinished)} reactors were still running after the join timeout "
+                f"({wait_timeout}s); their results were not collected: {summary}",
                 "EventWorker",
             )
 
-        for f in dispatched:
+        for f, reactor_name, topic, _t in dispatched:
             if not f.done():
                 continue
             # After done(), exception() does not block; None when no exception was raised.
             exc = f.exception()
             if exc is not None:
                 LogUtils.warning(
-                    f"a reactor raised and its result was not collected: {exc!r}", "EventWorker"
+                    f"reactor={reactor_name} topic={topic} raised and its result "
+                    f"was not collected: {exc!r}",
+                    "EventWorker",
                 )
