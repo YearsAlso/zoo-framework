@@ -5,6 +5,9 @@
 
 契约：Python 保留编排与生命周期；扩展只承载**任务执行体**，执行期间释放 GIL。
 
+要往扩展里加自己的任务，见 [`docs/native-tasks.md`](../native-tasks.md)——契约四条纪律、
+三族错误分类、演进规则、契约校验器与「该不该下沉」判断表。
+
 ::: zoo_framework.native.adapter.NativeAdapter
 ::: zoo_framework.native.adapter.get_native_adapter
 ::: zoo_framework.native.adapter.reset_native_adapter
@@ -16,9 +19,9 @@
 
 扩展随包携带一个样例任务 `modbus_rtu.parse_response`（Modbus RTU 响应帧解析）。
 它是阶段 0 为判定「原生执行值不值得做」而选定的**首个真实业务任务**，作用有两重：
-给出可复现的收益证据（工作包络：帧 ≥8 寄存器端到端 9.87x–10.22x；1 寄存器小帧
-1.07x，留在 Python 侧不路由原生，见 `native/DECISION.md`），以及充当两侧语义等价的
-对照体（`native/reference/modbus_rtu.py`，逐值比对）。
+给出可复现的收益证据（工作包络：帧 ≥3 寄存器端到端 1.57x–9.63x；125 寄存器大帧
+9.87x–10.22x；2 寄存器及更小帧留在 Python 侧不路由原生，见 `native/DECISION.md`），
+以及充当两侧语义等价的对照体（`native/reference/modbus_rtu.py`，逐值比对）。
 
 它是**样例负载，不是框架功能**：框架侧只按任务名分派，不认识任何具体任务。生产使用
 SHOULD 在扩展侧注册自有任务名与契约；移除样例须同步摘除 `native/src/lib.rs`

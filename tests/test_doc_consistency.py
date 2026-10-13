@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import importlib
 import re
+import shutil
+import subprocess
 import tomllib
 from pathlib import Path
 
@@ -931,3 +933,97 @@ def test_tag_decision_scanner_has_teeth():
         "自环防护白名单解析已漂移——test_release_tag_decision_covers_every_version_place 会静默退化"
     )
     assert _release_echo_compare_files(synthetic) == expected, "回声清单解析已漂移"
+
+
+# ---------------------------------------------------------------- release 正文写进 $GITHUB_OUTPUT
+
+
+def _release_step_run_block(workflow_text: str, step_name: str) -> str:
+    """取出 ``- name: <step_name>`` 步骤的 ``run: |`` 块正文（去掉基础缩进）。
+
+    解析不到即抛 ``AssertionError``：调用方要的是"把工作流里那段 shell 真的跑一遍"，
+    静默返回空串会让断言退化成空跑（与 ``test_tag_decision_scanner_has_teeth`` 同一立场）。
+    """
+    lines = workflow_text.splitlines()
+    starts = [i for i, line in enumerate(lines) if line.strip() == f"- name: {step_name}"]
+    assert starts, f"{_RELEASE_WORKFLOW} 里找不到步骤 `{step_name}`"
+    for i in range(starts[0], len(lines)):
+        if i > starts[0] and lines[i].lstrip().startswith("- "):
+            break
+        match = re.match(r"^([ \t]*)run: \|[ \t]*$", lines[i])
+        if match is None:
+            continue
+        indent = len(match.group(1)) + 2
+        body: list[str] = []
+        for line in lines[i + 1 :]:
+            if line.strip() and not line.startswith(" " * indent):
+                break
+            body.append(line[indent:])
+        return "\n".join(body) + "\n"
+    raise AssertionError(f"{_RELEASE_WORKFLOW} 的 `{step_name}` 步骤没有块状 run")
+
+
+def test_release_notes_are_written_with_a_newline_terminated_payload(tmp_path):
+    """release 正文写进 ``$GITHUB_OUTPUT`` 时 MUST 以换行结尾（定界符独占一行）。
+
+    真实故障：v0.12.0 的发布运行里 ``Publish to PyPI`` 成功、``Generate Changelog`` 失败
+    （``Invalid value. Matching delimiter not found 'EOF'``），其后的 ``Create GitHub
+    Release`` 被跳过——PyPI 上有 0.12.0，GitHub Releases 里没有。根因是回退路径用
+    ``git log --pretty=format:`` 写 ``release_notes.md``：该格式**不带尾换行**，而
+    ``head -20`` 只在真的截断时才顺带补上换行，所以区间里提交少的版本（v0.12.0 只有
+    一个 bump 提交）必现——提交多的区间（v0.11.13-beta 有 21 个以上）反而侥幸躲过，
+    这正是同一份 release.yml 两次结果不同的原因。
+
+    这里把该步骤的 ``run`` 块**真的跑一遍**：``python`` 打桩为失败以迫使走提交列表回退，
+    ``git`` 打桩为 ``--pretty=format:`` 的真实行为（输出不带尾换行），再断言写出的
+    ``$GITHUB_OUTPUT`` 能被 ``key<<EOF ... EOF`` 语法解析。
+
+    牙齿：删掉该步骤里的尾换行补齐即红（注入验证过；还原后逐字节核对）。
+    """
+    bash = shutil.which("bash")
+    if bash is None:
+        pytest.skip("本机没有 bash，无法执行 release.yml 的 run 块")
+
+    workflow = (REPO_ROOT / _RELEASE_WORKFLOW).read_text(encoding="utf-8")
+    snippet = _release_step_run_block(workflow, "Generate Changelog")
+    output_file = tmp_path / "github_output"
+    snippet = snippet.replace("${{ steps.version.outputs.version }}", "0.0.0-test").replace(
+        '"$GITHUB_OUTPUT"', f'"{output_file.as_posix()}"'
+    )
+
+    # 打桩定义在片段之前：git describe 失败 → 走"没有上一个 tag"分支；git log 输出
+    # 不带尾换行（正是 --pretty=format: 的行为）；python 失败 → 走提交列表回退。
+    harness = (
+        "git() {\n"
+        '  case "$1" in\n'
+        "    describe) return 1 ;;\n"
+        '    log) printf "%s" "- fix(zfc): fake commit (abc1234)" ;;\n'
+        "    *) return 0 ;;\n"
+        "  esac\n"
+        "}\n"
+        "python() { return 1; }\n"
+    )
+    # 与 GitHub 的默认 shell 一致：`bash -e <文件>`；写入时钉死 LF，避免 CRLF 破坏解析
+    script = tmp_path / "step.sh"
+    script.write_text(harness + snippet, encoding="utf-8", newline="\n")
+    completed = subprocess.run(
+        [bash, "-e", script.as_posix()], cwd=tmp_path, capture_output=True, check=False
+    )
+    assert completed.returncode == 0, (
+        "release.yml 的 Generate Changelog 步骤执行失败：\n"
+        f"{completed.stdout.decode('utf-8', 'replace')}\n"
+        f"{completed.stderr.decode('utf-8', 'replace')}"
+    )
+
+    written = output_file.read_text(encoding="utf-8")
+    assert "source=commits" in written, "打桩没迫使回退路径，本用例没测到该修的那条路"
+    lines = written.splitlines()
+    assert "- fix(zfc): fake commit (abc1234)" in lines, (
+        "回退路径产出的提交列表没写进 $GITHUB_OUTPUT——正文恰好为空时本断言会漏掉"
+        "「定界符被吞」的故障，故先钉住正文"
+    )
+    assert "EOF" in lines, (
+        "$GITHUB_OUTPUT 的定界符没有独占一行（正文末字节不是换行，`cat` 把它与 `EOF` 粘在"
+        "了一起）——GitHub 报 `Invalid value. Matching delimiter not found 'EOF'`，本步失败、"
+        "`Create GitHub Release` 被跳过，结果是 PyPI 已上传但 GitHub Release 缺失"
+    )

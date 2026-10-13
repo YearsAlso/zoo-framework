@@ -1,0 +1,21 @@
+# 原生任务模板（issue #139）——复制本目录到仓库外，改 crate 名与任务名即可开始。
+#
+# 与 native/Cargo.toml 的纪律逐条相同：
+# - abi3-py311：一份 wheel 覆盖 3.11+（主包下界也是 3.11）
+# - panic = "unwind"：panic MUST NOT 让 Python 进程 abort
+[package]
+name = "example_native_task"
+version = "0.1.0"
+edition = "2021"
+description = "原生任务模板：一个最小任务的完整契约实现（示例，非框架功能）"
+
+[lib]
+name = "example_native_task"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.29", features = ["extension-module", "abi3-py311"] }
+
+[profile.release]
+panic = "unwind"
+opt-level = 3

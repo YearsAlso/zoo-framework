@@ -1,4 +1,4 @@
-from typing import TypeVar, cast
+from typing import Any, TypeVar, cast
 
 # PEP 695 泛型（`def param[T](...)`）需要 Python 3.12+，而本项目的下界是 3.11
 # （`requires-python`，`[tool.ruff] target-version = "py311"` 跟随它），因此 `TypeVar`
@@ -22,18 +22,18 @@ class ParamsPath:
         aliases: fallback configuration paths, in order
     """
 
-    def __init__(self, value, default="", aliases=None):
+    def __init__(self, value: str, default: Any = "", aliases: list[str] | None = None) -> None:
         self.value = value
         self.default = default
         self.aliases = list(aliases or [])
 
-    def get_default(self):
+    def get_default(self) -> Any:
         return self.default
 
-    def get_value(self):
+    def get_value(self) -> str:
         return self.value
 
-    def get_aliases(self) -> list:
+    def get_aliases(self) -> list[str]:
         return list(self.aliases)
 
 

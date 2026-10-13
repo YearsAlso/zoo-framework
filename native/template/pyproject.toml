@@ -1,0 +1,14 @@
+# 模板的发行元数据（issue #139）。
+#
+# 为什么必须有它：maturin 会为 manifest 找同目录的 pyproject.toml，找不到就**向上找**——
+# 没有这个文件时它会用 native/pyproject.toml 的名字（zoo-framework-native），于是给模板
+# 产出的 wheel 顶着别人的发行名（本机实测）。第三方照着写自己的任务时同理。
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "example-native-task"
+version = "0.1.0"
+description = "原生任务模板（issue #139）：一个最小任务的完整契约实现，示例而非框架功能"
+requires-python = ">=3.11"

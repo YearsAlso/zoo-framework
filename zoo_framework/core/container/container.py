@@ -23,7 +23,7 @@ locks, therefore
 
 import contextlib
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from typing import Any
 
 from zoo_framework.utils import LogUtils
@@ -265,7 +265,7 @@ class ScopedContainer:
         return self._resolve_instance(registration, scope)
 
     @contextlib.contextmanager
-    def exclusive(self, target: type | str, scope: Scope):
+    def exclusive(self, target: type | str, scope: Scope) -> Iterator[Any]:
         """Exclusive access: access to this item is serialized inside the ``with`` block.
 
         For items declared ``ThreadSafety.CONTAINER_SERIALIZED`` - they do not

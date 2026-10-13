@@ -10,6 +10,64 @@
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-10-11
+
+`dev` 预发布线合入 `main` 后的正式版；`0.11.x-beta` 线没有单独的条目，其内容并入本节。
+
+### Added
+
+- **`zfc --create` 产出的项目开箱即跑**（变更 `scaffold-demo-worker`）：脚手架默认生成并
+  静态注册一个示例 Worker（`src/workers/sample_worker.py`，每轮打印
+  `[sample_worker] tick #N`），成功时打印创建位置、生成文件数与下一步命令。确认业务后
+  连同 `src/main.py` 里的导入行一起删掉即可。
+- **检索元数据补全**（变更 `repo-metadata` / `packaging-standards` / #119）：新增
+  `docs/REPO_METADATA.md`（GitHub Topics/About 与 PyPI keywords/classifiers/urls 的单一
+  真源）与 `CITATION.cff`（引用元数据，与版本号一同维护）；PyPI 侧补齐 Changelog /
+  Benchmark 链接、调度与并发相关 keywords、`Python :: 3.11`–`3.14` 与
+  `Topic :: System :: Distributed Computing`；许可证改用 PEP 639 写法。
+- **治理与协作材料**（变更 `governance-files` / `agent-discoverability` /
+  `contributor-ramp` / #120 #122 #123）：`GOVERNANCE.md`、`MAINTAINERS.md`、
+  `ADOPTERS.md`、`CONTRIBUTORS.md`、`.well-known/security.txt`；供 AI 检索的 `llms.txt`
+  与 `AGENTS.md` 及两份 README 的 FAQ；CONTRIBUTING 精简为「入口指引 + 免流程通道 +
+  5 条可上手任务」。
+
+### Changed
+
+- **Python 下界由 3.13 降到 3.11**（变更 `python-floor` / #124）：`requires-python`、
+  ruff/mypy 目标、CI 测试矩阵（3.11 + 3.13 × 三平台）与全部文档门槛声明同步，依据与复核
+  方式落盘在 `docs/contributing/development.md`。可选原生扩展（`native/`）保持自己的
+  3.13 下界，与主包解耦。
+- **默认日志降噪**（变更 `quiet-default-logs` / #111）：Worker 每轮 Start/Stop 由 `info`
+  降为 `debug`，脚手架默认 `log.level` 由 `debug` 改为 `warning`；SVM 相关日志改为如实
+  表述——监控线程照常启动，但指标输入链路未接通、健康报告恒为零，不再暗示监控已生效。
+  要看每轮心跳或诊断日志，把 `config.json` 的 `log.level` 调回 `debug`。
+- **`zfc --worker` 的类名推导改为 PascalCase**（变更 `scaffold-worker-naming` / #112）：
+  `order_sync` → `OrderSyncWorker`（原先 `Order_SyncWorker`），模块名 `order_sync.py` 与
+  注册名同步。
+- 运行时依赖移除没有任何代码使用的 `typing-extensions`（由 4 个减为 3 个）；开发依赖收进
+  `pyproject.toml` 单一真源（删除 `requirements-dev.txt`）、`uv.lock` 按当前依赖集重新生成
+  （变更 `repo-hygiene` / #115）。
+- 文档：README 首屏重排并统一测试数量口径（#109）、路线图改为按能力组织（#118）、
+  `docs/` 与文档站的读者分工与访客可见性契约、示例目录可跑化清理（#116）、
+  `docs/native/` 标明 Modbus 任务是样例负载而非框架功能；变更日志回填 0.8.1–0.10.6 共
+  13 个版本并确立「CHANGELOG 段 → release 正文」的四段模板
+  （变更 `changelog-backfill` / #117）。
+
+### Fixed
+
+- **`log.level` 真正生效**（#111）：日志 handler 原先自带 `INFO` 硬门，把 `debug` 记录在
+  handler 层整段过滤——「诊断时把级别调回 debug」形同虚设。
+- **状态机持久化备份不再同 tick 相互覆盖**（#174）：时钟粒度粗的平台（Windows +
+  Python 3.11 实测约 2 ms）上，同一 tick 内的多次备份取到同一个微秒串，后写者静默覆盖
+  先写者（实测连做 5 次只剩 3 个）；重名时改为追加 `_2`/`_3`…，备份名按字典序等于时间序
+  的既有性质与清理、取最新逻辑均不受影响。
+- **`zfc --worker` 的项目外拒绝行为恢复**（见 `[0.9.1-beta]` 的同名条目 / #131）：该行为
+  在 v0.11.x 线因一次无关的合并退回旧实现（v0.11.0 的 `resolve_worker_dir` 即旧版，会在
+  任意目录留下无人注册的游离 `workers/`），本版重新落地：找不到 `src/main.py` 时在任何
+  写入之前以非 0 退出码失败。
+- 发布链路：SBOM 产物移出 PyPI 上传目录（`sbom.spdx.json` 曾使上传中止）；tag 判定补全
+  `CITATION.cff`，终止版本号自环（#196）。
+
 ### Security
 
 - 供应链加固状态收口（#121）：新增 `docs/SECURITY_MODEL.md`（使用者视角的安全说明，含

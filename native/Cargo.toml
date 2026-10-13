@@ -9,9 +9,16 @@ name = "zoo_framework_native"
 crate-type = ["cdylib"]
 
 [dependencies]
-# 与 bench/pyo3_probe 同版本带（0.23）：probe 已实测 allow_threads 释放 GIL 与
-# panic=unwind 边界兜底可用；升级须重测边界行为（native/DECISION.md 读数边界）。
-pyo3 = { version = "0.23", features = ["extension-module"] }
+# abi3-py311：一次构建覆盖 3.11+，把 wheel 数量从「每 Python 版本一份」压到一份
+# （issue #129）。不启用 abi3 时 7 平台 × N 个 Python 版本逐版本重发，且用户 Python
+# 比 wheel 新就装不上。
+#
+# 版本带：0.29（issue #205 由 0.23 升级而来，与 bench/pyo3_probe 对齐）。升级动因是
+# 0.23 有 3 条已公开漏洞（high/medium 修于 0.29.0、low 修于 0.24.1），Dependabot
+# 全部命中在 native/Cargo.lock 上。边界行为（GIL 释放、panic=unwind 兜底）已按
+# native/DECISION.md 的读数边界逐条重测——见「pyo3 0.23 → 0.29 升级」一节。
+# 下次升级同样 MUST 重测这三条边界行为。
+pyo3 = { version = "0.29", features = ["extension-module", "abi3-py311"] }
 
 [profile.release]
 # 与 probe 同纪律：panic MUST NOT 导致 Python 进程 abort。

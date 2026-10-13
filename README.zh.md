@@ -159,6 +159,16 @@ Worker 只依赖传给 `__init__` 的 props 字典，不感知框架内部结构
 框架带 spec 基线与持续通过的回归套件，核心契约都有对应用例守护 —— Agent 生成的改动
 可以靠 `pytest` 判断对错，而不必靠人逐行读。当前套件状态见顶部的 Tests 徽章。
 
+**有一个真实消费方，而不只是声明**
+
+[`example/agent`](example/agent) 是建立在**已发布**包（当前 `>=0.12,<0.13`）上的最小
+coding agent 循环：一个 prompt 进入，工具调用经事件管道派发，会话状态由框架状态机落盘 ——
+因此进程重启后可续跑，被重放的工具调用不会产生第二次副作用；写与执行调用每次都要过失败
+关闭的权限门，代码求值能力一律不提供。正是它把本节的声明变成了实测——它跑出的缺口是 issue
+[#72](https://github.com/YearsAlso/zoo-framework/issues/72) /
+[#73](https://github.com/YearsAlso/zoo-framework/issues/73) /
+[#74](https://github.com/YearsAlso/zoo-framework/issues/74)，其中 #72、#73 已在 0.12.0 修复。
+
 ### 安装
 
 ```bash
@@ -358,6 +368,9 @@ Windows / Python 3.13 实测，负载为代表性任务（JSON 编解码 + 字�
 
 **用户文档 → <https://yearsalso.github.io/zoo-framework-doc/>**（中英双语）—— 安装、教程、核心概念、API 参考。
 
+写一个原生任务（可选 Rust 扩展）→ [`docs/native-tasks.md`](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/native-tasks.md)：
+契约、错误分类、演进规则、契约校验器，以及「该不该下沉」判断表。
+
 本仓库的 `docs/` 目录保留**维护者与贡献者文档**（架构、目录结构、调试、
 贡献规范、品牌规范、性能基准），**不面向使用者**：
 
@@ -469,13 +482,21 @@ Cage（按作用域注册的共享实例容器）。**隐喻只影响命名，�
 #### 它和 AI Agent 有什么关系？
 
 扩展面被刻意收窄 —— 继承、实现 `_execute()`、注册这个类 —— 错误是显式抛出而非静默吞掉，
-改动可以靠跑一遍 `pytest` 判断对错。因此生成的代码短，而且出错时能自我修正。
+改动可以靠跑一遍 `pytest` 判断对错。因此生成的代码短，而且出错时能自我修正。真实消费方
+（带重启续跑的最小 coding agent）见 [`example/agent`](example/agent)。
 完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
 
 #### 生产环境有人用吗？
 
 目前没有可核实的第三方使用者。维护者自己的项目在用，但那无法被外部核实，
 [`ADOPTERS.md`](ADOPTERS.md) 对每一条都如实标注，而不是暗示并不存在的采用量。
+完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
+
+#### 任务失败会自动重试吗？
+
+不会。一次执行失败只走错误路径并结束本轮；同一个 Worker 在它下一个排期轮次仍会被派发，
+但**失败的那次工作不会被重试**。框架里唯一的自动重试在**事件**上（响应器带重试策略、
+事件节点带重试次数），不在 Worker 执行上。
 完整回答见 [docs/FAQ.md](https://github.com/YearsAlso/zoo-framework/blob/dev/docs/FAQ.md)。
 
 ### 许可证

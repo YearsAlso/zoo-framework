@@ -26,6 +26,7 @@ from zoo_framework.constant import WaiterConstant
 from zoo_framework.reactor.event_reactor_manager import EventReactorManager
 from zoo_framework.reactor.waiter_result_reactor import WaiterResultReactor
 from zoo_framework.utils import LogUtils
+from zoo_framework.workers import BaseWorker
 
 from .dispatch_core import WorkerDispatchCore
 from .scheduler_model import (
@@ -153,7 +154,7 @@ class BaseWaiter:
     # ------------------------------------------------------------------ 模式选择
 
     @staticmethod
-    def validate_worker_mode(mode):
+    def validate_worker_mode(mode: str) -> str:
         """Check whether the dispatch mode is implemented.
 
         Unimplemented modes MUST be rejected explicitly and MUST NOT silently
@@ -175,7 +176,7 @@ class BaseWaiter:
             )
         return mode
 
-    def get_worker_mode(self, pool_enable):
+    def get_worker_mode(self, pool_enable: bool) -> tuple[str, bool]:
         """Get the Worker's mode.
 
         An explicitly configured ``worker:mode`` takes precedence; when unset it
@@ -225,7 +226,7 @@ class BaseWaiter:
         self.model.prepare_workers(self.core.workers)
         self.model.start(self.core)
 
-    def add_worker(self, worker):
+    def add_worker(self, worker: BaseWorker) -> None:
         """Admit a Worker newly registered at runtime into scheduling.
 
         The scheduling list is owned by the scheduler; being listed in a

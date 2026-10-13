@@ -163,8 +163,12 @@ markdown_extensions:
           class: mermaid
           format: !!python/name:pymdownx.superfences.fence_code_format
 
-# 不启用 --strict：docs/ 下多数文档是按 GitHub 仓库内相对路径写的
-# （例如 ../bench/DECISION.md、.github/PULL_REQUEST_TEMPLATE.md），
-# 这些链接在站点上不存在。构建仍会给出告警但不失败。
-# 若要改为严格模式，需先把这些链接改写为绝对 GitHub URL。
-strict: false
+# 严格模式：构建告警一律视为失败（issue #141）。
+# 2026-10-12 实测：链接告警 0、griffe 告警 0 —— 跨出 docs_dir 的链接已改绝对 GitHub URL
+# （PR #203），API 参考里 40 处缺失的签名注解已补齐（#141）。docs/internal/ 由
+# exclude_docs 排除，不参与构建。
+# 此处原注释称「docs/ 下多数文档是按 GitHub 仓库内相对路径写的（例如
+# ../bench/DECISION.md、.github/PULL_REQUEST_TEMPLATE.md）」——这些例子在仓库里并不
+# 存在，该理由不成立，随本次一并更正。
+# 新增会跨出 docs_dir 的链接时请写绝对 GitHub URL，否则本门禁会拦下。
+strict: true

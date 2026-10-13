@@ -96,7 +96,7 @@ class BaseWorker:
         sleep_func = self._props.get("sleep_func") or time.sleep
         sleep_func(seconds)
 
-    def run(self):
+    def run(self) -> WorkerResult:
         """Execute once.
 
         An exception raised by the execution body **keeps propagating upward**

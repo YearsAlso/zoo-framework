@@ -41,10 +41,10 @@
 
 | 项 | 一句话 | 状态 |
 |---|---|---|
-| [#144](https://github.com/YearsAlso/zoo-framework/issues/144) | `test_worker_wakes_on_producer_event` 在 macOS 间歇失败，制造假红灯 | open（P1） |
-| [#131](https://github.com/YearsAlso/zoo-framework/issues/131) | `zfc --worker` 在项目外静默成功，留下游离 `workers/` 并返回 0，违反自身契约 | open |
-| [#130](https://github.com/YearsAlso/zoo-framework/issues/130) | 原生收益包络回归：门槛在 10.3 字节，当前写 ≥21，建议补测 10／12／16B | open |
-| [#112](https://github.com/YearsAlso/zoo-framework/issues/112) | `zfc --worker` 生成的类名未转 PascalCase（如 `My_TaskWorker`） | open |
+| [#144](https://github.com/YearsAlso/zoo-framework/issues/144) | `test_worker_wakes_on_producer_event` 在 macOS 间歇失败，制造假红灯 | **closed**（等待窗口 0.05s→3s + 牙齿断言） |
+| [#131](https://github.com/YearsAlso/zoo-framework/issues/131) | `zfc --worker` 在项目外静默成功，留下游离 `workers/` 并返回 0，违反自身契约 | **closed** |
+| [#130](https://github.com/YearsAlso/zoo-framework/issues/130) | 原生收益包络回归：门槛在 10.3 字节，当前写 ≥21，建议补测 | **done**（实测门槛 10.29B，包络下调为 ≥3 寄存器/≥11 字节） |
+| [#112](https://github.com/YearsAlso/zoo-framework/issues/112) | `zfc --worker` 生成的类名未转 PascalCase（如 `My_TaskWorker`） | **closed** |
 
 ## 总纲与仓库设置
 

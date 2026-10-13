@@ -130,7 +130,7 @@ class AsyncWorker(BaseWorker, metaclass=ABCMeta):
         """
         return asyncio.run(self._execute_async())
 
-    def execute(self, *args, **kwargs) -> Any:
+    def execute(self, *args: Any, **kwargs: Any) -> Any:
         """The synchronous execution entry point.
 
         MUST be called from a thread with no running event loop. Calling it
