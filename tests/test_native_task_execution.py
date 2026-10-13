@@ -346,12 +346,11 @@ class TestNativeTaskWorker:
             reactor.on_result = None
 
     def test_error_mapped_through_settle_not_success_empty_result(self):
-        """Scenario: 原生任务报错时错误映射进结算收口（error= 分支）.
+        """Scenario: 原生任务报错时错误映射进结算收口，投递的是**失败**结果.
 
-        settle(error=...) 分支不投递结果 → 绑定收订的 delivered 保持空；
-        本断言是「错误不伪装成功」的直接证据（按 assertion-integrity 例外：
-        settle 的 error 分支是终态不可逆路径，空断言不会恒真——错误路径
-        若改为投递成功结果，delivered 立即非空且断言变红）。
+        issue #228 修订：失败不再只写日志——它同样产生一条结果，消费者据此把
+        「失败」与「仍在跑」区分开。本用例的牙齿在「不伪装成功」这一半：
+        错误路径若投递成功结果（或成功空结果），error/success 断言立即变红。
         """
         adapter = FakeAdapter(error=NativeTaskFailed("boom"))
         worker = NativeTaskWorker(
@@ -370,7 +369,9 @@ class TestNativeTaskWorker:
             # settle 投递主题 = WaiterConstant.WORKER_RESULT_TOPIC = "waiter"
             EventReactorManager().bind_topic_reactor("waiter", reactor)
             core.run_and_settle(worker)
-            assert not delivered, "错误路径不应投递成功结果（含空结果）"
+            assert len(delivered) == 1, "错误路径应投递恰好一条结果"
+            assert delivered[0].error is not None, "错误路径 MUST 携带错误信息"
+            assert delivered[0].success is False, "错误路径 MUST NOT 投递成功结果（含空结果）"
         finally:
             reactor.on_result = None
 
