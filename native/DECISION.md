@@ -155,8 +155,9 @@ P4 =  2.945 + 0.046479·F   (R² = 0.999919)
 **未改动**：契约与适配器侧没有硬编码 21 字节的上限常量（`zoo_framework/native/` 内无命中），
 故本次只改接入指导。
 
-**未复测**：本机为 Windows 原生数据；Linux / macOS 的包络仍待 CI 原生构建后才算完整
-（与「阶段 2 验收」的 tasks 5.3 是同一未完成项）。
+**未复测**：本机为 Windows 原生数据；Linux / macOS 的包络**仍未测**——CI 原生构建已接入并在
+三平台跑绿（见「阶段 2 验收」5.3），但该工作流不含 benchmark、不产出性能数字（与 tasks 5.3
+是同一未完成项，形态由「待 CI 接入」变为「CI 已接入、性能未测」）。
 
 ## 读数边界（防止误读）
 
@@ -209,13 +210,21 @@ P4 =  2.945 + 0.046479·F   (R² = 0.999919)
 | 平台 | 状态 | 数据 |
 |---|---|---|
 | Windows 11 Pro for Workstations（10.0.26200，Ryzen 9 5900X 12C/24T，CPython 3.13.14） | 已测 | 本附录 + `stage2_acceptance.json` |
-| Linux | CI 原生构建已接入（`.github/workflows/native.yml`），数值待首次运行回填 | — |
-| macOS | CI 原生构建已接入（同上），数值待首次运行回填 | — |
+| Linux | **CI 已接入，性能形状未测** | ubuntu-latest 上 `cargo test` + 原生 pytest 绿（run `38339077692`）；`native.yml` 不含 benchmark，故无收益数字 |
+| macOS | **CI 已接入，性能形状未测** | macos-latest 上同上（run `38339077692`）；无收益数字 |
 
 2026-10-12 之前 CI（GitHub Actions）无 maturin/cargo，真扩展用例在 CI 中显式 skip；该缺口
 由 issue #129 / 变更 `native-distribution` 补上：`native.yml` 现在在三平台跑 `cargo test`、
-构建 abi3 wheel、安装后执行原生 pytest 路径。故 Linux/macOS 的数字**待该工作流首次运行后
-回填**，不再依赖「本机无验证路径」这一历史状态。WSL2 hypervisor 失真问题不适用
+构建 abi3 wheel、安装后执行原生 pytest 路径。
+
+**2026-10-13 回填核对**：该工作流已在 `main` 上跑完且全绿——
+`gh run view 38339077692 --json jobs`（合并 PR #225）显示六个作业全绿：三平台
+`cargo test + native pytest (ubuntu/macos/windows-latest)`、`build abi3 wheel`、以及
+`same wheel on Python 3.11` / `on Python 3.13` 两个作业（两者都 `download-artifact` 取
+`wheel` 作业上传的**同一份** `native-wheel`，不重新构建）。但 `native.yml` **只做构建与测试、
+不含 benchmark**，因此 Linux/macOS 的**收益包络数字仍未测**——本表按「CI 已接入，性能形状
+未测」如实记录，不编造数字。要拿到数字，需新增性能作业，或在有 `cargo` + `maturin` 的
+Linux/macOS 机器上按本文件的读数纪律复测（属后续变更）。WSL2 hypervisor 失真问题不适用
 （本机为 Windows 原生测量）。
 
 ## 发行（issue #129，2026-10-12；变更 `native-distribution`）
@@ -242,6 +251,16 @@ P4 =  2.945 + 0.046479·F   (R² = 0.999919)
 发出 Windows 一个 wheel，另两个平台的包静默丢失，已在同一变更内修复（每作业唯一产物名 +
 按 pattern 收全场 + 产物登记数闸门）。**仍未验证**：修复后三平台是否齐全——索引上 0.1.0
 目前只有 Windows wheel，在复跑一次之前不得声称三平台均已发布。
+
+> **2026-10-13 更新（发布链路的部分证据）**：`zoo-framework-native` **0.1.0 已由
+> `native-release.yml` 经 OIDC 发布到 PyPI**——`gh run view 38357074578 --json jobs`
+> （tag `v0.13.1-beta`）的 `publish to pypi` 作业于 13:14 成功上传（`id-token: write`，
+> 无长期 token）。**但产物收全场不完整**：PyPI 上该版本只有
+> `zoo_framework_native-0.1.0-cp311-abi3-win_amd64.whl`（三个构建作业都成功，却只发了一份
+> wheel——证据指向三个构建作业共用同名 artifact `native-wheels` 的 fan-in 缺口，正在分支
+> `fix/native-release-fan-in` 上修）。TestPyPI 演练**仍未进行**。故结论：正式 PyPI 侧的
+> OIDC 发布本身已被证明可用，但「三平台产物齐发」与「TestPyPI 演练」仍按**未验证**对待；
+> 剩余账号侧动作与验收判据见 `docs/native-release-runbook.md`。
 
 ## pyo3 0.23 → 0.29 升级（issue #205，2026-10-12）
 
@@ -288,6 +307,24 @@ P4 =  2.945 + 0.046479·F   (R² = 0.999919)
 
 **锁文件**：`native/Cargo.lock` 的 pyo3 已为 **0.29.3**；GitHub 重扫后 3 条
 Dependabot 告警应随之关闭。
+
+## 契约 v2 候选（已立项提案，2026-10-13）
+
+「读数边界」④点名的候选**已立项为 OpenSpec 变更 `native-contract-v2`**——只交付设计与规格，
+**不改代码、不动 `CONTRACT_VERSION`**；实施 MUST 经维护者批准（这是破坏性契约变更）。
+
+- **动因**：125reg 大帧端到端 ~9.8x 里转换/编排占 66%，其中 Rust 侧 JSON 构建 + Python 侧
+  `json.loads` 合计约 8µs（P3 13.3 − supp 5.1）——这 8µs 不产生业务价值，只是「序列化 →
+  再反序列化」的往返。
+- **形态**：`output_format` 增加 `"python"` 取值——扩展在 FFI 边界构造并**一次性移交**纯
+  Python 数据对象（样例为 dict），框架侧不做任何编解码。
+- **性质**：破坏性契约变更——契约主版本 1 → 2，v1 扩展被**显式拒绝**（不静默兼容、不保留
+  双版本转换路径）。扩展包 minor 与主包 `native` 附加的版本范围须同步升。
+- **诚实提醒**：8µs 是**上限量级**，不是预期净收益——构造 Python 对象本身也有成本，净收益
+  MUST 用同一次运行内的四链路对照实测，MUST NOT 从 8µs 外推；未达门槛则记 no-go、保留 v1。
+- 6 个设计问题（主版本兼容策略 / 输出所有权与生命周期 / `output_format` 迁移 / 三族错误 /
+  `execute` 签名冲击 / 性能验收口径）的逐条回答、备选与拒绝理由、以及待维护者裁决项见
+  `openspec/changes/native-contract-v2/design.md`。
 
 ## 对 tasks 的指向
 
