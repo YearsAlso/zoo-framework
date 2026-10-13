@@ -4,7 +4,10 @@ build-backend = "maturin"
 
 [project]
 name = "zoo-framework-native"
-version = "0.1.0"
+# 0.1.1：0.1.0 的首次发布只上去了 Windows 一份（发布链路的产物 fan-in 缺陷，见
+# native/DECISION.md 与 native-release.yml 头部）。索引上的文件名不得重用，0.1.0 那份
+# 既不能删（删除不可逆）也不能补名重传，所以缺的两个平台只能靠新版本带出去。
+version = "0.1.1"
 description = "zoo-framework 原生任务执行扩展（可选安装；未安装时框架一切如旧；内置任务为样例负载，非框架功能）"
 requires-python = ">=3.11"
 
