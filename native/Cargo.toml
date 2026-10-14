@@ -1,6 +1,8 @@
 [package]
 name = "zoo_framework_native"
-version = "0.1.0"
+# 与 pyproject.toml 的 [project].version 同步推进：wheel 的版本号取自后者，但两处声明的
+# 版本不一致就是文档级漂移（主包的四处版本声明吃过这个亏，见根 CLAUDE.md）。
+version = "0.1.1"
 edition = "2021"
 description = "zoo-framework 原生任务执行扩展（可选安装，契约版本 1；内置任务为样例负载，非框架功能）"
 

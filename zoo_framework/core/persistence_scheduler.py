@@ -15,6 +15,14 @@ from typing import Any
 from zoo_framework.utils import FileUtils, LogUtils
 
 
+class PersistenceError(RuntimeError):
+    """持久化无法完成时抛出的显式错误（issue #231）。
+
+    落盘失败此前只记一条 ERROR 日志、再把 ``False`` 返回给（多半忽略它的）调用方，
+    持续失败因此被静默吞掉。本异常把这类失败变成调用方**无法忽略**的信号。
+    """
+
+
 class PersistenceStrategy(ABC):
     """Persistence strategy base class.
 
@@ -343,10 +351,18 @@ class PersistenceScheduler:
         self._scheduler_thread: threading.Thread | None = None
 
     def start(self) -> None:
-        """Start the persistence scheduler."""
+        """Start the persistence scheduler.
+
+        启动即做目标目录校验（``ensure_storage_ready``）：配置指向不存在 / 不可写的
+        目录时当场失败，而不是每拍静默失败一条日志（issue #231）。
+
+        Raises:
+            PersistenceError: 目标目录不存在或不可写。
+        """
         if self._running:
             return
 
+        self.ensure_storage_ready()
         self._running = True
         if self.auto_save_interval > 0:
             self._scheduler_thread = threading.Thread(target=self._scheduler_loop)
@@ -354,6 +370,28 @@ class PersistenceScheduler:
             self._scheduler_thread.start()
 
         LogUtils.info("✅ Persistence scheduler started")
+
+    def ensure_storage_ready(self) -> None:
+        """校验持久化目标目录可用；不可用时明确报错（issue #231）。
+
+        「目标目录不存在」是一类**必然、持续**的失败：每次落盘都会失败。它 MUST NOT
+        只化成一条日志——这里把它显式暴露，并在错误信息里给出目录与配置键的定位及下一步。
+
+        Raises:
+            PersistenceError: 目标目录不存在或不可写。
+        """
+        directory = os.path.dirname(os.path.abspath(self.filepath))
+        if not os.path.isdir(directory):
+            raise PersistenceError(
+                f"persistence directory does not exist: {directory} "
+                f"(config key stateMachine:picklePath -> {self.filepath}); "
+                "create the directory or point the key at an existing one"
+            )
+        if not os.access(directory, os.W_OK):
+            raise PersistenceError(
+                f"persistence directory is not writable: {directory} "
+                f"(config key stateMachine:picklePath -> {self.filepath})"
+            )
 
     def stop(self) -> None:
         """Stop the persistence scheduler."""
@@ -417,7 +455,13 @@ class PersistenceScheduler:
             force: whether to force the save (ignore the dirty flag)
 
         Returns:
-            Whether the save succeeded
+            True when the data was persisted; False when there is nothing to
+            save (``_data`` is None)
+
+        Raises:
+            PersistenceError: 落盘失败（目标目录缺失 / 不可写，或写入本身失败）。
+                失败 MUST 显式化，MUST NOT 只留一条日志（issue #231）；失败时脏标记
+                保持为真，调用方可重试。
         """
         with self._file_lock:
             if not force and not self._dirty:
@@ -426,6 +470,9 @@ class PersistenceScheduler:
             if self._data is None:
                 return False
 
+            # 目录不可用时当场明确报错，而不是把必然失败吞成一条日志（issue #231）
+            self.ensure_storage_ready()
+
             # 创建备份
             if self.enable_backup and self._backup_manager:
                 self._backup_manager.create_backup(self.filepath)
@@ -433,19 +480,23 @@ class PersistenceScheduler:
             # 保存数据
             success = self.strategy.save(self._data, self.filepath)
 
-            if success:
-                self._dirty = False
-                self._last_save_time = datetime.now().timestamp()
+            if not success:
+                # 策略层已记录失败原因（如具体的 OSError）；此处再抛出可感知信号，
+                # 使忽略返回值的调用方也无法错过（issue #231）
+                raise PersistenceError(
+                    f"failed to persist data to {self.filepath} "
+                    "(config key stateMachine:picklePath); see the preceding log line for the cause"
+                )
 
-                # 保存校验和
-                checksum = FileChecksumValidator.calculate_checksum(self.filepath)
-                FileChecksumValidator.save_checksum(self.filepath, checksum)
+            self._dirty = False
+            self._last_save_time = datetime.now().timestamp()
 
-                LogUtils.debug("💾 Data saved successfully")
-            else:
-                LogUtils.error("❌ Failed to save data")
+            # 保存校验和
+            checksum = FileChecksumValidator.calculate_checksum(self.filepath)
+            FileChecksumValidator.save_checksum(self.filepath, checksum)
 
-            return success
+            LogUtils.debug("💾 Data saved successfully")
+            return True
 
     def mark_dirty(self) -> None:
         """Mark the data as modified."""
@@ -477,6 +528,7 @@ class PersistenceScheduler:
 __all__ = [
     "BackupManager",
     "FileChecksumValidator",
+    "PersistenceError",
     "PersistenceScheduler",
     "PersistenceStrategy",
     "PicklePersistenceStrategy",

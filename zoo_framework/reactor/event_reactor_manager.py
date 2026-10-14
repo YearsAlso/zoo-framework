@@ -56,9 +56,10 @@ class EventReactorManager(metaclass=_ReactorMapProxyMeta):
     def __init__(self):
         from zoo_framework.params import EventParams
 
-        # 注册表是实例状态：新建即空表。保留对已有条目的超时刷新（同一实例被
-        # 重复"构造"时 __init__ 已被幂等守卫拦下，这里只会见到首次的空表）；
-        # 新注册项的超时改由 bind_topic_reactor 在登记现场设置。
+        # 注册表是实例状态：新建即空表。event_timout 已成为生效超时的自报字段
+        # （fix-reactor-timeout / #232），注册 MUST NOT 再以全局值盖章——
+        # 盖章会把"未声明"抹掉，运行期调整全局值也对已注册反应器失效。
+        # 全局兜底由 EventWorker._effective_timeout 在读取现场解析。
         self.reactor_map: ThreadSafeDict[str, list[EventReactor]] = ThreadSafeDict()
         for reactors in self.reactor_map.values():
             for reactor in reactors:
@@ -196,11 +197,9 @@ class EventReactorManager(metaclass=_ReactorMapProxyMeta):
                 return True
 
             reactors.append(reactor)
-            # 超时在登记现场设置（取代原"构造时遍历刷新"兜底——注册表降为实例态后，
-            # 首次构造必为空表，遍历只能空转）
-            from zoo_framework.params import EventParams
-
-            reactor.set_event_timeout(EventParams.EVENT_JOIN_TIMEOUT)
+            # event_timout 盖章已移除（fix-reactor-timeout / #232）：该字段现在是
+            # 生效超时的自报值，注册侧 MUST NOT 以全局值覆盖使用者的声明；
+            # 未声明者的全局兜底由 EventWorker 在读取现场解析。
             return True
 
     @classmethod

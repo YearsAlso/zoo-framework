@@ -23,4 +23,6 @@
 - [x] 3.3 校验器负例：把副本的 `CONTRACT_VERSION` 改成 99 → 报
       「contract_version() = 99，框架的 CONTRACT_VERSION = 1」，`--expect-fail` 退出码 0
 - [x] 3.4 `pytest`（文档一致性与全量）与 `mkdocs build --strict` 通过
-- [ ] 3.5 CI 三平台上的模板 `cargo test` + 校验器正例（证据在本 PR 的 checks 上）
+- [x] 3.5 CI 三平台上的模板 `cargo test` + 校验器正例：`native.yml` 在 `main` 上全绿（run
+      `38339077692`）——ubuntu/macos/windows 三个作业里的「模板 crate 的 cargo test」与
+      「契约校验器对模板的机械校验」均为 `success`。命令：`gh run view 38339077692 --json jobs`

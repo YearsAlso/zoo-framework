@@ -1,5 +1,5 @@
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from zoo_framework.constant import WaiterConstant
 from zoo_framework.utils import LogUtils
@@ -72,11 +72,21 @@ class BaseWorker:
         return self._props.get("delay_time") or 0
 
     @property
-    def name(self):
-        """Instance-unique name: the configured name or class name plus the instance number."""
+    def registry_name(self) -> str:
+        """The suffix-free identity: configured name, or class name when undeclared.
+
+        ``name`` is this identity plus the instance ordinal. A receiver
+        filtering results by "which Worker" MUST match on this identity, since
+        the ordinal is not known when the filter is declared (issue #229).
+        """
         if self._props.get("name"):
-            return str(self._props.get("name")) + "_" + str(self.num)
-        return str(self.__class__.__name__) + "_" + str(self.num)
+            return str(self._props.get("name"))
+        return str(self.__class__.__name__)
+
+    @property
+    def name(self):
+        """Instance-unique name: the registry name plus the instance ordinal."""
+        return f"{self.registry_name}_{self.num}"
 
     def _destroy_result(self, result):
         pass
@@ -99,17 +109,21 @@ class BaseWorker:
     def run(self) -> WorkerResult:
         """Execute once.
 
-        An exception raised by the execution body **keeps propagating upward**
-        after being logged and after ``_on_error`` is called, so the scheduler
-        can observe the failure and decide whether to report the result -
-        silently swallowing the exception would disguise the failure as an
-        "empty result".
+        A failure is **reported, not left implicit** (issue #228): the result
+        topic is how consumers observe that a Worker finished, so an execution
+        body raising MUST still produce one result carrying the failure. The
+        returned result is marked as a failure (``error`` set, ``success``
+        false, content None) so consumers can tell "failed" apart from "still
+        running"; the failure MUST NOT be delivered in the shape of a
+        successful empty result. The error is logged and ``_on_error`` /
+        ``_on_done`` still run, exactly as before.
 
         Returns:
-            WorkerResult: The result of this execution; not returned on failure
-                (the exception propagates).
+            WorkerResult: The result of this execution. On failure the content
+                is None and ``error`` carries the reason.
         """
-        result = {}
+        result: Any = {}
+        error: Exception | None = None
         try:
             # 每轮进入/退出是框架自己的心跳，默认级别下不输出（log.level=debug 可见）
             LogUtils.debug(f"{self.name} Worker is Start", self.__class__.__name__)
@@ -117,11 +131,25 @@ class BaseWorker:
             self._destroy_result(result)
             LogUtils.debug(f"{self.name} Worker is Stop", self.__class__.__name__)
         except Exception as e:
+            error = e
             self._on_error()
             LogUtils.error(str(e), self.__class__.__name__)
-            raise
         finally:
             self._on_done()
+
+        if error is not None:
+            # 失败也产生一条结果（#228）：消费者靠结果主题判断"跑完没有"，
+            # 只写日志的失败会被当成"仍在执行"（Worker 已不在调度表里，却永远
+            # 等不到结果）。失败结果携带 error 标记，MUST NOT 冒充成功空结果。
+            # 不写 _destroy_result：失败没有产出可销毁的结果。
+            return WorkerResult(
+                WaiterConstant.WORKER_RESULT_TOPIC,
+                None,
+                self.__class__.__name__,
+                worker_name=self.name,
+                registry_name=self.registry_name,
+                error=f"{type(error).__name__}: {error}",
+            )
 
         if self.delay_time:
             self._wait(self.delay_time)
@@ -131,6 +159,7 @@ class BaseWorker:
             result,
             self.__class__.__name__,
             worker_name=self.name,
+            registry_name=self.registry_name,
         )
 
     def _on_error(self):
