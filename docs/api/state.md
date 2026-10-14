@@ -25,3 +25,16 @@ from zoo_framework.statemachine import StateMachineManager
 
 ::: zoo_framework.statemachine.state_effect.StateEffect
 ::: zoo_framework.statemachine.state_effect_scheduler.StateEffectScheduler
+
+## 任务队列
+
+与 Worker 解耦的任务值对象与落到状态机持久化作用域的可持久化队列
+（详见[状态持久化](../guides/state-persistence.md)的「任务队列」）。
+
+```python
+from zoo_framework.tasks import Task, TaskQueue, TaskStatus
+```
+
+::: zoo_framework.tasks.task.Task
+::: zoo_framework.tasks.task.TaskStatus
+::: zoo_framework.tasks.task_queue.TaskQueue

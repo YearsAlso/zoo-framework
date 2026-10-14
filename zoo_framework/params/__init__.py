@@ -3,6 +3,7 @@ from .event_params import EventParams
 from .log_params import LogParams
 from .native_params import NativeParams
 from .state_machine_params import StateMachineParams
+from .task_params import TaskParams
 from .worker_params import WorkerParams
 
 __all__ = [
@@ -11,5 +12,6 @@ __all__ = [
     "LogParams",
     "NativeParams",
     "StateMachineParams",
+    "TaskParams",
     "WorkerParams",
 ]
