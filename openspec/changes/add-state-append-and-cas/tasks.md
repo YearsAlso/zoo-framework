@@ -70,6 +70,7 @@
 - [x] 5.2 全量门禁：`ruff check zoo_framework` / `ruff format --check zoo_framework` /
       `mypy zoo_framework` 零错误 / `python -m pytest -q`（与 1.2 基线对比，确认无新增失败）/
       `openspec validate add-state-append-and-cas --strict` 通过；验证：五条命令输出留档
-- [ ] 5.3 回调：在 issue #236 下评论说明 A1 的落地范围（原语 1 与 4）、默认行为不变性、
-      以及 A2 承接原语 2 / 3 的分工；验证：issue 评论已张贴
-      （GitHub 回调属远程操作，交由主会话执行）
+- [x] 5.3 回调已张贴（2026-10-14，
+      https://github.com/YearsAlso/zoo-framework/issues/236#issuecomment-6168583647）：
+      说明 A1 的落地范围（原语 1 与 4）、无新增配置键的默认行为不变性、
+      A2 承接原语 2 / 3 的分工与共享契约、以及「记忆层」仍属消费方。对应 PR #253
