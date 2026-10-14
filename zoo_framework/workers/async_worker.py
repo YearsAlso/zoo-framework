@@ -2,13 +2,23 @@
 
 P2: async IO optimization - async Worker implementations.
 
-The only integration point with the scheduling system is ``_execute``. The
-scheduler calls it through ``BaseWorker.run()`` and the scheduling thread has
-no running event loop, so it must drive the coroutine directly with
-``asyncio.run``. Not overriding the method makes an async Worker run only the
-base class' empty implementation under the scheduler - it occupies the
-thread, sleeps ``delay_time`` and returns an empty result while the business
-logic never executes.
+The integration point with the scheduling system is the **async execution
+body** ``_execute_async``; **which path drives it is decided by the running
+execution model**, not by the Worker:
+
+- thread / thread_pool model: the scheduler calls ``BaseWorker.run()``, which
+  reaches ``_execute``; the scheduling thread has no running event loop, so the
+  body is driven with ``asyncio.run`` (one loop built and closed per dispatch).
+- event_loop model (resident event loop): the model submits
+  ``_execute_async()`` onto its resident loop with
+  ``asyncio.run_coroutine_threadsafe`` and never calls ``_execute`` - the
+  Worker MUST NOT build its own loop, or the resident loop would be made
+  pointless and the "one loop per dispatch" cost would stay on the hot path.
+
+Not overriding ``async_execute`` makes an async Worker run only the base
+class' empty implementation under the scheduler - it occupies the thread,
+sleeps ``delay_time`` and returns an empty result while the business logic
+never executes.
 """
 
 import asyncio
@@ -119,11 +129,14 @@ class AsyncWorker(BaseWorker, metaclass=ABCMeta):
         raise NotImplementedError("Subclasses must implement async_execute")
 
     def _execute(self):
-        """The only entry point on the scheduling path.
+        """线程 / 线程池模型下的驱动路径：在工作线程内自建循环驱动协程。
 
         The scheduling thread is an ordinary thread with no running event loop,
         so the coroutine is driven directly here. The return value flows into
-        ``WorkerResult`` through ``BaseWorker.run()``.
+        ``WorkerResult`` through ``BaseWorker.run()``. The **event_loop** model
+        does not go through this method - it drives ``_execute_async`` on its
+        resident loop instead, so the Worker MUST NOT assume it always owns the
+        loop management.
 
         Returns:
             The business return value of the async execution body

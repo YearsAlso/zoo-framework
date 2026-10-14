@@ -25,14 +25,18 @@ runtime registration, period scheduling - MUST NOT be re-implemented at this
 layer.
 """
 
+import asyncio
+import contextlib
 import queue
 import threading
 import time
 from abc import ABC, abstractmethod
+from typing import Any
 
-from zoo_framework.constant import WorkerConstant
+from zoo_framework.constant import WaiterConstant, WorkerConstant
 from zoo_framework.utils import LogUtils
 from zoo_framework.workers import BaseWorker
+from zoo_framework.workers.async_worker import AsyncWorker
 
 from ..run_identity import carry_context
 
@@ -427,3 +431,251 @@ class ThreadPoolModel(SchedulerModel):
             if remaining is not None and remaining <= 0:
                 return
             thread.join(remaining)
+
+
+# ---------------------------------------------------------------- 常驻事件循环模型
+
+#: 常驻循环线程名（便于在进程线程列表中识别；与 Master.run 的主线程循环无关）。
+LOOP_THREAD_NAME = "zoo-event-loop"
+
+#: 停机时"已在开始前被丢弃"的提交的返回值：不投递结果、不结算。MUST NOT 用 None
+#: 代替——None 是合法的业务返回值（协程可以返回 None），复用会让"丢弃"与"返回空值"
+#: 不可区分。
+_DISCARDED = object()
+
+#: 停止循环后 join 循环线程的默认上限（``timeout`` 未给时），避免停机无限等待。
+_LOOP_STOP_TIMEOUT = 5.0
+
+#: ``loop.stop`` 已投递后 join 循环线程的最小宽限：即便算出的剩余预算已耗尽，也留
+#: 一小段让 ``run_forever`` 真正返回，否则会因"循环仍在运行"而放弃 ``close``。
+_LOOP_STOP_GRACE = 1.0
+
+
+class _Submission:
+    """一次派发的状态：是否已在循环上开始、是否在开始前被停机丢弃。
+
+    停机据此区分两条互斥的处置：``started`` 为真者在界内等它结算、MUST NOT 中断；
+    为假者在循环取到之前丢弃、MUST NOT 再执行。判定与写入共用 ``EventLoopModel``
+    的锁，保证"开始"与"丢弃"不会同时成立（否则会丢结果或重启一个已丢弃的协程）。
+    """
+
+    __slots__ = ("discarded", "started")
+
+    def __init__(self) -> None:
+        self.started = False
+        self.discarded = False
+
+
+class EventLoopModel(SchedulerModel):
+    """常驻事件循环模型：在独立守护线程上常驻一个事件循环，把协程 Worker 投给它执行。
+
+    与 ``ThreadPerTaskModel`` / ``ThreadPoolModel`` 并列的第三个执行模型，对应
+    ``worker:mode=event_loop``。它解决的是**等待**而不是计算：同一个 Worker 可以
+    同时推进多个等待中的调用，而工作线程数不随并发增长（所有协程共享一条循环线程，
+    并发上限由 Worker 侧的 ``asyncio.Semaphore(max_concurrent)`` 决定）。
+
+    同步或 CPU 密集的执行体 MUST NOT 进入循环线程——循环线程被占住会让**所有**协程
+    与取消一起停摆。因此本模型只接纳协程能力 Worker（``AsyncWorker`` 子类），其余在
+    ``prepare_workers`` 阶段**显式拒绝**，MUST NOT 静默改用其它模型、MUST NOT 自动
+    改派线程池。
+
+    停机语义 ``stop_dispatch_cancel_queued``：先使新派发被拒绝，再在给定界内等待在飞
+    协程结算，最后停止并关闭循环。已开始执行的协程不被中断（向协程投递取消请求不等价
+    于它已经停止）；已提交但尚未开始的协程在停机时被丢弃。
+    """
+
+    concurrency_primitive = CONCURRENCY_EVENT_LOOP
+    supported_time_semantics = (TIME_SEMANTICS_EVENT_DRIVEN, TIME_SEMANTICS_PERIODIC)
+    # 本模型不引入自己的背压档位：循环照单接收每次派发（容量由 Worker 侧信号量决定），
+    # 与 ThreadPerTaskModel 的 "unbounded" 同义。与 #233 的运行时注册背压对齐列为待观察项。
+    backpressure_policy = BACKPRESSURE_UNBOUNDED
+    stop_semantics = STOP_CANCEL_QUEUED
+    supported_worker_kinds = (WORKER_KIND_ASYNC,)
+
+    def __init__(self) -> None:
+        self._started = False
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._thread: threading.Thread | None = None
+        # 每次派发的在飞登记：concurrent.futures.Future -> _Submission。与核心的在飞表
+        # 无关（那张表由 WorkerDispatchCore 持有），这里只用于停机时区分"已开始 / 未开始"。
+        self._pending: dict[Any, _Submission] = {}
+        self._lock = threading.RLock()
+
+    def prepare_workers(self, workers: list[BaseWorker | None]) -> int:
+        """准入裁决：只接纳协程能力 Worker，其余显式拒绝。
+
+        与 ``thread_pool`` 不同，本模型没有"池尺寸"这一容量概念，故返回 0；但对 Worker
+        类别做硬裁决：非协程 Worker MUST 被明确拒绝并指出不兼容之处与可选模型
+        （``scheduler-model`` 规格「模型选择 MUST 显式且不做降级」）。这同时堵住
+        "CPU 密集 Worker 误配 event_loop"这一事故形态。
+
+        Args:
+            workers: 即将参与调度的 Worker 列表
+
+        Returns:
+            0（本模型无容器容量概念）
+
+        Raises:
+            ValueError: 列表中存在不具备协程能力的 Worker
+        """
+        for worker in workers:
+            if worker is None or isinstance(worker, AsyncWorker):
+                continue
+            raise ValueError(
+                f"Worker {getattr(worker, 'name', worker)!r} ({type(worker).__name__}) "
+                f"does not declare coroutine capability; the {CONCURRENCY_EVENT_LOOP} "
+                "model only accepts async Workers (AsyncWorker subclasses) so that a "
+                "synchronous blocking body never occupies the event-loop thread. "
+                f"Use worker:mode={WaiterConstant.WORKER_MODE_THREAD} or "
+                f"{WaiterConstant.WORKER_MODE_THREAD_POOL} for synchronous Workers."
+            )
+        return 0
+
+    def start(self, core) -> None:
+        """启动常驻循环：新建事件循环并在独立守护线程上 ``run_forever``。
+
+        容器在 ``start`` 而非 ``__init__`` 建立——模型的生命周期归 ``start``，与
+        ``ThreadPoolModel.start`` 建池同形。幂等：已启动时不再新建，避免泄漏第二条循环线程。
+        """
+        with self._lock:
+            if self._started:
+                return
+            loop = asyncio.new_event_loop()
+            thread = threading.Thread(
+                target=loop.run_forever,
+                name=LOOP_THREAD_NAME,
+                daemon=True,
+            )
+            self._loop = loop
+            self._thread = thread
+            self._started = True
+            thread.start()
+
+    def submit(self, core, worker) -> None:
+        """把 Worker 的异步执行体投给常驻循环。
+
+        派发发生在 ``Master.run()`` 的主线程循环里，而协程交给**另一个线程上的另一个
+        loop**——两者 MUST NOT 混用，故跨线程提交用 ``asyncio.run_coroutine_threadsafe``
+        （该 API 本身即线程安全）。完成回调在循环线程上执行，并经由 ``core.settle``
+        这一唯一出口结算。
+
+        Raises:
+            RuntimeError: 模型未启动（含停机之后），拒绝派发
+        """
+        loop = self._loop
+        if not self._started or loop is None:
+            raise RuntimeError("model not started (start() has not been called)")
+
+        submission = _Submission()
+        future = asyncio.run_coroutine_threadsafe(self._runner(worker, submission), loop)
+        with self._lock:
+            self._pending[future] = submission
+        core.attach_container(worker, future)
+        future.add_done_callback(lambda done: self._on_complete(core, worker, submission, done))
+
+    async def _runner(self, worker: AsyncWorker, submission: _Submission) -> Any:
+        """循环线程上的执行体：在开始前被停机丢弃的提交不执行。
+
+        第一行在锁内声明"已开始"——停机据此区分"已开始（等它结算）"与"尚未开始（丢弃）"。
+        两处判定共用一把锁，使"开始"与"丢弃"互斥，不会出现"协程跑了却没有结果"的静默丢失。
+        """
+        with self._lock:
+            if submission.discarded:
+                return _DISCARDED
+            submission.started = True
+        return await worker._execute_async()
+
+    def _on_complete(self, core, worker: AsyncWorker, submission: _Submission, future: Any) -> None:
+        """完成回调（循环线程）：结算走 ``core.settle`` 唯一出口。
+
+        停机时被丢弃、未开始执行的提交不结算——其登记由 ``core.clear`` 清除，若在此再
+        投递结果，就会为一次从未执行的提交产生假结果。
+        """
+        with self._lock:
+            self._pending.pop(future, None)
+
+        if submission.discarded:
+            return
+
+        value: Any = None
+        error: BaseException | None = None
+        try:
+            value = future.result()
+        except BaseException as exc:  # 含 CancelledError：失败同样走共用的结果契约
+            error = exc
+
+        core.settle(worker, result=worker.build_result(value, error))
+
+    def teardown(self, core, wait: bool = True, timeout: float | None = None) -> None:
+        """停机：先拒新派发 → 界内等在飞结算 → 停循环 → 关循环。MUST 可重复调用。
+
+        次序是硬约束：MUST 先等在飞协程结算完再停循环，否则结算回调永不执行、结果不
+        投递、在飞表残留。已开始的协程不被中断；已提交但尚未开始的协程被丢弃
+        （``stop_dispatch_cancel_queued``）。
+
+        Args:
+            core: 派发核心（在飞表与结算收口由其持有）
+            wait: 是否等待在飞协程结算
+            timeout: 等待在飞结算的总预算（秒）；None 表示不限
+        """
+        with self._lock:
+            loop, thread = self._loop, self._thread
+            pending = list(self._pending.items())
+            # ① 先置"未启动"，使 submit 按既有契约拒绝新派发；并摘除容器引用，重复调用安全
+            self._started = False
+            self._loop = None
+            self._thread = None
+            self._pending = {}
+            # ② 与 _runner 共用同一把锁：尚未开始的提交标记为丢弃，它们在循环取到之前不再执行
+            for _future, submission in pending:
+                if not submission.started:
+                    submission.discarded = True
+
+        if loop is None and thread is None:
+            return
+
+        deadline = None if timeout is None else time.monotonic() + timeout
+        # ③ 在界内等待在飞提交完成（总预算语义，同 ThreadPoolModel._join_threads）
+        if wait:
+            self._wait_futures([future for future, _ in pending], deadline)
+        # ④ 停止并回收循环
+        self._stop_loop(loop, thread, deadline)
+
+    @staticmethod
+    def _wait_futures(futures: list[Any], deadline: float | None) -> None:
+        """在给定界内等待在飞提交完成。
+
+        等待的是提交的完成信号（``concurrent.futures.Future``）；协程自身的成败由完成
+        回调在结算侧处理，此处只等"跑完"，且单个提交的异常不影响继续等待其余。
+        """
+        for future in futures:
+            remaining = None if deadline is None else deadline - time.monotonic()
+            if remaining is not None and remaining <= 0:
+                return
+            with contextlib.suppress(Exception):
+                future.result(remaining)
+
+    @staticmethod
+    def _stop_loop(
+        loop: asyncio.AbstractEventLoop | None,
+        thread: threading.Thread | None,
+        deadline: float | None,
+    ) -> None:
+        """停止并回收常驻循环：请求停止 → join 循环线程 → 关循环。
+
+        循环线程未在界内退出（例如某协程同步占住了循环线程）时不强行 ``close``——对仍在
+        运行的 loop 调 ``close`` 会抛 ``RuntimeError``，也无助于回收一条已经卡死的线程。
+        """
+        if loop is None:
+            return
+        with contextlib.suppress(RuntimeError):
+            loop.call_soon_threadsafe(loop.stop)
+        if thread is not None:
+            if deadline is None:
+                remaining = _LOOP_STOP_TIMEOUT
+            else:
+                remaining = max(deadline - time.monotonic(), _LOOP_STOP_GRACE)
+            thread.join(remaining)
+            if thread.is_alive():
+                return
+        loop.close()

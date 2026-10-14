@@ -31,6 +31,7 @@ from zoo_framework.workers import BaseWorker
 from .dispatch_core import WorkerDispatchCore
 from .scheduler_model import (
     LEGACY_POLICY_TO_BACKPRESSURE,
+    EventLoopModel,
     SchedulerModel,
     ThreadPerTaskModel,
     ThreadPoolModel,
@@ -99,6 +100,9 @@ class BaseWaiter:
         """Assemble the concrete model by its name."""
         if model_name == WaiterConstant.WORKER_MODE_THREAD_POOL:
             return ThreadPoolModel(pool_size=pool_size, backpressure_policy=backpressure_policy)
+        if model_name == WaiterConstant.WORKER_MODE_EVENT_LOOP:
+            # 常驻事件循环模型无池尺寸概念，也不消费 backpressure_policy（其声明为 unbounded）
+            return EventLoopModel()
         return ThreadPerTaskModel()
 
     @staticmethod
