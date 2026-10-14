@@ -30,6 +30,12 @@
       删掉 `mkdir -p dist-sbom`）逐个确认该用例变红，再按 md5 逐字节还原
       （`md5=35a50ee01ac72ae18ebc4eb0b5262a45`，还原后复跑通过）
 - [x] 3.5 用例：`pytest tests/test_security_supply_chain.py -q` → 20 passed
-- [ ] 3.6 **发布链路的真实验证只能等下一个 tag**：本变更无法在 PR 内跑通
-      `Publish to PyPI`。dev 上本推送会触发一次 patch 版本 PR，其合并产生的 tag 将首次
-      以新路径走完整条发布链路——在那之前**不得声称已验证发布成功**
+- [x] 3.6 发布链路实测（归档时补记，2026-10-14）：合入后依次产生 `v0.13.0` /
+      `v0.13.1-beta` / `v0.13.2-beta` / `v0.14.0` 四个 tag，均以新路径走完整条发布链路。
+      两面各自核验：
+      (a) **PyPI 侧不应有 SBOM** —— `https://pypi.org/pypi/zoo-framework/json` 的
+      `0.14.0` 版本恰好 2 个产物（`zoo_framework-0.14.0-py3-none-any.whl` 与 `.tar.gz`），
+      无任何 `spdx` / `sbom` 文件；
+      (b) **Release 侧应有 SBOM** —— `gh release view v0.14.0` 的 asset 列表含
+      `sbom.spdx.json`（与 whl/tar.gz 及其 `.sig` / `.pem` 并列）。
+      两面对照即证明 SBOM 已移出 `dist/`、但仍在 Release 上可下载
