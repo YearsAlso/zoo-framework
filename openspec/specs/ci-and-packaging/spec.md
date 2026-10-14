@@ -131,17 +131,28 @@
 
 发布自动化计算下一版本时，测试分支（dev）的结果 MUST NOT 低于主干（main）的当前声明——以 main 声明为下限，候选低于下限时以下限为基数按同类型重新递增。主干 bump 合并后，自动化 MUST 向测试分支提出 back-merge PR（经人工批准合并，闸门语义不变），使测试分支的声明跟上主干。测试分支收到与主干声明完全一致的"仅版本声明"推送（back-merge 的回声）时 MUST NOT 触发打 tag——同版本号 tag 已存在于主干，重复尝试只会留下失败。发布节奏本身（dev=patch+beta、main=minor）不因本要求改变。
 
+自动化 MUST NOT 因自身产出的版本号提交再次提出 bump PR（自环防护）：判定"本次推送只改了版本声明"所列举的文件集合、以及"声明回声"所比较的文件集合，SHALL 与版本声明处（`pyproject.toml`、`.env`、`zoo_framework/__init__.py`、`CITATION.cff`）逐项一致，且该一致性 MUST 由机械校验守住。漏列一处会使版本号提交被判成内容推送，版本号只涨不发（dev 上实测 `0.11.3-beta` 一路涨到 `0.11.11-beta`，`v0.11.2-beta` 之后没有任何 tag）；回声清单漏列一处则可能把"仅第四处不同"的推送误判成回声而静默不打 tag。
+
 #### Scenario: 分叉被下限拦截
+
 - **WHEN** 主干声明为 0.9.0 而测试分支仍停在 0.8.4-beta，测试分支触发 bump
 - **THEN** 计算结果为 0.9.1-beta（沿主干线续算），MUST NOT 产出 0.8.5-beta 等低于主干的版本
 
 #### Scenario: 主干 bump 后自动提出回并
-- **WHEN** 主干的版本号 PR 被合并（仅三处版本声明变更）
+
+- **WHEN** 主干的版本号 PR 被合并（仅版本声明变更）
 - **THEN** 自动化打 tag 的同时向测试分支开出 back-merge PR；该 PR 仍需人工批准
 
 #### Scenario: 回声不打 tag
-- **WHEN** back-merge PR 合入测试分支（其结果与主干声明完全一致、只动了三处声明）
+
+- **WHEN** back-merge PR 合入测试分支（其结果与主干声明完全一致、只动了版本声明）
 - **THEN** 不创建 tag、不开新的 bump PR；测试分支下一次内容推送从主干线续算
+
+#### Scenario: 版本号提交不自环
+
+- **WHEN** 版本号 PR 被合入测试分支（提交只含 `pyproject.toml`、`.env`、`zoo_framework/__init__.py`、`CITATION.cff` 四处版本声明）
+- **THEN** 该次推送判定为打 tag，MUST NOT 再开出一个新的 bump PR
+- **AND** 该判定所列举的文件集合与四处版本声明逐项一致（由机械校验守住）
 
 ### Requirement: 文档站产物 MUST 发布仓库根 `llms.txt`
 
@@ -282,10 +293,15 @@ release 工作流 SHALL 在构建后生成软件物料清单（SPDX-JSON）并�
 附件发布；生成失败时工作流 SHALL 失败（SHALL NOT 静默跳过）；SHALL NOT 改变
 既有的签名与 PyPI 上传行为。
 
+SBOM 的扫描目标 SHALL 是待发布分发包所在目录，但其**产物 MUST 落在该目录之外**、
+MUST NOT 与待上传的分发包混放——上传工具会把 `packages-dir`（默认 `dist/`）下的每个
+文件都当作分发包校验，非分发包文件混入会使整个上传中止。
+
 #### Scenario: SBOM 生成并随附件发布
 
 - **WHEN** release 工作流运行到构建之后
-- **THEN** `dist/` 中出现 SBOM 文件
+- **THEN** `dist-sbom/` 中出现 SBOM 文件
+- **AND** `dist/` 中只有 wheel 与 sdist
 - **AND** release 附件列表包含该 SBOM 文件
 
 #### Scenario: 失败可见
@@ -415,3 +431,93 @@ PEP 740 证明、`cosign` keyless 签名与证书、SPDX SBOM 三者至少其一
 
 - **WHEN** 读取 `CHANGELOG.md`
 - **THEN** 存在 Security 段记录本次依赖漏洞状态复核的结论与钉 SHA 漏项修复
+
+### Requirement: 原生扩展 MUST 由 CI 构建、测试并发布
+
+仓库内 `native/` 的原生扩展 SHALL 具备持续集成覆盖：`cargo test` SHALL 在 Linux、macOS、
+Windows 三平台运行；构建出的扩展 SHALL 被安装到 Python 环境并执行原生相关的 pytest 路径。
+
+发布的 wheel SHALL 通过 abi3 覆盖多个 Python 版本，SHALL NOT 以「每个 Python 版本各发
+一份」的方式交付。启用 abi3 时，扩展自身的 Python 下界 SHALL 同步降到 abi3 覆盖的下界，
+MUST NOT 让下界把 abi3 覆盖的版本挡在门外。
+
+发布 SHALL 走 OIDC 短期令牌（trusted publishing），MUST NOT 依赖长期令牌。发布流程 SHALL
+是幂等的：目标版本已存在于索引时 SHALL 跳过上传，而不是让工作流失败。
+
+发布 MUST NOT 只发出部分产物：构建出的每一份 wheel SHALL 全部进入待发布集合，集合收不全
+时发布 SHALL 失败并给出缺失数量，MUST NOT 静默发出残缺的一份。该约束 SHALL 由产物侧的
+实际登记数保证，MUST NOT 依赖手工维护的平台清单或数量常量——清单会随构建矩阵漂移，
+而「少了」与「做对了」在漂移后不可区分。同一约束 MUST NOT 在版本已存在（幂等跳过）时
+误报为失败。
+
+扩展为可选安装：主包 SHALL 以可选附加的形式暴露安装入口，MUST NOT 默认捆绑原生扩展，
+MUST NOT 因未安装扩展而改变既有纯 Python 行为。
+
+#### Scenario: 三平台原生测试
+
+- **WHEN** 改动 `native/` 的提交触发原生工作流
+- **THEN** `cargo test` 在三个平台上运行且通过
+- **AND** 安装构建出的扩展后，原生 pytest 路径通过
+
+#### Scenario: 同一 wheel 覆盖多个 Python 版本
+
+- **WHEN** 原生工作流构建出 wheel
+- **THEN** wheel 文件名带 abi3 标记
+- **AND** 同一个 wheel 产物在至少两个 Python 版本上安装并加载成功
+
+#### Scenario: 下界不得吃掉 abi3 的收益
+
+- **WHEN** 检查扩展的元数据
+- **THEN** `requires-python` 不高于 abi3 目标版本所覆盖的下界
+
+#### Scenario: 可选附加而非默认捆绑
+
+- **WHEN** 用户安装主包且未选择原生附加
+- **THEN** 安装过程中不出现 Rust 工具链或原生构建步骤
+- **AND** 请求原生能力时框架显式报错，不静默回退为纯 Python 实现
+
+#### Scenario: 重复发布被跳过
+
+- **WHEN** 目标版本已存在于索引
+- **THEN** 发布步骤跳过上传且工作流不失败
+
+#### Scenario: 每个构建平台的 wheel 都进入索引
+
+- **WHEN** 一次真实 tag 触发的发布完成
+- **THEN** 索引上该版本下存在与构建作业数量相同的 wheel，平台标签各不相同
+
+#### Scenario: 产物收不全时拒绝发布
+
+- **WHEN** 待发布集合中缺少某个构建作业产出的 wheel
+- **THEN** 发布步骤失败并报出集合内数量与产物登记数量的差异
+- **AND** 该版本在索引上不新增任何文件
+
+### Requirement: 文档站构建 MUST 以严格模式作为门禁
+
+文档站构建 SHALL 以严格模式运行（`mkdocs build --strict`）。任何构建告警——链接目标缺失、
+进入 API 参考的签名缺类型注解等——MUST 使构建以非零状态结束，MUST NOT 出现"有告警但
+构建成功"的中间态。
+
+构建与部署 SHALL 分离：改动文档相关路径的 `dev` 推送、以及面向 `dev` 的拉取请求 SHALL
+触发构建作业；部署作业 SHALL 只在 `main` 上执行，`dev` 与拉取请求的构建产物 MUST NOT
+发布到站点。
+
+#### Scenario: 存在死链时构建失败
+
+- **WHEN** `docs/` 下存在指向 `docs_dir` 之外且站点上不可解析的相对链接
+- **THEN** 文档站构建以非零状态结束
+
+#### Scenario: 签名缺注解时构建失败
+
+- **WHEN** 进入 API 参考的某个函数签名缺少参数或返回值注解
+- **THEN** 文档站构建以非零状态结束
+
+#### Scenario: dev 与拉取请求上构建但不部署
+
+- **WHEN** 文档相关路径的改动被推送到 `dev`，或存在面向 `dev` 的拉取请求
+- **THEN** 构建作业以严格模式运行，且部署作业不执行
+
+#### Scenario: 只有 main 部署
+
+- **WHEN** 严格构建在 `main` 上成功
+- **THEN** 站点产物被发布到 GitHub Pages

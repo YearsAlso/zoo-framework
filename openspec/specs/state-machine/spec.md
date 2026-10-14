@@ -101,3 +101,53 @@
 #### Scenario: 无法识别的入参明确失败
 - **WHEN** 以既非 None、也非 dict/ThreadSafeDict 的对象调用 `load_state_machines`
 - **THEN** 抛出 `TypeError` 且"已加载"标志保持为假，由调用方的异常路径决定后续行为
+
+### Requirement: 状态 effect 调度器 MUST 能把 effect 登记到索引且二者一致
+
+`StateEffectScheduler` 向索引登记 / 移除状态 effect 时，被调用的索引方法 MUST 真实存在，MUST NOT
+在运行期以 `AttributeError` 失败。登记后，索引 MUST 能按状态（分组）与全集两处查到该 effect；
+移除后 MUST 在两处都不再包含它。移除 MUST 幂等：目标不存在时 MUST NOT 抛错。本补齐 MUST NOT 改变
+调度器既有的查询（`get_state_effect`）与执行（`execute_state_effect`）语义。
+
+#### Scenario: 登记 effect 后索引可查
+
+- **WHEN** 经 `StateEffectScheduler.add_state_effect` 登记一个 effect
+- **THEN** 索引的按状态分组与全集都能查到它，且调用不抛 `AttributeError`
+
+#### Scenario: 移除 effect 后索引不再包含
+
+- **WHEN** 登记一个 effect 后再经 `StateEffectScheduler.remove_state_effect` 移除它
+- **THEN** 索引的按状态分组与全集都不再包含该 effect
+
+#### Scenario: 查询与执行语义不变
+
+- **WHEN** 登记一个 effect 后按状态查询并执行
+- **THEN** 查询返回该 effect，执行调用到该 effect 的回调
+
+### Requirement: 持久化失败 MUST 显式可感知
+
+持久化无法完成时，系统 MUST 明确报错，MUST NOT 只记录一条日志、把失败留给被忽略的返回值。目标目录
+不存在或不可写这类**必然且持续**的失败 MUST 在启动时被校验并当场失败（`start()`）；落盘失败时
+`save()` MUST 抛出 `PersistenceError`，且 MUST NOT 清除脏标记（数据仍未落盘，须可重试）。成功的
+落盘 MUST 返回成功信号；读盘在文件缺失时 MUST 仍优雅返回空值——读盘缺失是正常态，与写盘不可完成
+分属不同语义。校验失败的错误信息 MUST 指明不可用的目录与配置键 `stateMachine:picklePath`。
+
+#### Scenario: 目标目录不存在时落盘明确报错
+
+- **WHEN** 目标文件的父目录不存在，且持久化调度器已有待落盘数据
+- **THEN** `save()` 抛出 `PersistenceError`，错误信息含该目录，且脏标记仍为真、不留下半成品文件
+
+#### Scenario: 启动时校验目标目录
+
+- **WHEN** 以父目录不存在的路径启动持久化调度器
+- **THEN** 启动当场失败并抛出 `PersistenceError`，而非进入后续每拍失败
+
+#### Scenario: 目录可用时落盘照常成功
+
+- **WHEN** 目标目录存在且可写
+- **THEN** `save()` 返回成功信号、脏标记清零、文件落盘
+
+#### Scenario: 读盘缺失文件仍优雅
+
+- **WHEN** 目标文件不存在
+- **THEN** `load()` 返回空值而不抛出异常

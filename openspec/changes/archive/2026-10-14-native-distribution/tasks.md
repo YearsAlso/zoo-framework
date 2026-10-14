@@ -37,8 +37,15 @@
       同一次运行也证到了前置条件：项目在索引上不存在时 MUST 先在 PyPI 账号侧登记
       pending publisher（Owner/Repository/Workflow/Environment 四项须逐字对上），
       否则 OIDC 交换被拒为 `invalid-publisher`——前三个 tag 全是这条同样的 annotation。
-      **仍未验证**：修复后三平台 wheel 是否齐全；TestPyPI 演练仍未做。在修复合并并复跑一次之前
-      不得声称三平台均已发布。详见 `docs/native-release-runbook.md`
+      **归档时补记（2026-10-14）——三平台 wheel 齐全一项已验证**：修复（PR #239）合入后
+      发布 `v0.1.1`，`https://pypi.org/pypi/zoo-framework-native/json` 核验产物为
+      **3 份**且平台互不重复：`cp311-abi3-win_amd64` / `cp311-abi3-macosx_11_0_arm64` /
+      `cp311-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64`；对照未修复的 `0.1.0`
+      只有 1 份（`cp311-abi3-win_amd64`）——即「三份中只上去一份」的症状已消除，
+      三平台均已发布。详见 `docs/native-release-runbook.md`
+- [ ] 3.7 遗留（本变更不做，见 `docs/native-release-runbook.md`）：**TestPyPI 演练**仍未做。
+      它验证的是"发布链路在演练环境上先跑通一次"，与 3.5 的"三平台产物是否齐全"是两件事；
+      归档时保持未做状态并留在此处，不因归档而消失
 - [x] 3.6 Linux/macOS 收益包络：CI 原生构建已接入并在三平台跑绿（run `38339077692`），但
       `native.yml` **不含 benchmark、不产出性能数字**——故 Linux/macOS 的收益包络**仍未测**，
       已按「CI 已接入，性能形状未测」如实记入 `native/DECISION.md` 5.3（不编造）

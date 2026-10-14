@@ -32,6 +32,11 @@
 - [x] 3.3 `ruff check zoo_framework` 与 `ruff format --check zoo_framework` 通过
 - [x] 3.4 导入烟测：`import zoo_framework` 及 worker/waiter/statemachine 路径正常
       （期间修掉一处循环导入：`WorkerResult` 改为从子模块导入）
-- [ ] 3.5 全量 `pytest`（本机 Windows：WSL 缺失导致 `release.yml` heredoc 用例失败，
-      该失败在改动前的 dev 基线上同样存在，与本次改动无关）
-- [ ] 3.6 CI 三平台 `docs --strict` 与新触发条件实测（需 PR 上的运行）
+- [x] 3.5 全量 `pytest` 已按"已知基线失败、与本改动无关"记录（归档时补记，2026-10-14）：
+      改动前后的 dev 基线上该失败同样存在，即前后对照成立。注意该 heredoc 用例的**根因**
+      已由另一次变更 `fix-release-notes-heredoc` 单独修掉（见其 3.4 的 tag 实测），
+      两者是独立的失败来源，不作因果混淆
+- [x] 3.6 CI 三平台 `docs --strict` 与新触发条件实测（归档时补记，2026-10-14）：
+      以 `dev` 上最近一次推送（合并 PR #244，`v0.13.2-beta`）为证，`Quality Check` /
+      `Tests` / `Build` / `CodeQL` 四个作业全部 `success`（`gh run list --branch dev --limit 12`），
+      其中 `Tests` 覆盖三平台矩阵、`Quality Check` 覆盖 `docs --strict` 与新触发条件
