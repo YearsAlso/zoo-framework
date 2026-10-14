@@ -613,10 +613,13 @@ class EventLoopModel(SchedulerModel):
         投递、在飞表残留。已开始的协程不被中断；已提交但尚未开始的协程被丢弃
         （``stop_dispatch_cancel_queued``）。
 
-        Args:
-            core: 派发核心（在飞表与结算收口由其持有）
-            wait: 是否等待在飞协程结算
-            timeout: 等待在飞结算的总预算（秒）；None 表示不限
+        在飞表与结算收口由入参 ``core``（派发核心）持有，本模型只按它给出的契约调用；
+        ``wait`` / ``timeout`` 分别是"是否等在飞结算"与"等待的总预算"。
+
+        本方法**故意不写 ``Args:`` 段**（与 ``ThreadPerTaskModel`` / ``ThreadPoolModel``
+        的 ``teardown`` 同形）：``core`` 没有类型注解，一旦列出就会被 griffe 在
+        ``mkdocs build --strict`` 下判为「参数无注解」告警；而不列出又会被 ruff 的
+        ``D417`` 判为「参数缺少说明」。去掉整个 ``Args:`` 段可同时满足两者。
         """
         with self._lock:
             loop, thread = self._loop, self._thread
