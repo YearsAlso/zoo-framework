@@ -95,6 +95,13 @@ class StateNode:
             return self._value
         return self.get_children_value()
 
+    def get_version(self) -> int:
+        """Get the state node version.
+
+        版本在每次成功写入后严格递增，可作为乐观并发控制（条件写 CAS）的依据。
+        """
+        return self._version
+
     def get_children_value(self) -> dict:
         """Get the children values."""
         _result: dict = {}
@@ -123,12 +130,40 @@ class StateNode:
             child.set_key(f"{self.key}.{i}")
 
     def set_value(self, value: Any) -> None:
-        """Set the state node value."""
-        version = int(time.time())
+        """设置状态节点的值。
+
+        版本**先于 effect 更新**，因此观察者载荷中的 ``version`` 即为写入后的
+        新版本。
+        """
         self._type = StateNodeType.get_type_by_value(value)
         self._value = value
-        self._update_version()
+        version = self._bump_version()
         self._perform_effect(value, version)
+
+    def append_value(self, item: Any) -> None:
+        """向集合节点逐条追加一个元素。
+
+        仅接受当前值为 ``list`` 的节点：就地 append（不重建既有元素、不重排），
+        随后更新版本并触发 effect。判定以 ``isinstance(get_value(), list)`` 为准，
+        与节点的声明类型 ``_type`` 无关——``register_node(key, [..])`` 建出的节点
+        ``_type`` 仍是 ``string``，按声明类型判定会误判。非 ``list`` 值（如 ``int``
+        或 ``dict`` 子树）明确抛 ``TypeError``，且不覆盖原值。
+
+        Args:
+            item: 要追加的元素
+
+        Raises:
+            TypeError: 节点当前值不是 ``list``
+        """
+        current = self.get_value()
+        if not isinstance(current, list):
+            raise TypeError(
+                f"cannot append to non-list state node '{self.key}': "
+                f"current value type is {type(current).__name__}"
+            )
+        current.append(item)
+        version = self._bump_version()
+        self._perform_effect(current, version)
 
     def _perform_effect(self, value: Any, version: int) -> None:
         """Perform the state node effects.
@@ -156,9 +191,19 @@ class StateNode:
             if exc is not None:
                 LogUtils.warning(f"state effect raised an exception: {exc!r}", "StateNode")
 
-    def _update_version(self) -> None:
-        """Update the state node version."""
-        self.version = int(time.time())
+    def _bump_version(self) -> int:
+        """推进并返回节点版本——每次成功写入都严格递增。
+
+        取 ``max(prev + 1, int(time.time()))``：保留"版本数量级≈墙钟秒"的既有
+        观感，仅在"同一秒内多次写"时才与旧值不同；纯计数器会让所有版本值立刻
+        变成小整数。严格递增是条件写（CAS）可用的前提——秒级时间戳在同一秒
+        重复会导致 ABA 假通过。
+
+        Returns:
+            写入后的新版本
+        """
+        self._version = max(self._version + 1, int(time.time()))
+        return self._version
 
     def get_state(self) -> Any:
         """Get the state node value."""
@@ -192,3 +237,20 @@ class StateNode:
     def get_children(self) -> list[Any]:
         """Get the children."""
         return self._children
+
+    def __setstate__(self, state: dict) -> None:
+        """反序列化兜底：把旧载荷的双版本字段归一为单一 ``_version``。
+
+        改造前的 pickle 载荷同时含 ``version`` 与 ``_version`` 两个键；合并为
+        单一 ``_version`` 后，旧存档的 ``version`` 成为冗余字段。此处取其与
+        ``_version`` 的较大值，避免版本回退，并使 ``get_version()`` 在旧存档上
+        依然可读。
+
+        Args:
+            state: pickle 还原出的实例 ``__dict__``
+        """
+        legacy = state.pop("version", None)
+        self.__dict__.update(state)
+        current = self.__dict__.get("_version")
+        if legacy is not None:
+            self.__dict__["_version"] = legacy if current is None else max(current, legacy)
