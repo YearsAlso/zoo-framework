@@ -77,7 +77,8 @@ zoo_framework/
 | `statemachine/` | `StateMachineManager` → `StateScope` → pluggable `StateIndex`; `state_node.py` holds the read/write node, `state_effect*.py` the side effects |
 | `params/` | One schema class per concern (`worker` / `event` / `log` / `stateMachine`) |
 | `constant/` | `waiter_constant.py` (implemented modes, result topic) and `worker_constant.py` (run policies, kinds) |
-| `plugin/` | `Plugin` ABC, `PluginManager` (registration, dependency ordering, `load_from_path`), delay strategies |
+| `plugin/` | `Plugin` ABC, `PluginManager` (registration, dependency ordering, load/unload), delay strategies; `sources.py` = extension-package discovery adapters (local path / installed distribution) |
+| `core/extension.py` | Extension-package distribution & trust semantics (three tiers, manifests, per-kind filters, conflict resolution, trust gate). Pure semantics, no I/O |
 | `cli/` | The `zfc` CLI. `__init__.py` parses options and presents errors; `scaffold.py` produces the files. **Dev-time only** — the framework does not import it at runtime |
 | `templates/` | Scaffold template text as module-level strings (`string.Template`, no Jinja2), including the markers `zfc --worker` uses to wire a new Worker into the entry point |
 
@@ -224,7 +225,8 @@ zoo_framework/
 | `statemachine/` | `StateMachineManager` → `StateScope` → 可插拔的 `StateIndex`；`state_node.py` 持读写节点，`state_effect*.py` 持副作用 |
 | `params/` | 一个关注点一个 schema 类（`worker` / `event` / `log` / `stateMachine`） |
 | `constant/` | `waiter_constant.py`（已实现的模式、结果主题）与 `worker_constant.py`（运行策略、Worker 类别） |
-| `plugin/` | `Plugin` 抽象基类、`PluginManager`（注册、依赖排序、`load_from_path`）、延迟策略 |
+| `plugin/` | `Plugin` 抽象基类、`PluginManager`（注册、依赖排序、加载/卸载）、延迟策略；`sources.py` 为扩展包发现适配器（本地路径 / 已安装发行物） |
+| `core/extension.py` | 扩展包分发与信任语义（三档来源、清单、逐类过滤、冲突取舍、信任门禁），纯语义无 I/O |
 | `cli/` | zfc 命令行。`__init__.py` 解析选项并呈现错误，`scaffold.py` 负责产出文件。**只在开发期使用** —— 框架运行时不导入它 |
 | `templates/` | 脚手架模板文本（模块级字符串，`string.Template` 渲染，不用 Jinja2），含 `zfc --worker` 用来把新 Worker 接入入口的插入点标记 |
 
