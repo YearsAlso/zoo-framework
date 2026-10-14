@@ -51,5 +51,9 @@
 - [x] 6.1 全量 `python -m pytest -q` 与基线（1.2）逐项比对，通过数不少于基线且无新增失败
 - [x] 6.2 `ruff check zoo_framework`、`ruff format --check zoo_framework`、`mypy zoo_framework` 三项门禁全过
 - [x] 6.3 `openspec validate document-nested-master-boundary --strict` 通过
-- [ ] 6.4 在 issue #248 下留完成回调，逐条对照其验收标准；若 `zoo-code-agent#43` 需要引用，
-      在回调中给出文档段落的定位（文件 + 小节标题）
+- [x] 6.4 在 issue #248 下留完成回调（2026-10-14，
+      https://github.com/YearsAlso/zoo-framework/issues/248#issuecomment-6168511377）：
+      逐条对照其验收标准，含「构造期报错」更正为「第二个 Master 启动时拒绝」的必要前提更正，
+      并给出 `zoo-code-agent#43` 可引用的文档段落定位 —— `docs/ARCHITECTURE.md` 的
+      **作用域容器**一节末尾（边界与原因）、`docs/FAQ.md` 的「一个进程能跑多个运行时吗？」
+      （替代形态与适用条件）。对应 PR #252
