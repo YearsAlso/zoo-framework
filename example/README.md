@@ -17,6 +17,22 @@
 > 输出被重定向到管道或文件时，CPython 默认**块缓冲**会推迟 `print` —— 在终端里运行、
 > 或用 `python -u`，就能即时看到。
 
+## 集成示例（`integrations/`）
+
+`integrations/` 放的是**与第三方上游项目的真实集成**：每个子目录一个上游，自带可运行入口、
+说明其「演示什么 / 怎么跑 / 期望输出」的 README，以及一段**可直接投给上游文档**的说明文字
+（`upstream-doc-snippet.md`）。这些示例会引入上游依赖（写在各自文件头注释里，**不进主包的
+`pyproject.toml`**）。每个示例都附「何时不该用本框架」的诚实口径。
+
+| 目录 | 上游 | 演示什么 | 怎么跑 | 期望输出 |
+|---|---|---|---|---|
+| [`integrations/fastapi/`](integrations/fastapi/README.md) | FastAPI / Starlette | 用本框架替代 `BackgroundTasks`：常驻 Worker + 状态落盘，**重启后进度从落盘值继续** | `pip install fastapi uvicorn`，再 `cd integrations/fastapi && python -m uvicorn app:app --port 8010` | `[heartbeat_worker] tick #N` 递增；`POST /submit` 后出现 `[on_job] handled …`；`GET /state` 返回 `ticks`/`jobsHandled`，重启不归零 |
+| [`integrations/mcp/`](integrations/mcp/README.md) | MCP（官方 Python SDK） | MCP server 的本地任务执行后端：工具投递即返回，常驻 Worker 后台处理，进度可查询 | `pip install mcp`，再 `cd integrations/mcp && python client_demo.py` | `tools: ['submit_job', 'server_status']` → `submit_job -> accepted: …` → `server_status -> {"ticks": N, "jobsHandled": 1}` |
+| [`integrations/pymodbus/`](integrations/pymodbus/README.md) | pymodbus | 进程内管理 Modbus 轮询与状态：常驻 Worker 轮询寄存器，越限计数落盘 | `pip install "pymodbus>=3.16,<4"`，再 `cd integrations/pymodbus && python poller.py` | 每秒一行 `[register_poll_worker] poll #N temp=… pressure=…`，越限追加 `threshold breached (#K)` |
+
+> 落点说明：本仓库示例根目录是**单数** `example/`；集成示例挂在其下的 `integrations/`，
+> 而非另建复数 `examples/`——`example/` 的示例契约（见能力 `example-hygiene`）因此单点生效。
+
 ## 关于 `agent/`
 
 `agent/` 是指向姊妹仓库
