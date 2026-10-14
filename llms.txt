@@ -27,6 +27,9 @@ layer, no broker and no distributed scheduling.
   Worker.
 - **Worker registration** — by class, by instance, or by factory, with metadata, tags and
   priority.
+- **Health monitoring** (wired) — per-worker `execute_count` / `error_count` / health score
+  from `get_health_report()`, fed by a registration-based kernel seam. Optional exporters
+  (Prometheus text, OTLP) live in `zoo_framework.observability`.
 - **Nothing to run alongside it** — no broker, no cron daemon, no separate worker process.
   Install the package and embed it; there is no second service to deploy.
 
@@ -52,9 +55,6 @@ Framework deliberately declines, and each has a better tool:
 - **Multi-process execution** → **not implemented** in Zoo Framework. The mode constants are
   placeholders and requesting one is rejected with
   `dispatch mode 'process' is not implemented; implemented modes are ['thread', 'thread_pool']`.
-- **Health monitoring metrics** → the metric pipeline is not yet wired:
-  `get_health_report()` always reports `execute_count: 0`. Do not rely on it as an alerting
-  source.
 
 ## Core concepts
 

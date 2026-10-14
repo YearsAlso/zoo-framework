@@ -39,6 +39,7 @@ from zoo_framework.utils import LogUtils
 from zoo_framework.workers import BaseWorker
 from zoo_framework.workers.worker_result import WorkerResult
 
+from ..execution_metrics import emit_execution_fact
 from ..run_identity import RunIdentity, current_identity
 
 #: The "not applicable" marker for jitter. Workers without a declared period
@@ -407,6 +408,16 @@ class WorkerDispatchCore:
         with self._lock:
             handle = self.worker_props.pop(worker.name, None)
             self._completed += 1
+
+        # 内核只生产事实（变更 wire-svm-metrics / #246）：把本次执行的**不可变**事实
+        # 交给可注册的观察接缝，去向由消费者决定。未注册任何观察者时为空操作，既有
+        # 行为逐项不变。耗时以登记项里的单调起点起算；登记项已被熔断清理时如实取 0。
+        # 成败必须同时看结算错误与结果标记：执行体抛错时 BaseWorker.run 不向外抛，
+        # 而是把它封进结果（#228）——只看 ``error`` 会把失败一律记成成功。
+        run_time = handle.get("run_time") if handle else None
+        duration = time.monotonic() - run_time if run_time is not None else 0.0
+        success = error is None and (result is None or getattr(result, "success", True))
+        emit_execution_fact(getattr(worker, "registry_name", worker.name), duration, success)
 
         identity: RunIdentity | None = handle.get("identity") if handle else None
         if identity is None:

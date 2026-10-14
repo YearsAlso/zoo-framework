@@ -387,43 +387,69 @@ def test_metaphor_tables_converge():
             )
 
 
-# ---- 4.4 健康监控宣称如实（issue #114 第 2 条 + B2 的日志诚实化防回退） ----
+# ---- 4.4 健康监控宣称与运行实况一致（issue #114 第 2 条 + wire-svm-metrics / #246） ----
 
 _DEAD_CLAIM = "SVM monitoring started"
-# "宣称健康监控能力"的位置及其必须携带的未接通标注
+# 已接通后的**过期标注**：出现即说明文档口径没跟上实况（指标链路已接通）。
+_STALE_HEALTH_MARKERS = (
+    "指标链路尚未接通",
+    "指标链路未接通",
+    "Metric pipeline not yet wired",
+    "metric pipeline is not yet wired",
+    "not yet wired",
+    "always reports `execute_count: 0`",
+    "恒返回 `execute_count: 0`",
+)
+# 扫描过期标注的文件集：两份 README、机器可读索引、以及承载能力宣称的文档页。
+_STALE_HEALTH_SCAN_FILES = (
+    "README.md",
+    "README.zh.md",
+    "llms.txt",
+    "AGENTS.md",
+    "docs/README.md",
+    "docs/ARCHITECTURE.md",
+    "docs/contributing/roadmap.md",
+    "docs/internal/business-plan.md",
+)
+# "宣称健康监控能力"的位置及其必须携带的**已接通**标注：声明形（正则 -> 该宣称行必须
+# 携带的标注之一）。只认"能力宣称"位置（表格行 / 特性清单），不认架构图与类图——图里画的
+# 是结构不是能力承诺，逐处标注会把 mermaid 源码改花。
 _SVM_CLAIM_SITES = (
-    # 只认"能力宣称"位置（表格行 / 特性清单），不认架构图与类图——图里画的是
-    # 结构不是能力承诺，逐处标注会把 mermaid 源码改花。
-    # 声明形：正则 -> 该宣称行(或其近邻)必须携带的标注之一。
-    ("docs/ARCHITECTURE.md", r"^- SVM 健康监控", "尚未接通"),
-    ("docs/contributing/roadmap.md", r"^\| .*健康监控.*\|", "尚未接通"),
-    ("README.md", r"^\| Health monitoring", "not yet wired"),
-    ("README.zh.md", r"^\| .*健康监控.*\|", "尚未接通"),
-    ("docs/README.md", r"^\| 健康监控指标链路", "⚠️"),
+    ("docs/ARCHITECTURE.md", r"^- SVM 健康监控", "观测接缝"),
+    ("README.md", r"^\| Health monitoring", "✅"),
+    ("README.zh.md", r"^\| .*健康监控.*\|", "✅"),
+    ("docs/README.md", r"^\| 健康监控指标链路", "✅"),
+    ("llms.txt", r"^- \*\*Health monitoring\*\*", "(wired)"),
 )
 
 
-def test_no_dead_health_claims():
-    """SVM 能力宣称处必须携带「指标链路尚未接通」级标注；废弃宣称词不得回归。
+def test_health_claims_match_runtime_reality():
+    """SVM 能力宣称处必须标为已接通；过期的"未接通"口径不得回归。
 
-    牙齿：删掉 ARCHITECTURE.md「关键特性」行里的"（指标链路尚未接通 …）"
-    即红；把 `SVM monitoring started` 写回任何文档/源码即红——那是 B2 诚实化
-    之前的不实宣称字样（当时 metrics 根本没接线）。
+    牙齿：把 README / docs 该行改回 ⚠️（或删掉已接通标注）即红；把"指标链路尚未接通"
+    级过期标注写回任一列出的文档即红；把 `SVM monitoring started` 写回任何文档/源码即红
+    ——那是指标没接线时的历史不实宣称字样。
     """
     bad = []
-    for name, claim_re, marker in _SVM_CLAIM_SITES:
-        lines = (REPO_ROOT / name).read_text(encoding="utf-8").splitlines()
-        text = "\n".join(lines)
+    for name in _STALE_HEALTH_SCAN_FILES:
+        text = (REPO_ROOT / name).read_text(encoding="utf-8")
         if _DEAD_CLAIM in text:
             bad.append(f"    {name}: 出现废弃宣称字样 {_DEAD_CLAIM!r}")
+        for marker in _STALE_HEALTH_MARKERS:
+            if marker in text:
+                bad.append(f"    {name}: 出现过期标注 {marker!r}")
+
+    for name, claim_re, marker in _SVM_CLAIM_SITES:
+        lines = (REPO_ROOT / name).read_text(encoding="utf-8").splitlines()
         claims = [i for i, line in enumerate(lines) if re.search(claim_re, line)]
-        assert claims or "roadmap" in name, (
-            f"{name}: 未找到能力宣称行（{claim_re!r}）——文档结构变了，更新断言"
-        )
+        assert claims, f"{name}: 未找到能力宣称行（{claim_re!r}）——文档结构变了，更新断言"
         for i in claims:
-            near = "\n".join(lines[max(0, i - 2) : min(len(lines), i + 3)])
-            if not re.search(marker, near):
-                bad.append(f"    {name}:{i + 1}: SVM 能力宣称无未接通标注: {lines[i].strip()[:60]}")
+            if marker not in lines[i]:
+                bad.append(
+                    f"    {name}:{i + 1}: 健康监控宣称缺少已接通标注 {marker!r}: "
+                    f"{lines[i].strip()[:70]}"
+                )
+
     # 运行时日志源码也不得复活旧字样
     for py in sorted((REPO_ROOT / "zoo_framework").rglob("*.py")):
         if _DEAD_CLAIM in py.read_text(encoding="utf-8"):

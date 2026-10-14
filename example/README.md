@@ -11,6 +11,8 @@
 | [`threads/demo_thread.py`](threads/demo_thread.py) | `main.py` 的那个 Worker 单独运行（同一个类，带 `__main__` 入口） | `python threads/demo_thread.py` | 同 `main.py`（`Test get i:[N], …`） |
 | [`event/demo_event.py`](event/demo_event.py) | 最小**事件管道**闭环：`@event` 注册 reactor → 后台线程投递 → reactor 被响应 | `python event/demo_event.py` | 3 行 `pushed event #N`，随后 3 行 `on_change_test_number:…`（reactor 收到） |
 | [`fastapi/app.py`](fastapi/app.py) | 把 Worker **嵌进 Web 服务**：lifespan 启动 Master，`POST /tick` 投递事件、`GET /state` 观察闭环 | `pip install fastapi uvicorn`，再 `cd fastapi && uvicorn app:app --port 8000` | 终端 `[heartbeat_worker] round #N` 递增；`curl -X POST localhost:8000/tick` 后出现 `[on_tick] handled 'tick-…'`，`curl localhost:8000/state` 返回两个计数 |
+| [`observability/prometheus_endpoint.py`](observability/prometheus_endpoint.py) | 消费**执行事实接缝**：把每个 Worker 的执行计数/错误数渲染成 Prometheus 文本，经 `GET /metrics` 暴露（**只用标准库**，无需任何附加） | `cd observability && python prometheus_endpoint.py`，另开终端 `curl localhost:9111/metrics` | `zoo_worker_execute_count{worker="tick_worker"} N` 逐秒递增；其它路径 404 |
+| [`observability/otel_push.py`](observability/otel_push.py) | 同一条接缝的另一条消费者路径：把执行事实经 **OTLP/HTTP** 推给可观测性栈（**需 `pip install zoo-framework[otel]`**，未装则显式报错） | `pip install zoo-framework[otel]`，再 `cd observability && python otel_push.py` | 终端 `[tick_worker] round #N` 递增；指标推往 OTLP 端点（默认 `localhost:4318`） |
 
 按 `Ctrl-C` 停止所有示例（`Master.run()` 阻塞在调度循环上）。
 

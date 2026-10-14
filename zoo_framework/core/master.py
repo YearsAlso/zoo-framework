@@ -15,6 +15,7 @@ from zoo_framework.utils import LogUtils
 from zoo_framework.workers import EventWorker, StateMachineWorker
 
 from .aop import config_funcs
+from .execution_metrics import ExecutionFact, ExecutionObserverRegistry
 from .master_boundary import master_boundary
 from .params_factory import ParamsFactory
 from .worker_registry import get_worker_registry
@@ -34,6 +35,9 @@ class SVMWorker:
         # A wakeable wait instead of sleep: otherwise shutdown waits out a full
         # check period, up to check_interval seconds
         self._stop_event = threading.Event()
+        # 注册进哪个观察接缝实例，就从这个实例注销——容器复位后进程级实例可能已换新，
+        # 记下来避免把回调留在旧实例上（变更 wire-svm-metrics / #246）
+        self._observer_registry: ExecutionObserverRegistry | None = None
 
     def register_worker(self, name: str, worker: Any) -> None:
         """Register a Worker to the SVM manager."""
@@ -46,18 +50,24 @@ class SVMWorker:
                 "last_execute_time": 0.0,
                 "status": "running",
             }
-            # 如实表述：指标输入链路未接通，健康报告恒为零——不声称监控已生效
-            LogUtils.debug(
-                f"SVM worker '{name}' registered"
-                " (metrics input not wired; get_health_report() returns zeros)"
-            )
+            # 指标链路已接通（变更 wire-svm-metrics / #246）：执行事实经观察接缝进入，
+            # 健康报告反映真实计数
+            LogUtils.debug(f"SVM worker '{name}' registered (execution metrics wired)")
 
     def unregister_worker(self, name: str) -> None:
         """Remove a Worker from the SVM manager."""
         with self._lock:
             self._workers.pop(name, None)
             self._metrics.pop(name, None)
-            LogUtils.debug(f"SVM worker '{name}' unregistered (metrics input not wired)")
+            LogUtils.debug(f"SVM worker '{name}' unregistered")
+
+    def _on_execution(self, fact: ExecutionFact) -> None:
+        """观察接缝回调：把一条执行事实累加进该 Worker 的指标。
+
+        Args:
+            fact: 一次执行完成的不可变事实
+        """
+        self.record_execute(fact.worker_name, fact.duration, fact.success)
 
     def record_execute(self, name: str, duration: float, success: bool = True) -> None:
         """Record a Worker's execution metrics."""
@@ -107,31 +117,39 @@ class SVMWorker:
             return {name: self.get_worker_health(name) for name in self._workers}
 
     def start_monitoring(self) -> None:
-        """Start the monitoring thread."""
+        """Start the monitoring thread.
+
+        同时把本 Worker 注册为执行事实接缝的观察者（变更 wire-svm-metrics / #246）：
+        此后每次执行结算都会把事实累加进指标，`get_health_report()` 因此反映真实计数。
+        """
         if self._running:
             return
 
         self._stop_event.clear()
         self._running = True
+        registry = ExecutionObserverRegistry()
+        registry.observe(self._on_execution)
+        self._observer_registry = registry
         self._monitor_thread = threading.Thread(target=self._monitor_loop, name="zoo-svm")
         self._monitor_thread.daemon = True
         self._monitor_thread.start()
-        # 监控线程真实启动，但指标输入未接通——如实说明，不声称监控已生效
-        LogUtils.debug(
-            "SVM monitor thread started (metrics input not wired; health report stays zero)"
-        )
+        LogUtils.debug("SVM monitor thread started (execution metrics wired)")
 
     def stop_monitoring(self) -> None:
         """Stop the monitoring thread.
 
         Wakes the monitor loop via the event so shutdown does not wait out a
-        full check period.
+        full check period. Also unregisters the execution-fact observer, so a
+        shut-down SVM no longer accumulates metrics (no leak).
         """
         self._running = False
         self._stop_event.set()
+        if self._observer_registry is not None:
+            self._observer_registry.unobserve(self._on_execution)
+            self._observer_registry = None
         if self._monitor_thread:
             self._monitor_thread.join(timeout=5)
-        LogUtils.debug("SVM monitor thread stopped (metrics input not wired)")
+        LogUtils.debug("SVM monitor thread stopped")
 
     def _monitor_loop(self) -> None:
         """The monitoring loop."""
@@ -303,15 +321,14 @@ class Master:
         if not self.svm_worker:
             return
 
-        # Register all Workers to SVM
-        for name, worker in self.worker_registry.get_all_workers().items():
-            self.svm_worker.register_worker(name, worker)
+        # Register all Workers to SVM，以 worker.registry_name 为指标身份——派发侧
+        # 只能看到这个身份（变更 wire-svm-metrics / #246），否则执行事实命中不了条目
+        for worker in self.worker_registry.get_all_workers().values():
+            self.svm_worker.register_worker(worker.registry_name, worker)
 
         # Start monitoring
         self.svm_worker.start_monitoring()
-        LogUtils.debug(
-            "SVM worker setup done (metrics input not wired; get_health_report() returns zeros)"
-        )
+        LogUtils.debug("SVM worker setup done (execution metrics wired)")
 
     def _create_waiter(self) -> None:
         """Create the Waiter.
@@ -366,9 +383,9 @@ class Master:
 
         self.waiter.add_worker(worker)
 
-        # Register to SVM when SVM is enabled
+        # Register to SVM when SVM is enabled（与派发侧事实的身份口径一致）
         if self.svm_worker:
-            self.svm_worker.register_worker(name, worker)
+            self.svm_worker.register_worker(worker.registry_name, worker)
 
     async def perform(self) -> None:
         """The task main loop."""
@@ -498,7 +515,9 @@ class Master:
             return None
 
         metadata = self.worker_registry.get_metadata(worker_name) or {}
-        health = self.svm_worker.get_worker_health(worker_name) if self.svm_worker else {}
+        # SVM 的指标身份是 worker.registry_name（变更 wire-svm-metrics / #246）：
+        # 默认 Worker 与注册表键相同，自定义重命名注册时以 Worker 自述身份为准
+        health = self.svm_worker.get_worker_health(worker.registry_name) if self.svm_worker else {}
 
         return {
             "name": worker_name,

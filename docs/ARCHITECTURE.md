@@ -83,7 +83,7 @@ classDiagram
 
 **关键特性**：
 - Worker 自动注册和生命周期管理
-- SVM 健康监控（指标链路尚未接通 —— `get_health_report()` 恒返回 `execute_count: 0`）
+- SVM 健康监控（执行事实经可注册的观测接缝进入 —— `get_health_report()` 反映真实执行计数）
 - 优雅关闭
 
 ### 2.  Worker —— 任务单元
@@ -375,9 +375,11 @@ classDiagram
     DelayStrategy <|.. AdaptiveDelay
 ```
 
-### 8.  SVM —— 健康监控（指标链路尚未接通）
+### 8.  SVM —— 健康监控
 
-**职责**：Worker 健康监控
+**职责**：Worker 健康监控。执行事实由 `WorkerDispatchCore.settle`（唯一结算收口）经
+`core/execution_metrics.py` 的观察接缝发射，SVM 作为观察者累加指标；可选导出面见
+`zoo_framework/observability/`（Prometheus 文本 / OTLP）。
 
 ```mermaid
 classDiagram

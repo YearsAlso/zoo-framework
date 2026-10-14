@@ -127,7 +127,7 @@ python src/main.py
 |---|---|
 | 多进程执行 | ❌ **未实现**。模式常量是占位，请求会被显式拒绝（`NotImplementedError`） |
 | cron 表达式 | ❌ 不支持，只有固定 `delay_time` 轮询 |
-| 健康监控指标链路 | ⚠️ 尚未接通，`get_health_report()` 恒返回 `execute_count: 0` |
+| 健康监控指标链路 | ✅ 已接通，`get_health_report()` 反映真实执行计数（可选导出面见 `zoo_framework.observability`） |
 | 超时处理 | ⚠️ **观察并停止派发，不强制终止**正在执行的 Worker |
 
 ---

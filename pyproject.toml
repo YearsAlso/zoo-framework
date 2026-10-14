@@ -106,6 +106,15 @@ docs = [
 native = [
     "zoo-framework-native>=0.1,<0.2",
 ]
+# 可选的可观测性导出扩展（issue #246 / 变更 wire-svm-metrics）。
+# 与 native 同一先例：只提供一条发现路径 `pip install zoo-framework[otel]`，
+# 不装它时框架一切如旧——默认依赖不因此变重。上游只被 OTLP 路径用到
+# （zoo_framework/observability/otel.py 惰性 import），缺附加时显式报错、
+# 不静默回退；Prometheus 文本 exporter 仅用标准库，无需任何附加。
+otel = [
+    "opentelemetry-sdk>=1.20",
+    "opentelemetry-exporter-otlp-proto-http>=1.20",
+]
 
 [project.scripts]
 zfc = "zoo_framework.cli:zfc"
