@@ -19,6 +19,7 @@ from zoo_framework.statemachine import StateMachineManager
 ::: zoo_framework.statemachine.state_node_type
 ::: zoo_framework.statemachine.state_node_index
 ::: zoo_framework.statemachine.state_index_factory.StateIndexFactory
+::: zoo_framework.statemachine.state_index_factory.QueryableIndex
 
 ## 状态 effect
 

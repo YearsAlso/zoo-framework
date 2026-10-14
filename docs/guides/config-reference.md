@@ -40,13 +40,20 @@
 
 | 键 | 默认 | 说明 |
 |---|---|---|
-| `stateMachine:picklePath` | `"./zooStates.pic"` | 状态文件路径 |
+| `stateMachine:picklePath` | `"./zooStates.pic"` | 状态文件路径；开启增量持久化后解释为**目录** |
 | `stateMachine:delay` | `5` | 落盘间隔（秒） |
+| `stateMachine:indexType` | `"dict"` | 索引类型：`dict` / `hierarchical` / `queryable`。未知取值抛 `ValueError`（不静默回退） |
+| `stateMachine:incrementalSave` | `false` | 增量持久化：开启后每拍只写**脏作用域**（`picklePath` 变成目录） |
+| `stateMachine:scopeTtlSeconds` | `0` | 作用域 TTL（秒）；`0` 表示不淘汰（默认） |
 
 状态还会在**优雅停机时**再存一次。落盘采用「先写 `.tmp` 再原子替换」，
 并在同级 `backups/` 保留最近 5 份。
 
 > **恢复语义是整表替换**，不是逐键合并。
+
+> **三个新键的默认值都保持现状**：未配置时索引仍是 `dict`、仍整表落盘、仍不淘汰，
+> 行为与合入前一致。`indexType` / `incrementalSave` / `scopeTtlSeconds` 均在**运行期**
+> 读取。详见[状态持久化](state-persistence.md)的「查询型索引」「增量持久化」「作用域 TTL」。
 
 ---
 

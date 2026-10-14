@@ -1,5 +1,6 @@
 import copy
 import threading
+import time
 from typing import Any
 
 from zoo_framework.core.run_identity import RunIdentity, current_identity
@@ -37,6 +38,11 @@ class StateScope:
         # 良定义（一个 scope 内串行，跨 scope 不互斥）。用 RLock 是因为
         # set_state_node 处理分支值时会递归重入。
         self._mutation_lock = threading.RLock()
+        # 最后写入时间戳（墙钟秒，add-state-query-index-and-incremental-persistence
+        # 原语 3）：TTL 淘汰按其与墙钟之差判定。取"最后写入"而非"最后访问"——读路径
+        # 零改动。随 scope 一起 pickle（TTL 需跨进程重启成立），故不参与 __getstate__
+        # 的剔除（只剔不可序列化的变更锁）。
+        self.last_modified: float = time.time()
         # Owner identity: the **first** writer becomes the owner and it is never
         # rewritten afterwards (see set_state_node). The full RunIdentity is
         # recorded, not just the session, so the "run identity" is queryable on
@@ -56,11 +62,16 @@ class StateScope:
     def __setstate__(self, state: dict) -> None:
         """还原状态，并为恢复出的 scope 重建变更锁。
 
+        旧存档（本字段引入前）不含 ``last_modified``，此处按加载时刻补一个，
+        避免"缺字段 → 0 → 立即被判过期"（TTL 开启时旧数据被误淘汰）。
+
         Args:
             state: pickle 还原出的实例 ``__dict__``（不含变更锁）
         """
         self.__dict__.update(state)
         self._mutation_lock = threading.RLock()
+        if "last_modified" not in self.__dict__:
+            self.last_modified = time.time()
 
     @property
     def owner_session_id(self) -> str | None:
@@ -142,6 +153,8 @@ class StateScope:
             effect: the side-effect list
         """
         with self._mutation_lock:
+            # 刷新最后写入时间戳（原语 3）：只要进入写路径即视为一次修改。
+            self.last_modified = time.time()
             # The owner identity settles at the **first write**: a scope outlives a
             # single run; rewriting the ownership every time would make "whose
             # session state is this" meaningless. Never rewritten afterwards.
@@ -199,6 +212,8 @@ class StateScope:
                 self.set_state_node(key, [item])
                 return
             node.append_value(item)
+            # 刷新最后写入时间戳（原语 3）；追加失败（非 list）已在上一步抛出，不刷新。
+            self.last_modified = time.time()
 
     def compare_and_set(self, key: str, expected_version: int | None, value: Any) -> bool:
         """带"期望版本"的条件写（compare-and-set）。
@@ -228,6 +243,9 @@ class StateScope:
             if node.get_version() != expected_version:
                 return False
             node.set_value(value)
+            # 仅在写入成功时刷新最后写入时间戳（原语 3）：版本不匹配未修改状态，
+            # 不算一次写入。
+            self.last_modified = time.time()
             return True
 
     def update_state_node(self, key: str, node: StateNode) -> None:
