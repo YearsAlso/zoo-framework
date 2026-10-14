@@ -15,6 +15,7 @@ from zoo_framework.utils import LogUtils
 from zoo_framework.workers import EventWorker, StateMachineWorker
 
 from .aop import config_funcs
+from .master_boundary import master_boundary
 from .params_factory import ParamsFactory
 from .worker_registry import get_worker_registry
 
@@ -208,7 +209,16 @@ class Master:
 
         Args:
             config: the Master configuration; defaults when None
+
+        Raises:
+            NestedMasterBoundaryError: 本进程已有管理器且当前线程不是它的构造线程
         """
+        # 同进程边界（design D3）：先于任何进程级共享对象的解析识别跨线程重复构造。
+        # 前置在这里是为了让调用方读到病根（同进程放了两个管理器），而不是容器内部
+        # 某个 SINGLE_THREAD 注册项的线程归属；容器那条报错对所有权重项都正确，不改。
+        # 只判定"构造发生在哪个线程"，不占用运行态名额——同线程重复构造仍然成立（D1）。
+        master_boundary().note_construction()
+
         # P2 optimization: use a config object
         self.config = config or MasterConfig()
 
@@ -368,7 +378,15 @@ class Master:
             await asyncio.sleep(1)
 
     def run(self) -> None:
-        """Run the Master."""
+        """Run the Master.
+
+        Raises:
+            NestedMasterBoundaryError: 本进程已有另一个处于运行态的管理器
+        """
+        # 运行态唯一性（design D1/D4）：先占名额，越界在此拒绝。判定先于创建事件
+        # 循环与任何派发，故被拒的请求不产生第二轮派发；名额由 shutdown 归还。
+        master_boundary().claim_runtime(self)
+
         try:
             LogUtils.info("🎪 Master started, zoo is open!")
             # Create the event loop explicitly: asyncio.get_event_loop() is
@@ -421,6 +439,10 @@ class Master:
         if self._shutdown_done:
             return
         self._shutdown_done = True
+
+        # 先归还运行态名额，再停机：置位与清除成对，且停机途中的异常不会把名额
+        # 留在自己手上（design 的「假的活跃标记」风险）。不是持有者时此处无操作。
+        master_boundary().release_runtime(self)
 
         LogUtils.info("🧹 Shutting down Master...")
 
