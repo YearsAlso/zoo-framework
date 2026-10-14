@@ -1,0 +1,17 @@
+{
+  "log": {
+    "path": "./logs",
+    "level": "info"
+  },
+  "stateMachine": {
+    "picklePath": "./zooStates.pic",
+    "delay": 1
+  },
+  "worker": {
+    "runPolicy": "simple",
+    "pool": {
+      "size": 16,
+      "enable": false
+    }
+  }
+}
