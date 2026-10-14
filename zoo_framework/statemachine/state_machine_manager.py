@@ -117,6 +117,55 @@ class StateMachineManager:
         state_register = self._state_scope_map[scope]
         state_register.set_state_node(key, value)
 
+    def append_state(self, scope: str, key: str, item: Any) -> None:
+        """向集合键逐条追加一个元素。
+
+        追加只新增元素、不重写既有元素；scope 不存在时按需创建。目标键不存在
+        时以 ``[item]`` 建节点，当前值不是 ``list`` 时抛 ``TypeError``。既有
+        ``set_state`` 的整值替换语义不受影响。
+
+        Args:
+            scope: 作用域名
+            key: 状态键名
+            item: 要追加的元素
+
+        Raises:
+            TypeError: 目标键当前值不是 ``list``
+        """
+        if self._state_scope_map.get(scope) is None:
+            self.create_scope(scope)
+
+        state_register: StateScope = self._state_scope_map[scope]
+        state_register.append_state_node(key, item)
+
+    def compare_and_set(
+        self, scope: str, key: str, expected_version: int | None, value: Any
+    ) -> bool:
+        """带"期望版本"的条件写（compare-and-set）。
+
+        仅当目标节点当前版本严格等于 ``expected_version`` 时写入并递增版本。
+        版本不匹配（冲突）以返回值 ``False`` 表达，便于调用方重新读取版本后
+        重试；作用域或节点不存在、``expected_version`` 为 None 时才抛错。
+
+        Args:
+            scope: 作用域名
+            key: 状态键名
+            expected_version: 期望的当前版本
+            value: 期望写入的值
+
+        Returns:
+            已写入返回 True；版本不匹配（未写入）返回 False
+
+        Raises:
+            KeyError: 作用域或状态节点不存在
+            TypeError: ``expected_version`` 为 None
+        """
+        if self._state_scope_map.get(scope) is None:
+            raise KeyError(f"Scope '{scope}' not found")
+
+        state_register: StateScope = self._state_scope_map[scope]
+        return state_register.compare_and_set(key, expected_version, value)
+
     def get_state(self, scope: str, key: str) -> Any:
         """Get the state node."""
         if self._state_scope_map.get(scope) is None:

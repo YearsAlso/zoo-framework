@@ -1,4 +1,5 @@
 import copy
+import threading
 from typing import Any
 
 from zoo_framework.core.run_identity import RunIdentity, current_identity
@@ -30,11 +31,36 @@ class StateScope:
         """
         # P2 optimization: create the index via the factory
         self._state_index: StateIndex = StateIndexFactory.create_index(index_type)
+        # 变更级可变锁：ThreadSafeDict 只保证单次 get / set 原子，不保证
+        # "读取-改-写"整体原子。set_state_node / append_state_node /
+        # compare_and_set 的读-改-写段统一持此锁，使版本递增与追加在并发下
+        # 良定义（一个 scope 内串行，跨 scope 不互斥）。用 RLock 是因为
+        # set_state_node 处理分支值时会递归重入。
+        self._mutation_lock = threading.RLock()
         # Owner identity: the **first** writer becomes the owner and it is never
         # rewritten afterwards (see set_state_node). The full RunIdentity is
         # recorded, not just the session, so the "run identity" is queryable on
         # the state side too.
         self.owner_identity: RunIdentity | None = None
+
+    def __getstate__(self) -> dict:
+        """序列化时剔除不可序列化的变更锁。
+
+        ``threading.RLock`` 不可 pickle 也不可 deepcopy，而 scope 的持久化路径
+        会对整表做 deepcopy + pickle；锁在还原端按需重建即可，无需随载荷走。
+        """
+        state = self.__dict__.copy()
+        state.pop("_mutation_lock", None)
+        return state
+
+    def __setstate__(self, state: dict) -> None:
+        """还原状态，并为恢复出的 scope 重建变更锁。
+
+        Args:
+            state: pickle 还原出的实例 ``__dict__``（不含变更锁）
+        """
+        self.__dict__.update(state)
+        self._mutation_lock = threading.RLock()
 
     @property
     def owner_session_id(self) -> str | None:
@@ -108,46 +134,101 @@ class StateScope:
     def set_state_node(self, key: str, value: Any, effect: list | None = None) -> None:
         """Set the value of a state node.
 
+        读-改-写段持 scope 级变更锁，使版本递增在并发下良定义。
+
         Args:
             key: the node key name
             value: the node value
             effect: the side-effect list
         """
-        # The owner identity settles at the **first write**: a scope outlives a
-        # single run; rewriting the ownership every time would make "whose
-        # session state is this" meaningless. Never rewritten afterwards.
-        if self.owner_identity is None:
-            identity = current_identity()
-            if identity is not None:
-                self.owner_identity = identity
+        with self._mutation_lock:
+            # The owner identity settles at the **first write**: a scope outlives a
+            # single run; rewriting the ownership every time would make "whose
+            # session state is this" meaningless. Never rewritten afterwards.
+            if self.owner_identity is None:
+                identity = current_identity()
+                if identity is not None:
+                    self.owner_identity = identity
 
-        # 1. split the key
-        key_queue = key.split(".")
+            # 1. split the key
+            key_queue = key.split(".")
 
-        if len(key_queue) > 1:
-            self._check_and_build_tree(key_queue)
-        else:
-            # Top-level key: the same semantics as the nested-key branch - update
-            # when present, register when absent. This used to return directly
-            # when the node already existed, skipping set_value, silently
-            # dropping repeated writes of a top-level key (and never firing
-            # observers).
+            if len(key_queue) > 1:
+                self._check_and_build_tree(key_queue)
+            else:
+                # Top-level key: the same semantics as the nested-key branch - update
+                # when present, register when absent. This used to return directly
+                # when the node already existed, skipping set_value, silently
+                # dropping repeated writes of a top-level key (and never firing
+                # observers).
+                node = self.get_state_node(key)
+                if node is None:
+                    self.register_node(key, value, effect)
+                else:
+                    node.set_value(value)
+                return
+
+            if StateNodeType.get_type_by_value(value) == StateNodeType.branch:
+                for k, v in value.items():
+                    self.set_state_node(f"{key}.{k}", v, effect)
+                return
             node = self.get_state_node(key)
             if node is None:
                 self.register_node(key, value, effect)
             else:
                 node.set_value(value)
-            return
 
-        if StateNodeType.get_type_by_value(value) == StateNodeType.branch:
-            for k, v in value.items():
-                self.set_state_node(f"{key}.{k}", v, effect)
-            return
-        node = self.get_state_node(key)
-        if node is None:
-            self.register_node(key, value, effect)
-        else:
+    def append_state_node(self, key: str, item: Any) -> None:
+        """向集合键逐条追加一个元素。
+
+        键不存在时以 ``[item]`` 建节点（复用 ``set_state_node``，一并落定
+        owner identity）；已存在则委托 ``StateNode.append_value``。读-改-写段
+        持 scope 级变更锁，保证同键并发追加不丢更新。非 ``list`` 值键抛
+        ``TypeError`` 且不覆盖原值。
+
+        Args:
+            key: 节点键名
+            item: 要追加的元素
+
+        Raises:
+            TypeError: 目标键当前值不是 ``list``
+        """
+        with self._mutation_lock:
+            node = self.get_state_node(key)
+            if node is None:
+                self.set_state_node(key, [item])
+                return
+            node.append_value(item)
+
+    def compare_and_set(self, key: str, expected_version: int | None, value: Any) -> bool:
+        """带"期望版本"的条件写（compare-and-set）。
+
+        在**同一临界区**内读取节点当前版本、与 ``expected_version`` 严格相等
+        比较、相等才写入并递增版本。版本不匹配是预期结果而非错误，故以返回值
+        表达（便于调用方重新读取版本后重试）。
+
+        Args:
+            key: 节点键名
+            expected_version: 期望的当前版本，必须与节点当前版本严格相等
+            value: 期望写入的值
+
+        Returns:
+            已写入返回 True；版本不匹配（未写入）返回 False
+
+        Raises:
+            KeyError: 节点不存在
+            TypeError: ``expected_version`` 为 None（无可比较版本）
+        """
+        with self._mutation_lock:
+            node = self.get_state_node(key)
+            if node is None:
+                raise KeyError(f"State node '{key}' not found")
+            if expected_version is None:
+                raise TypeError("expected_version is required for compare_and_set")
+            if node.get_version() != expected_version:
+                return False
             node.set_value(value)
+            return True
 
     def update_state_node(self, key: str, node: StateNode) -> None:
         """Update a state node.

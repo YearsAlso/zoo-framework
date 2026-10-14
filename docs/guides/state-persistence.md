@@ -7,27 +7,59 @@
 ```python
 from zoo_framework.statemachine import StateMachineManager
 
-sm = StateMachineManager()                 # 进程级单例，任何地方拿到的是同一个
+sm = StateMachineManager()  # 进程级单例，任何地方拿到的是同一个
 
-sm.set_state("order", "status", "pending") # 首次写入即创建作用域
-sm.set_state("order", "status", "paid")    # 覆盖
+sm.set_state("order", "status", "pending")  # 首次写入即创建作用域
+sm.set_state("order", "status", "paid")  # 覆盖
 
-sm.get_state("order", "status")            # -> 'paid'
-sm.get_state("order", "nothing")           # -> None（键不存在）
+sm.get_state("order", "status")  # -> 'paid'
+sm.get_state("order", "nothing")  # -> None（键不存在）
 
-sm.set_state("order", "item.count", 2)     # 点分键路径，自动嵌套
-sm.get_state("order", "item.count")        # -> 2
+sm.set_state("order", "item.count", 2)  # 点分键路径，自动嵌套
+sm.get_state("order", "item.count")  # -> 2
 
 sm.remove_state("order", "status")
 ```
 
 | 方法 | 说明 |
 |---|---|
-| `set_state(scope, key, value)` | 写入；`scope` 不存在时自动创建 |
+| `set_state(scope, key, value)` | 整值写入；`scope` 不存在时自动创建 |
 | `get_state(scope, key)` | 读取；不存在返回 `None` |
 | `remove_state(scope, key)` | 删除 |
+| `append_state(scope, key, item)` | 向集合键**逐条追加**一个元素；键不存在时以 `[item]` 建节点 |
+| `compare_and_set(scope, key, expected_version, value)` | **条件写**；版本匹配才写入，返回是否已写 |
 | `observe_state(scope, key, cb)` | 订阅变更 |
 | `unobserve_state(scope, key, cb)` | 取消订阅 |
+
+## 追加与条件写
+
+两条原语是 `set_state` 整值替换之外的补充入口，默认不调用即零行为变化。
+
+**追加（`append_state`）** 只新增元素、不重写既有元素，读取按追加顺序返回：
+
+```python
+sm.append_state("order", "log", "created")  # 键不存在时自动以 ["created"] 建节点
+sm.append_state("order", "log", "paid")
+sm.get_state("order", "log")  # -> ['created', 'paid']
+```
+
+只支持列表值：对非列表（整数、dict 子树等）追加会抛 `TypeError` 且不覆盖原值。
+重复追加**不幂等**，去重由调用方负责。
+
+**条件写（`compare_and_set`）** 用于同 scope 跨线程的「读取-改-写」——在
+原子临界区内比较版本、相等才写入，避免丢更新：
+
+```python
+sm.set_state("order", "status", "pending")
+scope = sm.get_and_create_scope("order")
+version = scope.get_state_node("status").get_version()  # 节点版本，严格递增
+
+sm.compare_and_set("order", "status", version, "paid")  # -> True（已写）
+sm.compare_and_set("order", "status", version, "cancelled")  # -> False（版本已过期）
+```
+
+版本不匹配**不是异常**，而是返回 `False`，便于重新读取版本后重试；节点或作用域
+不存在、`expected_version` 为 `None` 时才抛错。节点版本在每次成功写入后严格递增。
 
 ## 观察者
 
@@ -35,8 +67,9 @@ sm.remove_state("order", "status")
 def on_status_change(payload):
     print(payload["value"])
 
+
 sm.observe_state("order", "status", on_status_change)
-sm.set_state("order", "status", "shipped")     # 触发回调
+sm.set_state("order", "status", "shipped")  # 触发回调
 sm.unobserve_state("order", "status", on_status_change)
 ```
 
