@@ -11,10 +11,13 @@ import asyncio
 import itertools
 import threading
 import time
+from pathlib import Path
 
 import pytest
 
 from zoo_framework.core import Master
+from zoo_framework.core.container import framework_container
+from zoo_framework.core.master_boundary import NestedMasterBoundaryError, master_boundary
 from zoo_framework.core.worker_registry import WorkerRegistry
 from zoo_framework.event import EventChannel
 from zoo_framework.event.event_channel_manager import EventChannelManager
@@ -700,3 +703,205 @@ class TestMasterIntegration:
         # 响应器收到的是 EventReactorReq：实参顺序写反会让二者互换
         assert received[0].topic == topic
         assert received[0].content == "payload"
+
+
+# =============================================================================
+# D 组 · 同进程管理器边界（document-nested-master-boundary）
+# =============================================================================
+
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _doc_section(path: Path, heading: str) -> str:
+    """取 markdown 中某个三级标题到下一个三级标题之间的正文.
+
+    ``"\\n### "`` 不会匹配 ``"\\n#### "``（第四个字符不是空格），故四级标题不截断小节。
+    """
+    text = path.read_text(encoding="utf-8")
+    assert heading in text, f"{path.name} 里找不到小节标题 {heading!r}——文档结构变了"
+    body = text.split(heading, 1)[1]
+    end = body.find("\n### ")
+    return body if end == -1 else body[:end]
+
+
+def _enter_runtime(master: Master, timeout: float = 5.0) -> threading.Thread:
+    """在后台线程里让管理器进入运行态，返回承载它的线程.
+
+    ``Master.run()`` 阻塞在事件循环上，用例无法在调用方线程里持有运行态，故由后台线程承载；
+    调用方 MUST 在 ``shutdown()`` 后 ``join()`` 该线程。管理器若没能进入运行态（例如被边界
+    拒绝），这里会断言失败，而不是留下一个静默死掉的线程。
+    """
+    thread = threading.Thread(target=master.run, name="master-runtime-holder", daemon=True)
+    thread.start()
+    deadline = time.time() + timeout
+    while time.time() < deadline and not (master._loop and master._loop.is_running()):
+        time.sleep(0.01)
+    assert master._loop is not None and master._loop.is_running(), "管理器未能进入运行态"
+    return thread
+
+
+class TestNestedMasterBoundary:
+    """nested-master-boundary: 同进程运行态管理器 MUST 唯一，且不误伤构造契约."""
+
+    def test_second_master_entering_runtime_is_rejected(self):
+        """Scenario: 已有运行态管理器时第二个进入运行被拒绝."""
+        first = Master()
+        holder = _enter_runtime(first)
+        second = Master()
+        try:
+            assert master_boundary().active_master() is first, "前置：首个管理器未处于运行态"
+
+            with pytest.raises(NestedMasterBoundaryError) as excinfo:
+                second.run()
+
+            message = str(excinfo.value)
+            assert "同进程" in message, "拒绝信息没有指明同进程边界这一病根"
+            assert "独立进程" in message, "拒绝信息没有给出跨进程的替代指引"
+            # 「拒绝 MUST 发生在真正开始派发之前」：第二个管理器连事件循环与调度任务都没建
+            assert second._loop is None and second._task is None, "被拒的管理器仍建起了调度"
+        finally:
+            first.shutdown()
+            holder.join(timeout=5)
+            second.shutdown()
+
+    def test_new_master_enters_runtime_after_shutdown(self):
+        """Scenario: 运行态管理器停机后新的管理器可进入运行."""
+        first = Master()
+        holder = _enter_runtime(first)
+        first.shutdown()
+        holder.join(timeout=5)
+        assert not holder.is_alive(), "停机后 run() 未返回"
+        assert master_boundary().active_master() is None, "停机后运行态登记未清除"
+
+        second = Master()
+        second_holder = _enter_runtime(second)
+        try:
+            assert second._loop is not None and second._loop.is_running()
+        finally:
+            second.shutdown()
+            second_holder.join(timeout=5)
+
+    def test_construction_alone_does_not_consume_the_runtime_slot(self):
+        """Scenario: 进程内仅构造而不运行时不受该约束限制."""
+        first = Master()
+        second = Master()
+        try:
+            assert first is not second, "两次构造返回了同一实例"
+            # 只构造不占名额：否则下面让 first 进入运行会被 second 的构造挡住
+            assert master_boundary().active_master() is None, "构造竟然占用了运行态名额"
+            holder = _enter_runtime(first)
+            try:
+                assert master_boundary().active_master() is first
+            finally:
+                first.shutdown()
+                holder.join(timeout=5)
+        finally:
+            second.shutdown()
+
+    def test_run_failure_releases_the_runtime_slot(self, monkeypatch):
+        """运行异常退出也必须归还名额——否则留下假的活跃标记（design 的风险项）."""
+
+        def boom(*args, **kwargs):
+            raise RuntimeError("事件循环创建失败（本用例的受控注入）")
+
+        master = Master()
+        monkeypatch.setattr(asyncio, "new_event_loop", boom)
+        with pytest.raises(RuntimeError):
+            master.run()
+        monkeypatch.undo()
+
+        assert master_boundary().active_master() is None, "run() 异常退出后运行态登记未清除"
+        # 且额度真的可用：另一个管理器能进入运行态，而不是被假标记永远挡住
+        second = Master()
+        holder = _enter_runtime(second)
+        try:
+            assert second._loop is not None and second._loop.is_running()
+        finally:
+            second.shutdown()
+            holder.join(timeout=5)
+
+    def test_cross_thread_construction_reports_the_process_boundary(self):
+        """Scenario: 跨线程构造第二个管理器给出同一语义的报错."""
+        first = Master()
+        errors: list[BaseException] = []
+
+        def construct_in_another_thread():
+            try:
+                Master()
+            except BaseException as exc:  # 线程内抛出不等于用例失败，故显式收集
+                errors.append(exc)
+
+        worker = threading.Thread(target=construct_in_another_thread, daemon=True)
+        worker.start()
+        worker.join(timeout=10)
+        try:
+            assert not worker.is_alive(), "线程内构造没有返回"
+            assert len(errors) == 1, f"跨线程构造未抛出唯一的错误：{errors}"
+            message = str(errors[0])
+            assert "同进程" in message, "报错没有指明同进程边界这一病根"
+            assert "独立进程" in message, "报错没有给出跨进程的替代指引"
+            assert "waiter_result_reactor" not in message, (
+                "报错仍以容器内部注册项名作为首要信息——病根被实现细节掩盖了"
+            )
+        finally:
+            first.shutdown()
+
+
+class TestMasterBoundaryRegistration:
+    """nested-master-boundary: 登记 MUST 由容器的进程级作用域持有，可被容器 reset 清除."""
+
+    def test_container_reset_returns_the_registration_to_its_initial_state(self):
+        """Scenario: 重置后回到初始状态（无需容器之外的手工复位条目）."""
+        boundary = master_boundary()
+        boundary.note_construction()
+        holder = object()
+        boundary.claim_runtime(holder)
+        assert boundary.active_master() is holder, "前置：登记未置位"
+
+        framework_container().reset()
+
+        fresh = master_boundary()
+        assert fresh is not boundary, "容器 reset 未丢弃登记实例——登记不在容器内"
+        assert fresh.active_master() is None, "容器 reset 后仍留有运行态登记"
+
+    def test_runtime_slot_round_trip(self):
+        """置位 → 拒绝第二个 → 归还 → 再次可置位（登记的资源释放语义）."""
+        boundary = master_boundary()
+        first, second = object(), object()
+        boundary.claim_runtime(first)
+        with pytest.raises(NestedMasterBoundaryError):
+            boundary.claim_runtime(second)
+        boundary.release_runtime(first)
+        boundary.claim_runtime(second)
+        assert boundary.active_master() is second
+
+    def test_release_by_a_non_holder_does_not_free_the_slot(self):
+        """只有持有者能归还：别人调用 release 不得挤掉正在运行的管理器."""
+        boundary = master_boundary()
+        holder, intruder = object(), object()
+        boundary.claim_runtime(holder)
+        boundary.release_runtime(intruder)
+        assert boundary.active_master() is holder
+        with pytest.raises(NestedMasterBoundaryError):
+            boundary.claim_runtime(intruder)
+
+
+class TestBoundaryIsDocumented:
+    """nested-master-boundary: 边界与替代形态 MUST 对使用者可见（架构说明 + 常见问题）."""
+
+    def test_architecture_container_section_states_the_boundary(self):
+        """Scenario: 架构说明记载该边界及其原因."""
+        section = _doc_section(_REPO_ROOT / "docs" / "ARCHITECTURE.md", "### 3.  ScopedContainer")
+        assert "同进程" in section, "容器一节没有说明同进程边界"
+        assert "一个运行态管理器" in section, "容器一节没有说明「同进程至多一个运行态管理器」"
+        assert "WorkerRegistry" in section, "容器一节没有给出该边界的原因"
+
+    def test_faq_section_gives_supported_alternatives(self):
+        """Scenario: 常见问题给出替代形态，且不夸大支持范围."""
+        faq = (_REPO_ROOT / "docs" / "FAQ.md").read_text(encoding="utf-8")
+        heading = "## 一个进程能跑多个运行时吗？"
+        assert heading in faq, f"常见问题里找不到该小节（{heading!r}）"
+        body = faq.split(heading, 1)[1].split("\n## ", 1)[0]
+        assert "| 独立进程 |" in body, "常见问题没有给出「独立进程」这一替代形态"
+        assert "| 进程池 + 事件回传 |" in body, "常见问题没有给出「进程池 + 事件回传」这一替代形态"
+        assert "不替你跨进程分派" in body, "常见问题没有写明框架不提供跨进程分派（会夸大支持范围）"
