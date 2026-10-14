@@ -12,7 +12,7 @@ authors:
     email: "mengxiang931015@live.com"
 # 版本与 pyproject.toml / .env / zoo_framework/__init__.py 同源：
 # release 工作流的 "Update version declarations" 步骤会一并改写此处（勿手改单处）。
-version: "0.13.2-beta"
+version: "0.14.1-beta"
 license: "Apache-2.0"
 repository-code: "https://github.com/YearsAlso/zoo-framework"
 url: "https://yearsalso.github.io/zoo-framework-doc/"
