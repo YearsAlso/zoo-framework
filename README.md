@@ -253,7 +253,7 @@ flowchart TB
     cfg["config.json"] --> pf["ParamsFactory<br/>resolved once, at first import"]
     m["Master"] --> pf
     m --> wr["WorkerRegistry<br/>module-level singleton"]
-    m -->|"worker:mode"| w["Waiter<br/>ThreadPerTaskModel / ThreadPoolModel"]
+    m -->|"worker:mode"| w["Waiter<br/>ThreadPerTaskModel / ThreadPoolModel / EventLoopModel"]
     w -->|"dispatch, once per round"| wk["Worker._execute()"]
     wk --> set["WorkerDispatchCore.settle()<br/>single settlement point:<br/>unregister in-flight, report result"]
     set --> pipe["Event pipeline<br/>EventChannel → EventFIFO → Reactor"]
@@ -266,10 +266,10 @@ flowchart TB
 
 | Capability | Status |
 |---|---|
-| **Multi-threaded scheduling** | ✅ Two modes: `thread` (one thread per dispatch) and `thread_pool` (bounded pool) |
+| **Multi-threaded scheduling** | ✅ Three modes: `thread` (one thread per dispatch), `thread_pool` (bounded pool), and `event_loop` (a resident event loop on a dedicated thread) |
 | Loop / single-shot workers | ✅ Declared via `is_loop` |
 | In-flight tracking & timeouts | ✅ Observe + circuit-break. The framework does **not** force-kill a running worker |
-| **Coroutine workers** | ✅ `AsyncWorker` subclasses execute on the scheduler path. Each execution gets its own event loop (`asyncio.run`), so separate workers do not share an event loop |
+| **Coroutine workers** | ✅ `AsyncWorker` subclasses execute on the scheduler path. Under `thread` / `thread_pool` each execution gets its own event loop (`asyncio.run`); under `event_loop` the model submits the coroutine to its **single resident loop** (one loop for the whole run), so many concurrent waits advance without one thread per wait. This solves **waiting**, not CPU throughput |
 | **Multi-process execution** | ❌ **Not implemented.** The mode constants are placeholders and a request for them is explicitly rejected |
 | Event pipeline | ✅ Channel isolation, priority ordering, retry strategies, dead-letter records |
 | State persistence | ✅ Periodic + on-shutdown save, atomic replace, rolling backups |
@@ -285,7 +285,7 @@ semantics** — if a name is unclear, read the right-hand column:
 |---|---|---|
 | 🦁 **Worker** | `BaseWorker` subclass | Task execution unit; implement `_execute()` |
 | 👨🌾 **Master** | `Master` | Lifecycle entry point: load config, register Workers, start scheduling, shut down |
-| 🍽️ **Waiter** | `core/waiter/` | The scheduler. `worker:mode` picks the model (`thread` / `thread_pool`); `worker:runPolicy` only sets the pool's backpressure (`simple` expand / `stable` queue / `safe` reject) |
+| 🍽️ **Waiter** | `core/waiter/` | The scheduler. `worker:mode` picks the model (`thread` / `thread_pool` / `event_loop`); `worker:runPolicy` only sets the pool's backpressure (`simple` expand / `stable` queue / `safe` reject) |
 | 🏠 **Cage** | `ScopedContainer` | **Scoped registry**: holds shared instances per scope (process / session / prototype). Instances are declared, then resolved; `reset()` / `replace()` are the test seams |
 | 🍎 **Event** | `EventNode` / `EventChannel` | Inter-worker message, carrying channel, priority and retry count |
 | 🥘 **FIFO** | `EventFIFO` | One independent queue per channel |

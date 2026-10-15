@@ -62,7 +62,7 @@ zoo_framework/
 |---|---|
 | `core/master.py` | `Master` — the lifecycle entry point: load config → register Workers → start scheduling → shut down |
 | `core/aop/` | The remaining decorators: `params` (resolve `ParamsPath` into literals), `event`, `configure`, `logger`, `stopwatch`. The `cage` decorator was **removed** — process-level sharing is declared through the container instead. `worker`/`worker_register`/`validation` were **retired from the public surface** (#49): the `@worker` module path stays importable for one minor with a `DeprecationWarning`, `validation` is deleted; the only registration path is `Master.register_worker`. The directory holds decorators only: there is **no** aspect-weaving machinery here (no join points, advice, or pointcut matching), despite the `aop` in the name |
-| `core/waiter/` | The scheduler. `base_waiter.py` composes a `WorkerDispatchCore` (model-agnostic bookkeeping: single settlement point, timeout observation, shutdown reclaim, runtime registration) with a `SchedulerModel` (`ThreadPerTaskModel` / `ThreadPoolModel`); `waiter_factory.py` builds it from `worker:mode` |
+| `core/waiter/` | The scheduler. `base_waiter.py` composes a `WorkerDispatchCore` (model-agnostic bookkeeping: single settlement point, timeout observation, shutdown reclaim, runtime registration) with a `SchedulerModel` (`ThreadPerTaskModel` / `ThreadPoolModel` / `EventLoopModel`); `waiter_factory.py` builds it from `worker:mode` |
 | `core/container/` | The scoped container: `ScopedContainer` (`register` / `resolve` / `exclusive` / `release` / `replace` / `reset`), `Scope` + `ScopeKind` (process / session / prototype handles), `ThreadSafety` (the required thread-safety declaration), `Registration` + `qualified_name` (the module-qualified key), and `registry` — the framework's **own** process-level container plus `process_scoped` / `process_instance`, which register without replacing the class |
 | `core/worker_registry.py` | `WorkerRegistry` — a **module-level singleton**, never reset between `Master` instances, and **not** part of the container |
 | `core/params_factory.py`, `core/params_path.py` | `config.json` loading, `_exports` resolution, and the `ParamsPath` value handle |
@@ -77,7 +77,8 @@ zoo_framework/
 | `statemachine/` | `StateMachineManager` → `StateScope` → pluggable `StateIndex`; `state_node.py` holds the read/write node, `state_effect*.py` the side effects |
 | `params/` | One schema class per concern (`worker` / `event` / `log` / `stateMachine`) |
 | `constant/` | `waiter_constant.py` (implemented modes, result topic) and `worker_constant.py` (run policies, kinds) |
-| `plugin/` | `Plugin` ABC, `PluginManager` (registration, dependency ordering, `load_from_path`), delay strategies |
+| `plugin/` | `Plugin` ABC, `PluginManager` (registration, dependency ordering, load/unload), delay strategies; `sources.py` = extension-package discovery adapters (local path / installed distribution) |
+| `core/extension.py` | Extension-package distribution & trust semantics (three tiers, manifests, per-kind filters, conflict resolution, trust gate). Pure semantics, no I/O |
 | `cli/` | The `zfc` CLI. `__init__.py` parses options and presents errors; `scaffold.py` produces the files. **Dev-time only** — the framework does not import it at runtime |
 | `templates/` | Scaffold template text as module-level strings (`string.Template`, no Jinja2), including the markers `zfc --worker` uses to wire a new Worker into the entry point |
 
@@ -209,7 +210,7 @@ zoo_framework/
 |---|---|
 | `core/master.py` | `Master` —— 生命周期入口：加载配置 → 注册 Worker → 启动调度 → 停机 |
 | `core/aop/` | 余下的装饰器：`params`（把 `ParamsPath` 解析为字面值）、`event`、`configure`、`logger`、`stopwatch`。`cage` 装饰器**已删除** —— 进程级共享改由容器声明。`worker`/`worker_register`/`validation` 已**退出公共面**（#49）：`@worker` 模块路径保留一个 minor 周期并发弃用警告，`validation` 已整删；注册的唯一接通路径是 `Master.register_worker`。该目录只有装饰器：**没有**切面织入机制（无连接点、无通知、无切点匹配），尽管包名里有 `aop` |
-| `core/waiter/` | 调度器。`base_waiter.py` 把 `WorkerDispatchCore`（模型无关的簿记：单一结算收口、超时观测、停机资源回收、运行期注册）与 `SchedulerModel`（`ThreadPerTaskModel` / `ThreadPoolModel`）组合起来；`waiter_factory.py` 按 `worker:mode` 装配 |
+| `core/waiter/` | 调度器。`base_waiter.py` 把 `WorkerDispatchCore`（模型无关的簿记：单一结算收口、超时观测、停机资源回收、运行期注册）与 `SchedulerModel`（`ThreadPerTaskModel` / `ThreadPoolModel` / `EventLoopModel`）组合起来；`waiter_factory.py` 按 `worker:mode` 装配 |
 | `core/container/` | 按作用域解析的容器：`ScopedContainer`（`register` / `resolve` / `exclusive` / `release` / `replace` / `reset`）、`Scope` + `ScopeKind`（进程 / 会话 / 原型三种句柄）、`ThreadSafety`（必填的线程安全声明）、`Registration` + `qualified_name`（模块+限定名的键），以及 `registry` —— 框架**自身**的进程级容器与 `process_scoped` / `process_instance`（登记但**不替换类**） |
 | `core/worker_registry.py` | `WorkerRegistry` —— **模块级单例**，在不同 `Master` 实例之间从不重置，且**不属于**容器 |
 | `core/params_factory.py`、`core/params_path.py` | `config.json` 加载、`_exports` 解析，以及 `ParamsPath` 取值句柄 |
@@ -224,7 +225,8 @@ zoo_framework/
 | `statemachine/` | `StateMachineManager` → `StateScope` → 可插拔的 `StateIndex`；`state_node.py` 持读写节点，`state_effect*.py` 持副作用 |
 | `params/` | 一个关注点一个 schema 类（`worker` / `event` / `log` / `stateMachine`） |
 | `constant/` | `waiter_constant.py`（已实现的模式、结果主题）与 `worker_constant.py`（运行策略、Worker 类别） |
-| `plugin/` | `Plugin` 抽象基类、`PluginManager`（注册、依赖排序、`load_from_path`）、延迟策略 |
+| `plugin/` | `Plugin` 抽象基类、`PluginManager`（注册、依赖排序、加载/卸载）、延迟策略；`sources.py` 为扩展包发现适配器（本地路径 / 已安装发行物） |
+| `core/extension.py` | 扩展包分发与信任语义（三档来源、清单、逐类过滤、冲突取舍、信任门禁），纯语义无 I/O |
 | `cli/` | zfc 命令行。`__init__.py` 解析选项并呈现错误，`scaffold.py` 负责产出文件。**只在开发期使用** —— 框架运行时不导入它 |
 | `templates/` | 脚手架模板文本（模块级字符串，`string.Template` 渲染，不用 Jinja2），含 `zfc --worker` 用来把新 Worker 接入入口的插入点标记 |
 

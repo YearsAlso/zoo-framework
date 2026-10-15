@@ -108,7 +108,7 @@ Two read-model / persistence primitives sit alongside those (change `add-state-q
 
 ### Extension points
 
-`zoo_framework/plugin/__init__.py` holds the whole plugin system in one module: `Plugin` (ABC with `initialize(context)`/`destroy()`), `PluginManager` (register/load/dependency ordering/`load_from_path`), `WorkerDelayManager` plus `FixedDelay`/`ExponentialDelay`/`AdaptiveDelay` strategies, and module-level helpers `get_plugin_manager()`, `register_plugin()`, `load_plugins()`.
+`zoo_framework/plugin/__init__.py` holds the plugin system in one module: `Plugin` (ABC with `initialize(context)`/`destroy()`), `PluginManager` (register/load/unload/dependency ordering), `WorkerDelayManager` plus `FixedDelay`/`ExponentialDelay`/`AdaptiveDelay` strategies, and module-level helpers `get_plugin_manager()`, `register_plugin()`, `load_plugins()`. (The `PluginManager.load_from_path` this file used to list **does not exist** in the code — corrected by `add-plugin-distribution`.) Extension-package distribution sits beside it, split by layer: trust/discovery **semantics** in `core/extension.py` (pure, no I/O), source **adapters** in `plugin/sources.py` (local path / installed distribution).
 
 ## `bench/` — Rust feasibility PoC (verdict: **no-go**)
 

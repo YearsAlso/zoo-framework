@@ -25,7 +25,7 @@ bandit -r zoo_framework -c .bandit.yaml      # 命中的规则作为必查线索
 - 配置 `json.load` 相对安全，但注意路径来源可信
 
 ### 2. 代码执行与动态求值
-- 禁止对**外部输入**使用 `eval`/`exec`；插件动态加载（`PluginManager.load_from_path`）路径是否受信、是否可被注入
+- 禁止对**外部输入**使用 `eval`/`exec`；扩展包动态加载（`ExtensionLoader.load()` 按清单 `entry` 导入模块）来源是否受信、是否可被注入——项目级来源须过 `plugin:trustProject` 信任门禁，未信任时**必须报错而非静默跳过**
 - 禁止 `pickle.loads`/`yaml.load`（不安全 Loader）处理不可信数据
 
 ### 3. 命令注入与子进程（utils/cmd_utils.py）
@@ -33,7 +33,7 @@ bandit -r zoo_framework -c .bandit.yaml      # 命中的规则作为必查线索
 - 外部命令参数是否来自可控来源；用户可控值是否转义/校验
 
 ### 4. 路径与文件操作（utils/file_utils.py、持久化）
-- 路径拼接是否防**目录穿越**（`..`），尤其 CLI 脚手架（`zfc --create`）、插件 `load_from_path`、存档路径 `stateMachine:picklePath` 来自配置时
+- 路径拼接是否防**目录穿越**（`..`），尤其 CLI 脚手架（`zfc --create`）、扩展包来源路径（`plugin/sources.py` 的 `LocalPathSource`）、存档路径 `stateMachine:picklePath` 来自配置时
 - 原子写 `os.replace` 的临时文件是否与目标同目录（避免跨设备/竞态）；备份目录权限
 - 临时文件是否用受控目录（B108 硬编码 `/tmp`）
 

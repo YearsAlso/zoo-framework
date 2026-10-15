@@ -231,7 +231,7 @@ flowchart TB
     cfg["config.json"] --> pf["ParamsFactory<br/>首次导入时解析一次"]
     m["Master"] --> pf
     m --> wr["WorkerRegistry<br/>模块级单例"]
-    m -->|"worker:mode"| w["Waiter<br/>ThreadPerTaskModel / ThreadPoolModel"]
+    m -->|"worker:mode"| w["Waiter<br/>ThreadPerTaskModel / ThreadPoolModel / EventLoopModel"]
     w -->|"每轮派发一次"| wk["Worker._execute()"]
     wk --> set["WorkerDispatchCore.settle()<br/>单一结算收口：<br/>注销在飞 + 上报结果"]
     set --> pipe["事件管道<br/>EventChannel → EventFIFO → Reactor"]
@@ -244,10 +244,10 @@ flowchart TB
 
 | 能力 | 状态 |
 |---|---|
-| **多线程调度** | ✅ 两种模式：`thread`（每次派发一个线程）与 `thread_pool`（有界资源池） |
+| **多线程调度** | ✅ 三种模式：`thread`（每次派发一个线程）、`thread_pool`（有界资源池）与 `event_loop`（独立线程上的常驻事件循环） |
 | 循环 / 单次 Worker | ✅ 由 `is_loop` 声明 |
 | 在飞管理与超时 | ✅ 观测 + 熔断。框架**不会**强制终止正在执行的 Worker |
-| **协程 Worker** | ✅ `AsyncWorker` 子类在调度路径上执行。每次执行使用独立事件循环（`asyncio.run`），因此不同 Worker 之间不共享事件循环 |
+| **协程 Worker** | ✅ `AsyncWorker` 子类在调度路径上执行。`thread` / `thread_pool` 下每次执行使用独立事件循环（`asyncio.run`）；`event_loop` 下由模型把协程提交到**唯一常驻循环**（整段运行期一个循环），多个等待可并发推进而无需每等待一线程。这解决的是**等待**，不是计算吞吐 |
 | **多进程执行** | ❌ **未实现**。模式常量是占位，请求会被显式拒绝 |
 | 事件管道 | ✅ 通道隔离、优先级排序、重试策略、死信记录 |
 | 状态持久化 | ✅ 周期落盘 + 停机落盘，临时文件原子替换，滚动备份 |
@@ -262,7 +262,7 @@ flowchart TB
 |---|---|---|
 | 🦁 **Worker** | `BaseWorker` 子类 | 任务执行单元，实现 `_execute()` |
 | 👨🌾 **Master** | `Master` | 生命周期入口：加载配置、注册 Worker、启动调度、停机 |
-| 🍽️ **Waiter** | `core/waiter/` | 调度器。由 `worker:mode` 选调度模型（`thread` / `thread_pool`，留空则由 `worker:pool:enable` 推导）；`worker:runPolicy` 只决定资源池背压（`simple` 扩容 / `stable` 排队 / `safe` 拒绝） |
+| 🍽️ **Waiter** | `core/waiter/` | 调度器。由 `worker:mode` 选调度模型（`thread` / `thread_pool` / `event_loop`，留空则由 `worker:pool:enable` 推导）；`worker:runPolicy` 只决定资源池背压（`simple` 扩容 / `stable` 排队 / `safe` 拒绝） |
 | 🏠 **Cage** | `ScopedContainer` | **按作用域注册**：按作用域（进程 / 会话 / 原型）持有共享实例。先声明、再解析；`reset()` / `replace()` 是测试接缝 |
 | 🍎 **Event** | `EventNode` / `EventChannel` | Worker 间通信的事件，带通道、优先级与重试次数 |
 | 🥘 **FIFO** | `EventFIFO` | 每个通道一条独立队列 |

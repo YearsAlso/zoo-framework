@@ -12,7 +12,7 @@
 
 | 键 | 默认 | 说明 |
 |---|---|---|
-| `worker:mode` | `""`（自动） | 执行模型：`thread` 或 `thread_pool`。留空时由 `worker:pool:enable` 推导 |
+| `worker:mode` | `""`（自动） | 执行模型：`thread`、`thread_pool` 或 `event_loop`。留空时由 `worker:pool:enable` 推导（`thread_pool` 或 `thread`） |
 | `worker:runPolicy` | `"simple"` | 池的背压策略，见下表 |
 | `worker:pool:size` | `5` | 线程池大小（`thread_pool` 模式下生效） |
 | `worker:pool:enable` | `false` | 是否启用资源池（决定 `worker:mode` 的推导结果） |
@@ -34,6 +34,9 @@
 
 > 无法识别的取值会抛 `ValueError`（不静默降级）。
 
+> `event_loop` 模式下 `worker:runPolicy` 不参与（该模型声明 `unbounded`，无池尺寸概念）；
+> 该模式只接纳协程 Worker（`AsyncWorker` 子类），同步 Worker 会被**显式拒绝**、不会静默改用别的模型。
+
 ---
 
 ## `stateMachine` —— 状态持久化
@@ -54,6 +57,19 @@
 > **三个新键的默认值都保持现状**：未配置时索引仍是 `dict`、仍整表落盘、仍不淘汰，
 > 行为与合入前一致。`indexType` / `incrementalSave` / `scopeTtlSeconds` 均在**运行期**
 > 读取。详见[状态持久化](state-persistence.md)的「查询型索引」「增量持久化」「作用域 TTL」。
+
+---
+
+## `task` —— 可持久化任务队列
+
+| 键 | 默认 | 说明 |
+|---|---|---|
+| `task:queue:scope` | `"zoo.tasks"` | `TaskQueue()` 无参构造时所处状态作用域名；随状态机一起落盘、重启不丢 |
+
+> **默认值保持现状**：不构造 `TaskQueue` 时该键无任何效果——既不创建作用域也不写节点，
+> 既有行为与合入前一致。该键仅在 `TaskQueue()` 无参构造时**运行期**读取（惰性导入，
+> 避免 `@params` 在首次导入时冻结默认值）。详见[状态持久化](state-persistence.md)的
+> 「任务队列」。
 
 ---
 
