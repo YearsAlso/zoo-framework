@@ -106,6 +106,41 @@ class BaseWorker:
         sleep_func = self._props.get("sleep_func") or time.sleep
         sleep_func(seconds)
 
+    def build_result(self, result: Any, error: BaseException | None = None) -> WorkerResult:
+        """由已得值产出结果（共用入口）。
+
+        ``run()``（线程 / 线程池模型，同步驱动执行体）与模型托管路径（常驻事件循环
+        模型在循环线程上驱动协程）共用这一份结果契约：``WorkerResult`` 的构造与 #228
+        的失败标记是唯一实现，避免两条路径各写一份而漂移。运行标识（``run_id`` /
+        ``session_id``）由结算侧（``WorkerDispatchCore.settle``）按登记项统一盖章，
+        此处不填。
+
+        Args:
+            result: 执行体的产出值；失败时为 None
+            error: 执行体抛出的异常；成功时为 None
+
+        Returns:
+            WorkerResult: 失败时 content 为 None 且 ``error`` 携带原因；成功时
+                携带产出值
+        """
+        if error is not None:
+            return WorkerResult(
+                WaiterConstant.WORKER_RESULT_TOPIC,
+                None,
+                self.__class__.__name__,
+                worker_name=self.name,
+                registry_name=self.registry_name,
+                error=f"{type(error).__name__}: {error}",
+            )
+
+        return WorkerResult(
+            WaiterConstant.WORKER_RESULT_TOPIC,
+            result,
+            self.__class__.__name__,
+            worker_name=self.name,
+            registry_name=self.registry_name,
+        )
+
     def run(self) -> WorkerResult:
         """Execute once.
 
@@ -142,25 +177,12 @@ class BaseWorker:
             # 只写日志的失败会被当成"仍在执行"（Worker 已不在调度表里，却永远
             # 等不到结果）。失败结果携带 error 标记，MUST NOT 冒充成功空结果。
             # 不写 _destroy_result：失败没有产出可销毁的结果。
-            return WorkerResult(
-                WaiterConstant.WORKER_RESULT_TOPIC,
-                None,
-                self.__class__.__name__,
-                worker_name=self.name,
-                registry_name=self.registry_name,
-                error=f"{type(error).__name__}: {error}",
-            )
+            return self.build_result(None, error)
 
         if self.delay_time:
             self._wait(self.delay_time)
 
-        return WorkerResult(
-            WaiterConstant.WORKER_RESULT_TOPIC,
-            result,
-            self.__class__.__name__,
-            worker_name=self.name,
-            registry_name=self.registry_name,
-        )
+        return self.build_result(result)
 
     def _on_error(self):
         pass

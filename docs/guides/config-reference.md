@@ -12,7 +12,7 @@
 
 | 键 | 默认 | 说明 |
 |---|---|---|
-| `worker:mode` | `""`（自动） | 执行模型：`thread` 或 `thread_pool`。留空时由 `worker:pool:enable` 推导 |
+| `worker:mode` | `""`（自动） | 执行模型：`thread`、`thread_pool` 或 `event_loop`。留空时由 `worker:pool:enable` 推导（`thread_pool` 或 `thread`） |
 | `worker:runPolicy` | `"simple"` | 池的背压策略，见下表 |
 | `worker:pool:size` | `5` | 线程池大小（`thread_pool` 模式下生效） |
 | `worker:pool:enable` | `false` | 是否启用资源池（决定 `worker:mode` 的推导结果） |
@@ -33,6 +33,9 @@
 | `"safe"` | 拒绝 | 宁可跳过也不要积压 |
 
 > 无法识别的取值会抛 `ValueError`（不静默降级）。
+
+> `event_loop` 模式下 `worker:runPolicy` 不参与（该模型声明 `unbounded`，无池尺寸概念）；
+> 该模式只接纳协程 Worker（`AsyncWorker` 子类），同步 Worker 会被**显式拒绝**、不会静默改用别的模型。
 
 ---
 
