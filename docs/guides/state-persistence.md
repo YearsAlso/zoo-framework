@@ -61,6 +61,47 @@ sm.compare_and_set("order", "status", version, "cancelled")  # -> False（版本
 版本不匹配**不是异常**，而是返回 `False`，便于重新读取版本后重试；节点或作用域
 不存在、`expected_version` 为 `None` 时才抛错。节点版本在每次成功写入后严格递增。
 
+## 任务队列
+
+`zoo_framework/tasks/` 提供与 Worker 解耦的任务值对象（`Task`）与**可持久化任务队列**
+（`TaskQueue`）。队列把任务存进状态机的一个作用域，因此跟状态机一起落盘、随恢复一起读回
+——**重启后处于待跑状态的任务不丢**。
+
+```python
+from zoo_framework.tasks import Task, TaskQueue, TaskStatus
+
+queue = TaskQueue()  # 作用域取配置键 task:queue:scope，默认 "zoo.tasks"
+
+queue.submit(Task.new({"order": 1}, task_id="order-1"))
+queue.submit(Task.new({"order": 2}, task_id="order-2"))
+
+task = queue.claim_next()  # 原子认领最老的待跑任务（待跑 -> 执行中，attempts +1）
+...  # 跑起来（怎么跑由你决定，见下）
+queue.complete(task.task_id, result={"ok": True})
+```
+
+| 方法 | 说明 |
+|---|---|
+| `submit(task)` | 入队；身份在队列内唯一，重复身份**显式拒绝**（抛 `ValueError`） |
+| `get(task_id)` / `tasks(status=None)` | 按身份 / 按状态查询（返回快照） |
+| `claim(task_id)` / `claim_next()` | 原子认领（待跑 -> 执行中）；并发下恰好一个成功 |
+| `complete(task_id, result=None)` / `fail(task_id, error)` | 执行中 -> 成功 / 失败 |
+| `requeue(task_id)` | 执行中 / 失败 -> 待跑（重排不额外递增尝试次数） |
+| `cancel(task_id)` | 待跑 -> 已取消；返回是否生效 |
+
+**四条边界，务必知道：**
+
+- **不接管派发**：队列只做「排队 + 原子认领」，怎么把认领到的任务跑起来由你决定；
+  调度器（`WorkerDispatchCore`）的并发语义一处不改。
+- **取消只阻止尚未启动的**：`cancel` 只对付待跑任务生效。对执行中 / 已终态的任务返回
+  `False`，且**不声称能中断一个已经开始执行的运行**——CPython 无法安全抢占。
+- **重启后执行中的任务不会被静默重跑**：落盘时处于执行中的任务，重启后仍是执行中
+  （其执行者已不存在）。框架不自动把它改回待跑，由调用方用 `requeue` 显式决定。
+- **只保证身份唯一，不含投递幂等**：重复身份被拒绝，但队列不承诺「恰好一次投递」语义。
+
+不同作用域名即不同队列，持久化真源由进程级 `StateMachineManager` 共享。落盘 / 恢复语义
+与上文状态机一致（整表替换、优雅停机再存一次）。
+
 ## 观察者
 
 ```python

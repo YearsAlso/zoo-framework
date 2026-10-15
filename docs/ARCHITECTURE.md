@@ -256,6 +256,12 @@ classDiagram
 
 **P2 优化**：使用工厂模式创建索引，支持多种实现方式。
 
+**任务层（`zoo_framework/tasks/`）**：与 Worker 解耦的任务值对象（`Task` / `TaskStatus`）与
+**可持久化任务队列**（`TaskQueue`）。队列把任务存进状态机的一个作用域，因此随状态机一起
+落盘、重启后不丢排队中的任务。队列只提供「排队 + 原子认领」语义，**不接管派发**——调度器
+（`WorkerDispatchCore`）的并发语义一处不改；取消只阻止尚未启动的任务（CPython 无法抢占）。
+依赖方向单向：`tasks → statemachine`。
+
 ### 5.  Event & Reactor —— 事件管道
 
 **职责**：Worker 间通信
@@ -729,6 +735,9 @@ zoo_framework/
 │   ├── state_machine_manager.py → utils
 │   ├── state_scope.py     → state_index_factory
 │   └── state_index_factory.py → utils
+├── tasks/
+│   ├── task.py            → 无（纯值对象）
+│   └── task_queue.py      → statemachine
 ├── fifo/
 │   └── event_fifo.py      → utils
 ├── reactor/
