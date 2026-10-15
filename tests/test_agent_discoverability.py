@@ -200,11 +200,12 @@ def test_llms_txt_links_are_within_the_measured_allowlist() -> None:
 # 真源是 README：这里只断言"README 说它不行"与"文档也按不行表述"，不另抄能力清单。
 # 关键词按语种给出多个写法（中英两份 FAQ 各自本地化），与前一张主题表**共用同一个来源**，
 # 避免同一话题的关键词在两处各写一套而漂移。``required_in_faq`` 为 False 的话题只要求
-# "提到就必须是否定"，不要求 FAQ 必须覆盖它（健康监控不在 issue #122 的问题清单里）。
+# "提到就必须是否定"，不要求 FAQ 必须覆盖它。
+# 健康监控（SVM）在 wire-svm-metrics / #246 后已接通，README 该行为 ✅，故不在此列——
+# 已接通能力不得再被要求按"未实现"表述（口径反转由 test_doc_consistency 的 4.4 守住）。
 _NOT_IMPLEMENTED_TOPICS = (
     ("多进程", r"^\| \*\*Multi-process execution\*\*", TOPICS["多进程与跨机器"], True),
     ("cron 表达式", r"^\| Cron expressions", TOPICS["cron 表达式"], True),
-    ("健康监控", r"^\| Health monitoring", ("health monitoring", "健康监控"), False),
 )
 
 # markdown 的"块"起点：标题 / 列表项 / 引用块。折行不是语义单位，所以否定语境的判定

@@ -106,21 +106,29 @@ def test_console_handler_follows_logger_level(restored_level, tmp_path):
 
 
 # =============================================================================
-# 3 · 未接通的监控子系统日志 MUST NOT 声称监控已生效
+# 3 · 监控子系统的日志 MUST 与指标链路的接通状态一致
 # =============================================================================
 
 
-def test_svm_logs_do_not_claim_effective_monitoring():
-    """Scenario: 源码中不存在断言性 SVM 文案，且如实表述存在.
+def test_svm_logs_match_the_wired_metric_pipeline():
+    """Scenario: 接通后日志不再声称未接通，也不再复活历史的不实宣称字样.
 
-    直接断言源码文本——这些是框架自身的文案常量，不是运行时输出。
+    直接断言源码文本——这些是框架自身的文案常量，不是运行时输出。反向的两条（旧断言
+    性措辞、过期"未接通"措辞）都配一条正向断言作非空前置，避免"文案全删"也能过。
     """
     from pathlib import Path
 
     master_source = Path(__file__).resolve().parent.parent / "zoo_framework" / "core" / "master.py"
     source = master_source.read_text(encoding="utf-8")
 
-    # 断言性措辞：零命中
+    # 与当前接通状态一致的表述：必然存在（正向断言，前置成立）
+    for required in (
+        "execution metrics wired",
+        "SVM monitor thread started",
+    ):
+        assert required in source, f"缺少与接通状态一致的表述：{required!r}"
+
+    # 历史上的不实宣称字样（指标未接通时用它们冒充"已生效"）：零命中
     for banned in (
         "SVM monitoring started",
         "SVM Worker setup completed",
@@ -129,9 +137,9 @@ def test_svm_logs_do_not_claim_effective_monitoring():
     ):
         assert banned not in source, f"断言性 SVM 日志仍在：{banned!r}"
 
-    # 如实表述：必然存在（否定式断言必须配非空前置，此处为正向断言）
-    for required in ("metrics input not wired", "get_health_report() returns zeros"):
-        assert required in source, f"缺少如实表述：{required!r}"
+    # 接通后仍声称"未接通"：零命中（口径没跟上实况）
+    for stale in ("metrics input not wired", "get_health_report() returns zeros"):
+        assert stale not in source, f"日志仍在声称指标链路未接通：{stale!r}"
 
 
 # =============================================================================

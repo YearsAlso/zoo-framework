@@ -274,7 +274,7 @@ flowchart TB
 | Event pipeline | ✅ Channel isolation, priority ordering, retry strategies, dead-letter records |
 | State persistence | ✅ Periodic + on-shutdown save, atomic replace, rolling backups |
 | Worker registration | ✅ By class, instance, or factory; lazy instantiation; metadata, tags, priority |
-| Health monitoring (SVM) | ⚠️ Metric pipeline not yet wired — `get_health_report()` always reports `execute_count: 0` |
+| Health monitoring (SVM) | ✅ Execution facts reach the SVM through a registration-based kernel seam, so `get_health_report()` reports real per-worker counts |
 
 #### Core concepts
 

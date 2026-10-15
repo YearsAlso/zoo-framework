@@ -10,6 +10,23 @@
 
 ## [Unreleased]
 
+### Added
+
+- **执行事实观测接缝与可选导出面**（变更 `wire-svm-metrics` / #246）：内核在唯一结算收口
+  （`WorkerDispatchCore.settle`）为每次执行产出一条**不可变**的 `ExecutionFact`，消费者
+  一次性注册回调即可接收（`zoo_framework.core.execution_metrics`）；未注册任何回调时接缝
+  为空操作，调度与结果投递行为逐项不变。新增可选附加 `otel`
+  （`pip install zoo-framework[otel]`）与 `zoo_framework.observability`：Prometheus 文本
+  exporter（仅标准库，无需附加）与 OTLP exporter（惰性 import，未装附加时显式报错指名
+  安装方式）。可跑示例见 `example/observability/`。
+
+### Changed
+
+- **健康监控指标链路接通**（变更 `wire-svm-metrics` / #246）：SVM 作为接缝的观察者累加
+  执行事实，`get_health_report()` 返回真实的 `execute_count` / `error_count` 与健康评分，
+  不再恒为零；README 特性表该行由 ⚠️ 改为 ✅，`llms.txt` / `AGENTS.md` /
+  `docs/ARCHITECTURE.md` / `docs/README.md` 与 roadmap 同步。默认 `dependencies` 不变。
+
 ## [0.12.0] - 2026-10-11
 
 `dev` 预发布线合入 `main` 后的正式版；`0.11.x-beta` 线没有单独的条目，其内容并入本节。

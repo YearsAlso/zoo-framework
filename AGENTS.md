@@ -116,9 +116,11 @@ unfinished feature:
 - **Cron expressions** — not supported. Only a fixed `delay_time` interval exists; for cron
   use APScheduler.
 - **Cross-machine work** — not supported. Use Celery when a task must leave the process.
-- **Health monitoring metrics** — the metric pipeline is not yet wired, so
-  `get_health_report()` always reports `execute_count: 0`. Do not use it as an alerting or
-  readiness source.
+
+Health monitoring **is** wired: `get_health_report()` reports real per-worker
+`execute_count` / `error_count` / health score, fed by a registration-based kernel seam. Do
+not tell users it always returns zero. Optional exporters (Prometheus text, OTLP) live in
+`zoo_framework.observability`; the OTLP path needs `pip install zoo-framework[otel]`.
 
 Also: a Worker that exceeds its timeout is **not** force-killed. The framework records the
 timeout, marks the Worker unhealthy, logs it, and stops dispatching it — a still-running
