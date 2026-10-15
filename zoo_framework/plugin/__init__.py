@@ -28,7 +28,24 @@ Example:
 
 import logging
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
+
+from zoo_framework.core.extension import (
+    RESOURCE_KINDS,
+    ExtensionError,
+    ExtensionLoader,
+    ExtensionManifest,
+    ExtensionManifestError,
+    ExtensionPackage,
+    ExtensionSource,
+    ExtensionTrustError,
+    ResourceFilter,
+    TrustTier,
+    resolve_conflicts,
+)
+from zoo_framework.plugin.sources import InstalledDistributionSource, LocalPathSource
 
 logger = logging.getLogger(__name__)
 
@@ -415,12 +432,61 @@ def load_plugins(context: Any | None = None) -> None:
     get_plugin_manager().load_all(context)
 
 
+def load_extensions(
+    *,
+    user_paths: Sequence[str | Path] = (),
+    project_paths: Sequence[str | Path] = (),
+    project_trusted: bool | None = None,
+) -> list[ExtensionPackage]:
+    """发现并加载扩展包（分发 + 信任门禁的便捷入口）。
+
+    显式参数优先；``project_trusted`` 为 ``None`` 时读配置键
+    ``plugin:trustProject``（惰性导入参数类，避免冻结默认值）。未配置任何来源时
+    发现为空、加载为空操作——不改动既有行为。
+
+    Args:
+        user_paths: 用户级来源根目录。
+        project_paths: 项目级来源根目录。
+        project_trusted: 是否显式信任项目级扩展包；``None`` 表示读配置。
+
+    Returns:
+        已加载的扩展包列表。
+
+    Raises:
+        ExtensionTrustError: 存在未受信任的项目级扩展包（拒绝是原子的，不静默跳过）。
+    """
+    if project_trusted is None:
+        from zoo_framework.params import ExtensionParams  # 惰性导入，避免冻结默认值
+
+        project_trusted = bool(ExtensionParams.TRUST_PROJECT)
+
+    sources: list[ExtensionSource] = [
+        LocalPathSource({TrustTier.USER: list(user_paths), TrustTier.PROJECT: list(project_paths)}),
+        InstalledDistributionSource(),
+    ]
+    return ExtensionLoader(sources, project_trusted=project_trusted).load()
+
+
 # Public API exports
 __all__ = [
+    "RESOURCE_KINDS",
+    "ExtensionError",
+    "ExtensionLoader",
+    "ExtensionManifest",
+    "ExtensionManifestError",
+    "ExtensionPackage",
+    "ExtensionSource",
+    "ExtensionTrustError",
+    "InstalledDistributionSource",
+    "LocalPathSource",
     "Plugin",
     "PluginManager",
+    "ResourceFilter",
+    "TrustTier",
     "WorkerDelayManager",
     "get_plugin_manager",
+    "load_extensions",
     "load_plugins",
     "register_plugin",
+    "resolve_conflicts",
 ]

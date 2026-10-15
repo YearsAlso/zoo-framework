@@ -332,9 +332,13 @@ classDiagram
 - 文件校验和
 - 自动备份恢复
 
-### 7.  Plugin —— 插件系统
+### 7.  Plugin —— 插件系统与扩展包分发
 
-**职责**：支持第三方扩展
+**职责**：支持第三方扩展，并回答「谁被允许进入运行时」
+
+**A. 插件（既有注册面）**：`Plugin`（ABC，`initialize` / `destroy`）与
+`PluginManager`（注册 / 依赖排序 / 加载卸载）加延迟策略。注意：文档曾写到的
+`PluginManager.load_from_path` **在代码里并不存在**（全仓无此符号），已据实更正。
 
 ```mermaid
 classDiagram
@@ -342,20 +346,21 @@ classDiagram
         <<abstract>>
         +str name
         +str version
-        +activate()
-        +deactivate()
+        +initialize(context)
+        +destroy()
     }
 
     class PluginManager {
         +register(plugin)
-        +unregister(plugin)
+        +unregister(name)
         +get_plugin(name)
-        +load_from_path(path)
+        +load(name) / load_all()
     }
 
     class WorkerDelayManager {
         +set_delay(worker, delay)
-        +set_delay_strategy(strategy)
+        +exponential_backoff(worker)
+        +adaptive_delay(worker, t)
     }
 
     class DelayStrategy {
@@ -373,6 +378,67 @@ classDiagram
     DelayStrategy <|.. FixedDelay
     DelayStrategy <|.. ExponentialDelay
     DelayStrategy <|.. AdaptiveDelay
+```
+
+**B. 扩展包分发（`add-plugin-distribution` / issue #247）**：「扩展包」是唯一的分发
+单位——一个包把扩展、主题、提示模板与示例作为一个单位声明（清单
+`zoo-extension.json`）。**发现与信任语义在内核**（`core/extension.py`，纯语义无 I/O）；
+**具体来源适配器在插件层**（`plugin/sources.py`，本地路径 / 已安装发行物）。
+
+- 三档来源：**内置 / 用户级 / 项目级**；用户级与内置级恒可信，**项目级默认需显式信任**
+  （`project_trusted=True` 或配置键 `plugin:trustProject`）。
+- 拒绝是**大声且原子**的：存在未受信任的项目级包时，`ExtensionLoader.load()` 在导入
+  **任何**包之前抛 `ExtensionTrustError`（含包名、出处、显式信任方式），不静默跳过。
+- 同名多来源取舍：高档位**替换**低档位；`autoload: false` 退化为**过滤器增量**；
+  无基底时不自动加载。
+- 逐类资源过滤：`[]` 全不加载、`!glob` 排除、未声明默认全部。
+- 信任只管「包加载」这一层：`@worker` / `@event` 等 import 期装饰器注册路径完全不动。
+
+```mermaid
+classDiagram
+    class ExtensionLoader {
+        +discover()
+        +load()
+    }
+    class ExtensionManifest {
+        +str name
+        +str version
+        +str entry
+        +Mapping resources
+        +bool autoload
+    }
+    class ExtensionPackage {
+        +ExtensionManifest manifest
+        +TrustTier tier
+        +str origin
+        +bool trusted
+    }
+    class ResourceFilter {
+        +tuple includes
+        +tuple excludes
+        +allows(name)
+        +merged_with(extra)
+    }
+    class ExtensionSource {
+        <<protocol>>
+        +discover()
+    }
+    class TrustTier {
+        <<enum>>
+        BUILTIN
+        USER
+        PROJECT
+    }
+    class LocalPathSource
+    class InstalledDistributionSource
+
+    ExtensionLoader --> ExtensionSource
+    ExtensionLoader --> ExtensionPackage
+    ExtensionLoader --> TrustTier
+    ExtensionPackage --> ExtensionManifest
+    ExtensionManifest --> ResourceFilter
+    ExtensionSource <|.. LocalPathSource
+    ExtensionSource <|.. InstalledDistributionSource
 ```
 
 ### 8.  SVM —— 健康监控（指标链路尚未接通）
