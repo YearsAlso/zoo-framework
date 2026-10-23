@@ -503,7 +503,7 @@ jobs:
           ls -la dist/ dist-signatures/
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # release/v1（2026-10 取数）
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086  # release/v1（2026-10 取数）
         # 刻意不传 password：OIDC trusted publishing 的触发条件就是
         # `user == __token__`（该 action 的 user 输入默认值）且 password 为空 ——
         # 见 twine-upload.sh 的 `[[ "${INPUT_USER}" == "__token__" && -z "${INPUT_PASSWORD}" ]]`。
