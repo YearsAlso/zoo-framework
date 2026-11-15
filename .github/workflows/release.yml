@@ -238,7 +238,7 @@ jobs:
           done
 
       - name: Create or update pull request
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8
+        uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1  # v8
         with:
           # 用 PAT 而非 GITHUB_TOKEN：GITHUB_TOKEN 建 PR 会被平台拒绝（见文件头的
           # RELEASE_PAT 说明）。副作用是这件事变好了 —— 由 PAT 建的 PR 会正常触发
@@ -348,7 +348,7 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: 开 back-merge PR
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8
+        uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1  # v8
         with:
           # 同 bump PR：需 RELEASE_PAT（理由见文件头）。分支名带 sha 保证每轮唯一，
           # 不复用上一轮 head；无工作区改动时 PR diff 即 main 领先 dev 的提交。
@@ -503,7 +503,7 @@ jobs:
           ls -la dist/ dist-signatures/
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # release/v1（2026-10 取数）
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086  # release/v1（2026-10 取数）
         # 刻意不传 password：OIDC trusted publishing 的触发条件就是
         # `user == __token__`（该 action 的 user 输入默认值）且 password 为空 ——
         # 见 twine-upload.sh 的 `[[ "${INPUT_USER}" == "__token__" && -z "${INPUT_PASSWORD}" ]]`。
@@ -544,7 +544,7 @@ jobs:
           echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64  # v3
+        uses: softprops/action-gh-release@8a0cd651e5b2365bd640854a3fa5dfc70e4875f3  # v3
         with:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}

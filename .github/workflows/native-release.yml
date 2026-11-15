@@ -195,13 +195,13 @@ jobs:
 
       - name: Publish to TestPyPI
         if: ${{ steps.check.outputs.exists == 'false' && github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi' }}
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # release/v1
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086  # release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
           packages-dir: dist
 
       - name: Publish to PyPI
         if: ${{ steps.check.outputs.exists == 'false' && (github.event_name == 'push' || inputs.target == 'pypi') }}
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33  # release/v1
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086  # release/v1
         with:
           packages-dir: dist
